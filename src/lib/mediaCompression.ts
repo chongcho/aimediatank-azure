@@ -6,12 +6,15 @@ import {
   getCroppedOutputMaskRects,
   preloadPrivacyModels,
 } from '@/lib/privacyMask'
+import { setJpegDpi } from '@/lib/jpegDpi'
 
 interface CompressionOptions {
   maxWidth?: number
   maxHeight?: number
   quality?: number // 0-1 for images
   maxSizeMB?: number
+  /** JFIF density (dots per inch) written into the JPEG. */
+  dpi?: number
 }
 
 /** Admin-configurable quality settings for crop/re-encoding */
@@ -107,22 +110,32 @@ export async function compressImage(
 
           canvas.toBlob(
             (blob) => {
-              if (!blob) {
-                reject(new Error('Failed to compress image'))
-                return
-              }
+              void (async () => {
+                try {
+                  if (!blob) {
+                    reject(new Error('Failed to compress image'))
+                    return
+                  }
 
-              // Create new file with same name
-              const compressedFile = new File([blob], file.name, {
-                type: 'image/jpeg',
-                lastModified: Date.now(),
-              })
+                  const withDpi =
+                    opts.dpi && opts.dpi > 0 ? await setJpegDpi(blob, opts.dpi) : blob
 
-              console.log(
-                `Image compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`
-              )
+                  // Create new file with same name
+                  const compressedFile = new File([withDpi], file.name, {
+                    type: 'image/jpeg',
+                    lastModified: Date.now(),
+                  })
 
-              resolve(compressedFile)
+                  console.log(
+                    `Image compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB` +
+                      (opts.dpi ? ` @ ${Math.round(opts.dpi)} DPI` : '')
+                  )
+
+                  resolve(compressedFile)
+                } catch (e) {
+                  reject(e instanceof Error ? e : new Error(String(e)))
+                }
+              })()
             },
             'image/jpeg',
             opts.quality || 0.8

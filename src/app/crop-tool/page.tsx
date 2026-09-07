@@ -20,6 +20,11 @@ import {
   canUseWebCodecsVideoEncode,
   encodeCroppedVideoWebCodecs,
 } from '@/lib/cropToolWebCodecsEncode'
+import {
+  CROP_TOOL_DPI_OPTIONS,
+  DEFAULT_CROP_TOOL_DPI,
+  type CropToolDpi,
+} from '@/lib/jpegDpi'
 
 type Area = { x: number; y: number; width: number; height: number }
 
@@ -343,6 +348,7 @@ export default function CropToolPage() {
   const [cropSettings, setCropSettings] = useState<CropToolSettingsFromApi | null>(null)
 
   const [outputResolution, setOutputResolution] = useState<CropOutputResolution>('auto')
+  const [outputDpi, setOutputDpi] = useState<CropToolDpi>(DEFAULT_CROP_TOOL_DPI)
 
   const [originalVideoInfo, setOriginalVideoInfo] = useState<OriginalVideoInfo | null>(null)
   // Client-side encoding overrides (user-selected).
@@ -1426,7 +1432,7 @@ export default function CropToolPage() {
       if (mediaType === 'image') {
         const out = await compressImage(
           file,
-          { maxWidth: outputDims.width, maxHeight: outputDims.height },
+          { maxWidth: outputDims.width, maxHeight: outputDims.height, dpi: outputDpi },
           cropArea,
           qualitySettings,
           privacyRequest
@@ -1568,20 +1574,43 @@ export default function CropToolPage() {
 
                       <div className="space-y-3">
                         {mediaType === 'image' && (
-                          <div className="flex items-center gap-3 w-full">
-                            <label className="text-sm text-gray-300 whitespace-nowrap">Output Resolution</label>
-                            <select
-                              value={outputResolution}
-                              onChange={(e) => setOutputResolution(e.target.value as CropOutputResolution)}
-                              className="bg-tank-gray border border-tank-light px-3 py-2 text-white flex-1 rounded"
-                            >
-                              {resolutionOptions.map((o) => (
-                                <option key={o.value} value={o.value}>
-                                  {o.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                          <>
+                            <div className="flex items-center gap-3 w-full">
+                              <label className="text-sm text-gray-300 whitespace-nowrap">Output Resolution</label>
+                              <select
+                                value={outputResolution}
+                                onChange={(e) => setOutputResolution(e.target.value as CropOutputResolution)}
+                                className="bg-tank-gray border border-tank-light px-3 py-2 text-white flex-1 rounded"
+                              >
+                                {resolutionOptions.map((o) => (
+                                  <option key={o.value} value={o.value}>
+                                    {o.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="flex items-center gap-3 w-full">
+                              <label className="text-sm text-gray-300 whitespace-nowrap">DPI</label>
+                              <select
+                                value={outputDpi}
+                                onChange={(e) => setOutputDpi(Number(e.target.value) as CropToolDpi)}
+                                className="bg-tank-gray border border-tank-light px-3 py-2 text-white flex-1 rounded"
+                                aria-label="Output DPI"
+                                title="Dots per inch metadata written into the saved JPEG"
+                              >
+                                {CROP_TOOL_DPI_OPTIONS.map((dpi) => (
+                                  <option key={dpi} value={dpi}>
+                                    {dpi} DPI
+                                    {dpi === 72
+                                      ? ' (screen)'
+                                      : dpi === 300
+                                        ? ' (print)'
+                                        : ''}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </>
                         )}
 
                         {mediaType === 'video' && (
@@ -1803,6 +1832,7 @@ export default function CropToolPage() {
                       {previewOutputDims.width}×{previewOutputDims.height}
                     </span>
                     {outputResolution !== 'auto' ? ` (${outputResolution === 'hq' ? 'HQ crop' : `${outputResolution}p`})` : ''}
+                    {mediaType === 'image' ? ` · ${outputDpi} DPI` : ''}
                   </p>
                 )}
 
