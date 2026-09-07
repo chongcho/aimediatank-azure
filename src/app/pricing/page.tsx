@@ -192,6 +192,8 @@ const plans = [
     id: 'viewer',
     price: 0,
     yearlyPrice: 0,
+    freeUploads: 5,
+    pricePerUpload: null as number | null,
     period: 'month',
     isFree: true,
     strings: {
@@ -205,6 +207,8 @@ const plans = [
     id: 'basic',
     price: 2,
     yearlyPrice: 20,
+    freeUploads: 10,
+    pricePerUpload: 1 as number | null,
     period: 'month',
     strings: {
       name: S.basicPlan,
@@ -217,6 +221,8 @@ const plans = [
     id: 'advanced',
     price: 5,
     yearlyPrice: 50,
+    freeUploads: 20,
+    pricePerUpload: 0.5 as number | null,
     period: 'month',
     strings: {
       name: S.advancedPlan,
@@ -229,6 +235,8 @@ const plans = [
     id: 'premium',
     price: 8,
     yearlyPrice: 80,
+    freeUploads: 30,
+    pricePerUpload: null as number | null,
     period: 'month',
     strings: {
       name: S.premiumPlan,
@@ -239,6 +247,23 @@ const plans = [
   },
 ]
 
+function formatPlanPrice(n: number): string {
+  return Number(n).toFixed(2)
+}
+
+function planUploadCostLabel(plan: (typeof plans)[number]): string {
+  if (plan.id === 'premium') return PRICING_STRINGS[S.unlimitedFreeUploads]
+  if (plan.id === 'viewer' || plan.isFree) return `${plan.freeUploads} Free Uploads`
+  if (plan.pricePerUpload == null) return PRICING_STRINGS[S.unlimitedFreeUploads]
+  return `$${formatPlanPrice(plan.pricePerUpload)} per Upload after ${plan.freeUploads} Free Uploads`
+}
+
+function planAfterFreeLabel(plan: (typeof plans)[number]): string {
+  if (plan.id === 'viewer') return PRICING_STRINGS[S.emDash]
+  if (plan.id === 'premium' || plan.pricePerUpload == null) return PRICING_STRINGS[S.free]
+  return `$${formatPlanPrice(plan.pricePerUpload)} per upload`
+}
+
 const comparisonPlanLabels: Record<(typeof plans)[number]['id'], number> = {
   viewer: S.viewer,
   basic: S.basic,
@@ -247,9 +272,9 @@ const comparisonPlanLabels: Record<(typeof plans)[number]['id'], number> = {
 }
 
 // Helper to get plan details by membership type
-const getPlanByMembership = (membership: string) => {
+const getPlanByMembership = (membership: string, planList: typeof plans = plans) => {
   const planId = membership.toLowerCase()
-  return plans.find(p => p.id === planId) || plans[0]
+  return planList.find(p => p.id === planId) || planList[0]
 }
 
 interface UploadStatus {
@@ -270,11 +295,12 @@ function PricingPageContent() {
   const tr = useLanguageModeList(PRICING_STRINGS)
   const [loading, setLoading] = useState<string | null>(null)
   const [currentMembership, setCurrentMembership] = useState('VIEWER')
+  const [livePlans, setLivePlans] = useState(plans)
   const [cancelLoading, setCancelLoading] = useState(false)
   const [showManageModal, setShowManageModal] = useState(false)
   const [manageLoading, setManageLoading] = useState<string | null>(null)
   const [showBillingModal, setShowBillingModal] = useState(false)
-  const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null)
+  const [selectedPlan, setSelectedPlan] = useState<(typeof plans)[0] | null>(null)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [policyAgreed, setPolicyAgreed] = useState(false)
   const [purchasedPlanId, setPurchasedPlanId] = useState<string | null>(null)
@@ -285,6 +311,48 @@ function PricingPageContent() {
     setNativeIosApp(isNativeIosApp())
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/membership/plans')
+        if (!res.ok) return
+        const data = await res.json()
+        const rows = Array.isArray(data.plans) ? data.plans : []
+        if (cancelled || rows.length === 0) return
+        setLivePlans((prev) =>
+          prev.map((plan) => {
+            const row = rows.find((r: { planId?: string }) => r.planId === plan.id)
+            if (!row) return plan
+            return {
+              ...plan,
+              price: Number(row.monthlyPrice) || 0,
+              yearlyPrice: Number(row.yearlyPrice) || 0,
+              freeUploads: Number(row.freeUploads) || plan.freeUploads,
+              pricePerUpload:
+                row.pricePerUpload == null || row.pricePerUpload === ''
+                  ? null
+                  : Number(row.pricePerUpload),
+            }
+          })
+        )
+      } catch (err) {
+        console.error('Error fetching membership plans:', err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!selectedPlan) return
+    const updated = livePlans.find((p) => p.id === selectedPlan.id)
+    if (updated && (updated.price !== selectedPlan.price || updated.yearlyPrice !== selectedPlan.yearlyPrice)) {
+      setSelectedPlan(updated)
+    }
+  }, [livePlans, selectedPlan])
+
   const getPlanLabel = (plan: (typeof plans)[number]) => tr[plan.strings.name]
 
   // Check for success parameter on mount
@@ -293,7 +361,7 @@ function PricingPageContent() {
     const planId = searchParams.get('plan')
     
     if (success === 'true' && planId) {
-      const plan = plans.find(p => p.id === planId)
+      const plan = livePlans.find(p => p.id === planId)
       if (plan) {
         setPurchasedPlanId(planId)
         setShowSuccessMessage(true)
@@ -350,7 +418,7 @@ function PricingPageContent() {
     }
   }
 
-  const handleBuyPlanClick = (plan: typeof plans[0]) => {
+  const handleBuyPlanClick = (plan: (typeof plans)[0]) => {
     if (!session) {
       router.push('/login')
       return
@@ -495,7 +563,7 @@ function PricingPageContent() {
 
   const hasPaidSubscription = currentMembership !== 'VIEWER'
 
-  const purchasedPlan = purchasedPlanId ? plans.find(p => p.id === purchasedPlanId) : null
+  const purchasedPlan = purchasedPlanId ? livePlans.find(p => p.id === purchasedPlanId) : null
 
   return (
     <div className="max-w-6xl mx-auto p-0 m-0 pb-[500px]">
@@ -610,7 +678,7 @@ function PricingPageContent() {
                 </div>
               ) : (
                 <span className="text-sm text-gray-300 bg-tank-gray px-3 py-1 rounded-full">
-                  {PRICING_STRINGS[getPlanByMembership(currentMembership).strings.uploadCostShort]}
+                  {PRICING_STRINGS[getPlanByMembership(currentMembership, livePlans).strings.uploadCostShort]}
                 </span>
               )}
             </div>
@@ -642,7 +710,7 @@ function PricingPageContent() {
 
       {/* Pricing Cards */}
       <div className="grid md:grid-cols-4 gap-6">
-        {plans.map((plan) => {
+        {livePlans.map((plan) => {
           const current = isCurrentPlan(plan.id)
           return (
           <div
@@ -664,20 +732,20 @@ function PricingPageContent() {
                   <span className="text-4xl font-bold">{PRICING_STRINGS[S.free]}</span>
                 ) : (
                   <>
-                <span className="text-4xl font-bold">${plan.price}</span>
+                <span className="text-4xl font-bold">${formatPlanPrice(plan.price)}</span>
                 <span className="text-gray-400">{PRICING_STRINGS[S.perMonth]}</span>
                   </>
                 )}
               </div>
               {!plan.isFree && (
-              <p className="text-gray-500 text-sm mb-4">{PRICING_STRINGS[S.or]} ${plan.yearlyPrice}{PRICING_STRINGS[S.perYear]}</p>
+              <p className="text-gray-500 text-sm mb-4">{PRICING_STRINGS[S.or]} ${formatPlanPrice(plan.yearlyPrice)}{PRICING_STRINGS[S.perYear]}</p>
               )}
               {plan.isFree && <p className="text-gray-500 text-sm mb-4">&nbsp;</p>}
 
               {/* Upload cost stays English — MT can corrupt prices (e.g. $0.5 → $5) */}
               <div className="mb-6 py-3">
                 <span className={`text-sm font-semibold ${current ? 'text-tank-accent' : 'text-white'}`}>
-                  {PRICING_STRINGS[plan.strings.uploadCost]}
+                  {planUploadCostLabel(plan)}
                 </span>
               </div>
 
@@ -748,31 +816,57 @@ function PricingPageContent() {
             <tbody>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">{tr[S.monthlyPrice]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.free]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : ''}`}>$2{PRICING_STRINGS[S.perMonth]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : ''}`}>$5{PRICING_STRINGS[S.perMonth]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : ''}`}>$8{PRICING_STRINGS[S.perMonth]}</td>
+                {livePlans.map((plan) => (
+                  <td
+                    key={`monthly-${plan.id}`}
+                    className={`py-4 px-4 text-center ${isCurrentPlan(plan.id) ? 'text-tank-accent' : ''}`}
+                  >
+                    {plan.isFree
+                      ? PRICING_STRINGS[S.free]
+                      : `$${formatPlanPrice(plan.price)}${PRICING_STRINGS[S.perMonth]}`}
+                  </td>
+                ))}
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">{tr[S.yearlyPrice]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.free]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : ''}`}>$20{PRICING_STRINGS[S.perYear]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : ''}`}>$50{PRICING_STRINGS[S.perYear]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : ''}`}>$80{PRICING_STRINGS[S.perYear]}</td>
+                {livePlans.map((plan) => (
+                  <td
+                    key={`yearly-${plan.id}`}
+                    className={`py-4 px-4 text-center ${isCurrentPlan(plan.id) ? 'text-tank-accent' : ''}`}
+                  >
+                    {plan.isFree
+                      ? PRICING_STRINGS[S.free]
+                      : `$${formatPlanPrice(plan.yearlyPrice)}${PRICING_STRINGS[S.perYear]}`}
+                  </td>
+                ))}
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">{tr[S.freeUploads]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.fiveUploads]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.fiveUploads]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.fiveUploads]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.unlimited]}</td>
+                {livePlans.map((plan) => (
+                  <td
+                    key={`free-${plan.id}`}
+                    className={`py-4 px-4 text-center ${isCurrentPlan(plan.id) ? 'text-tank-accent' : ''}`}
+                  >
+                    {plan.id === 'premium' ? PRICING_STRINGS[S.unlimited] : `${plan.freeUploads} uploads`}
+                  </td>
+                ))}
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">{tr[S.afterFreeUploads]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('viewer') ? 'text-tank-accent' : 'text-gray-500'}`}>{PRICING_STRINGS[S.emDash]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('basic') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.onePerUpload]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('advanced') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.halfPerUpload]}</td>
-                <td className={`py-4 px-4 text-center ${isCurrentPlan('premium') ? 'text-tank-accent' : ''}`}>{PRICING_STRINGS[S.free]}</td>
+                {livePlans.map((plan) => (
+                  <td
+                    key={`after-${plan.id}`}
+                    className={`py-4 px-4 text-center ${
+                      isCurrentPlan(plan.id)
+                        ? 'text-tank-accent'
+                        : plan.id === 'viewer'
+                          ? 'text-gray-500'
+                          : ''
+                    }`}
+                  >
+                    {planAfterFreeLabel(plan)}
+                  </td>
+                ))}
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-4 px-4 text-gray-300">{tr[S.viewContentsTitle]}</td>
@@ -868,7 +962,7 @@ function PricingPageContent() {
                     <p className="text-gray-300 text-sm">{tr[S.billedMonthly]}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold">${selectedPlan.price}</p>
+                    <p className="text-2xl font-bold">${formatPlanPrice(selectedPlan.price)}</p>
                     <p className="text-gray-300 text-sm">{tr[S.perMonth]}</p>
                   </div>
                 </div>
@@ -885,7 +979,7 @@ function PricingPageContent() {
                     <p className="text-gray-300 text-sm">{tr[S.billedAnnually]}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold">${selectedPlan.yearlyPrice}</p>
+                    <p className="text-2xl font-bold">${formatPlanPrice(selectedPlan.yearlyPrice)}</p>
                     <p className="text-gray-300 text-sm">{tr[S.perYear]}</p>
                   </div>
                 </div>

@@ -99,23 +99,28 @@ export function getUploadsAvailable(
  * On membership plan change: keep unused free uploads (add to bonusCredits),
  * then reset freeUploadsUsed so the new plan's free allowance is granted.
  * Same-plan events (renewal / duplicate Stripe webhooks) leave credits alone.
+ * Free-upload allowance is read from Admin MembershipPlan when available.
  */
-export function buildMembershipPlanChangeCreditUpdate(
+export async function buildMembershipPlanChangeCreditUpdate(
   previousMembershipType: string | null | undefined,
   freeUploadsUsed: number | null | undefined,
   nextMembershipType: string | null | undefined
-): { freeUploadsUsed: number; bonusCredits?: { increment: number } } | Record<string, never> {
+): Promise<{ freeUploadsUsed: number; bonusCredits?: { increment: number } } | Record<string, never>> {
   const prev = normalizeMembershipType(previousMembershipType)
   const next = normalizeMembershipType(nextMembershipType)
   if (prev === next) return {}
 
-  const remaining = getFreeUploadsRemaining(prev, freeUploadsUsed)
-  const carry = Number.isFinite(remaining) ? remaining : 0
+  const { getUploadPlanConfig } = await import('@/lib/membershipPlans')
+  const prevConfig = await getUploadPlanConfig(prev)
+  const remaining =
+    prev === 'PREMIUM'
+      ? 0
+      : Math.max(0, (Number.isFinite(prevConfig.freeUploads) ? prevConfig.freeUploads : 0) - (freeUploadsUsed || 0))
   const data: { freeUploadsUsed: number; bonusCredits?: { increment: number } } = {
     freeUploadsUsed: 0,
   }
-  if (carry > 0) {
-    data.bonusCredits = { increment: carry }
+  if (remaining > 0) {
+    data.bonusCredits = { increment: remaining }
   }
   return data
 }

@@ -19,6 +19,7 @@ import {
   setAdminPanelAccessPassword,
 } from '@/lib/adminPanelAccessPassword'
 import { Prisma } from '@prisma/client'
+import { DEFAULT_MEMBERSHIP_PLANS, ensureMembershipPlans } from '@/lib/membershipPlans'
 
 export const dynamic = 'force-dynamic'
 
@@ -787,28 +788,7 @@ export async function GET(request: Request) {
 
     // Get membership plans for admin management
     if (action === 'membershipPlans') {
-      let plans = await prisma.membershipPlan.findMany({
-        orderBy: { sortOrder: 'asc' },
-      })
-      
-      // If no plans exist, create default ones
-      if (plans.length === 0) {
-        const defaultPlans = [
-          { planId: 'viewer', name: 'Viewer', monthlyPrice: 0, yearlyPrice: 0, freeUploads: 5, pricePerUpload: null, viewContents: true, buyContents: true, sellContents: true, sortOrder: 0 },
-          { planId: 'basic', name: 'Basic', monthlyPrice: 2, yearlyPrice: 20, freeUploads: 10, pricePerUpload: 1, viewContents: true, buyContents: true, sellContents: true, sortOrder: 1 },
-          { planId: 'advanced', name: 'Advanced', monthlyPrice: 5, yearlyPrice: 50, freeUploads: 20, pricePerUpload: 0.5, viewContents: true, buyContents: true, sellContents: true, sortOrder: 2 },
-          { planId: 'premium', name: 'Premium', monthlyPrice: 8, yearlyPrice: 80, freeUploads: 30, pricePerUpload: null, viewContents: true, buyContents: true, sellContents: true, sortOrder: 3 },
-        ]
-        
-        for (const plan of defaultPlans) {
-          await prisma.membershipPlan.create({ data: plan })
-        }
-        
-        plans = await prisma.membershipPlan.findMany({
-          orderBy: { sortOrder: 'asc' },
-        })
-      }
-      
+      const plans = await ensureMembershipPlans()
       return NextResponse.json({ plans })
     }
 
@@ -2382,26 +2362,16 @@ export async function POST(request: Request) {
       }
 
       case 'resetMembershipPlans': {
-        // Reset plans to default values (from the image)
-        const defaultPlans = [
-          { planId: 'viewer', name: 'Viewer', monthlyPrice: 0, yearlyPrice: 0, freeUploads: 5, pricePerUpload: null, viewContents: true, buyContents: true, sellContents: true, sortOrder: 0 },
-          { planId: 'basic', name: 'Basic', monthlyPrice: 2, yearlyPrice: 20, freeUploads: 10, pricePerUpload: 1, viewContents: true, buyContents: true, sellContents: true, sortOrder: 1 },
-          { planId: 'advanced', name: 'Advanced', monthlyPrice: 5, yearlyPrice: 50, freeUploads: 20, pricePerUpload: 0.5, viewContents: true, buyContents: true, sellContents: true, sortOrder: 2 },
-          { planId: 'premium', name: 'Premium', monthlyPrice: 8, yearlyPrice: 80, freeUploads: 30, pricePerUpload: null, viewContents: true, buyContents: true, sellContents: true, sortOrder: 3 },
-        ]
-        
-        // Delete all existing plans and recreate
+        // Reset plans to shared defaults
         await prisma.membershipPlan.deleteMany({})
-        
-        for (const plan of defaultPlans) {
+
+        for (const plan of DEFAULT_MEMBERSHIP_PLANS) {
           await prisma.membershipPlan.create({ data: plan })
         }
-        
-        const plans = await prisma.membershipPlan.findMany({
-          orderBy: { sortOrder: 'asc' },
-        })
-        
-        await logAdminAction(adminId, 'RESET_MEMBERSHIP_PLANS', 'MEMBERSHIP_PLAN', 'all', {})
+
+        const plans = await ensureMembershipPlans()
+
+        await logAdminAction(adminId, 'RESET_MEMBERSHIP_PLANS', 'MEMBERSHIP_PLAN', 'all', { count: plans.length })
         return NextResponse.json({ message: 'Plans reset to default', plans })
       }
 

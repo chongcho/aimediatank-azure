@@ -8,7 +8,7 @@ import { inspectMediaForAgeRating } from '@/lib/contentInspection'
 // import { processMedia } from '@/lib/mediaProcessor'
 import { BlobServiceClient } from '@azure/storage-blob'
 import { pingProcessVideosCron } from '@/lib/pingAzureCron'
-import { UPLOAD_CONFIG } from '@/lib/uploadPlanConfig'
+import { getUploadPlanConfig } from '@/lib/membershipPlans'
 import { uploadBlobExceedsLimitMessage } from '@/lib/uploadBlobByteLength'
 import {
   generateFreeUploadsExhaustedEmail,
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const config = UPLOAD_CONFIG[user.membershipType] || UPLOAD_CONFIG.VIEWER
+    const config = await getUploadPlanConfig(user.membershipType)
     const freeUploadsUsed = user.freeUploadsUsed || 0
     const paidUploadCredits = user.paidUploadCredits || 0
     const bonusCredits = user.bonusCredits || 0
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     if (!canUpload) {
       return NextResponse.json(
         { 
-          error: 'You have used all 5 free uploads. Upgrade your plan to upload more.',
+          error: `You have used all ${config.freeUploads} free uploads. Upgrade your plan to upload more.`,
           upgradeRequired: true 
         },
         { status: 403 }

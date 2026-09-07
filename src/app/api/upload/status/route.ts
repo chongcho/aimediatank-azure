@@ -3,12 +3,10 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import {
-  UPLOAD_CONFIG,
   getCreditPool,
-  getFreeUploadsRemaining,
-  getUploadsAvailable,
   normalizeMembershipType,
 } from '@/lib/uploadPlanConfig'
+import { getUploadPlanConfig } from '@/lib/membershipPlans'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,19 +38,20 @@ export async function GET() {
     }
 
     const membershipType = normalizeMembershipType(user.membershipType)
-    const config = UPLOAD_CONFIG[membershipType] || UPLOAD_CONFIG.VIEWER
+    const config = await getUploadPlanConfig(membershipType)
     const freeUploadsUsed = user.freeUploadsUsed || 0
     const paidUploadCredits = user.paidUploadCredits || 0
     const bonusCredits = user.bonusCredits || 0
     const creditsUsed = user.creditsUsed || 0
     const totalCredits = getCreditPool(bonusCredits, paidUploadCredits)
-    const freeUploadsRemaining = getFreeUploadsRemaining(membershipType, freeUploadsUsed)
-    const uploadsAvailable = getUploadsAvailable(
-      membershipType,
-      freeUploadsUsed,
-      bonusCredits,
-      paidUploadCredits
-    )
+    const freeUploadsRemaining =
+      membershipType === 'PREMIUM'
+        ? Infinity
+        : Math.max(0, config.freeUploads - freeUploadsUsed)
+    const uploadsAvailable =
+      membershipType === 'PREMIUM'
+        ? ('Unlimited' as const)
+        : freeUploadsRemaining + totalCredits
     
     const isWithinFreeLimit = freeUploadsRemaining > 0 || membershipType === 'PREMIUM'
     const hasPaidCredits = totalCredits > 0
@@ -107,10 +106,8 @@ export async function GET() {
         membershipType === 'PREMIUM'
           ? 'Unlimited Free Uploads'
           : membershipType === 'VIEWER'
-            ? '5 Free Uploads (upgrade to continue uploading)'
-            : membershipType === 'ADVANCED'
-              ? '5 Free Uploads, then $0.50 per upload'
-              : '5 Free Uploads, then $1.00 per upload',
+            ? `${config.freeUploads} Free Uploads (upgrade to continue uploading)`
+            : `${config.freeUploads} Free Uploads, then $${config.costPerUpload.toFixed(2)} per upload`,
     })
   } catch (error) {
     console.error('Error getting upload status:', error)

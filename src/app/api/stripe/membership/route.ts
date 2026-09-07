@@ -7,32 +7,9 @@ import {
   blockIosNativeExternalPayments,
   iosExternalPaymentsBlockedResponse,
 } from '@/lib/iosAppStoreCompliance'
+import { getStripeMembershipCheckoutPlan } from '@/lib/membershipPlans'
 
 export const dynamic = 'force-dynamic'
-
-const PLAN_PRICES: Record<string, { priceId: string; amount: number; yearlyAmount: number; name: string; uploadCost: number }> = {
-  basic: {
-    priceId: process.env.STRIPE_BASIC_PRICE_ID || 'price_basic',
-    amount: 200, // $2.00/month
-    yearlyAmount: 2000, // $20.00/year
-    name: 'Basic Plan',
-    uploadCost: 100, // $1.00 per upload
-  },
-  advanced: {
-    priceId: process.env.STRIPE_ADVANCED_PRICE_ID || 'price_advanced',
-    amount: 500, // $5.00/month
-    yearlyAmount: 5000, // $50.00/year
-    name: 'Advanced Plan',
-    uploadCost: 50, // $0.50 per upload
-  },
-  premium: {
-    priceId: process.env.STRIPE_PREMIUM_PRICE_ID || 'price_premium',
-    amount: 800, // $8.00/month
-    yearlyAmount: 8000, // $80.00/year
-    name: 'Premium Plan',
-    uploadCost: 0, // Free uploads
-  },
-}
 
 // POST - Create membership subscription checkout session
 export async function POST(request: Request) {
@@ -57,7 +34,8 @@ export async function POST(request: Request) {
 
     const { planId, billingPeriod = 'month' } = await request.json()
 
-    if (!planId || !PLAN_PRICES[planId]) {
+    const plan = typeof planId === 'string' ? await getStripeMembershipCheckoutPlan(planId) : null
+    if (!plan) {
       return NextResponse.json({ error: 'Invalid plan selected' }, { status: 400 })
     }
 
@@ -65,8 +43,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid billing period' }, { status: 400 })
     }
 
-    const plan = PLAN_PRICES[planId]
     const amount = billingPeriod === 'year' ? plan.yearlyAmount : plan.amount
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json({ error: 'Invalid plan price' }, { status: 400 })
+    }
+
     const interval = billingPeriod === 'year' ? 'year' : 'month'
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -103,8 +84,9 @@ export async function POST(request: Request) {
       })
     }
 
-    // Create checkout session for subscription with dynamic pricing
+    // Create checkout session for subscription with Admin Panel pricing
     const billingLabel = billingPeriod === 'year' ? 'Yearly' : 'Monthly'
+    const normalizedPlanId = String(planId).trim().toLowerCase()
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
@@ -125,19 +107,19 @@ export async function POST(request: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXTAUTH_URL || 'https://aimediatank.com'}/pricing?success=true&plan=${planId}`,
+      success_url: `${process.env.NEXTAUTH_URL || 'https://aimediatank.com'}/pricing?success=true&plan=${normalizedPlanId}`,
       cancel_url: `${process.env.NEXTAUTH_URL || 'https://aimediatank.com'}/pricing?canceled=true`,
       subscription_data: {
         metadata: {
           userId: session.user.id,
-          planId,
+          planId: normalizedPlanId,
           billingPeriod,
           type: 'membership',
         },
       },
       metadata: {
         userId: session.user.id,
-        planId,
+        planId: normalizedPlanId,
         billingPeriod,
         type: 'membership',
       },
@@ -163,4 +145,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

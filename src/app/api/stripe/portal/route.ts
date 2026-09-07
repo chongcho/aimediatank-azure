@@ -102,7 +102,7 @@ export async function POST(request: Request) {
     // Handle actions first
     if (action === 'cancel') {
       const previousPlan = user?.membershipType || 'BASIC'
-      const creditUpdate = buildMembershipPlanChangeCreditUpdate(
+      const creditUpdate = await buildMembershipPlanChangeCreditUpdate(
         previousPlan,
         user?.freeUploadsUsed,
         'VIEWER'
@@ -134,7 +134,7 @@ export async function POST(request: Request) {
     }
 
     if (action === 'downgrade') {
-      const creditUpdate = buildMembershipPlanChangeCreditUpdate(
+      const creditUpdate = await buildMembershipPlanChangeCreditUpdate(
         user?.membershipType,
         user?.freeUploadsUsed,
         'BASIC'
@@ -153,7 +153,7 @@ export async function POST(request: Request) {
     }
 
     if (action === 'upgrade') {
-      const creditUpdate = buildMembershipPlanChangeCreditUpdate(
+      const creditUpdate = await buildMembershipPlanChangeCreditUpdate(
         user?.membershipType,
         user?.freeUploadsUsed,
         'PREMIUM'

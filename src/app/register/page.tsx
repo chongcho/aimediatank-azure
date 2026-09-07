@@ -158,7 +158,7 @@ const REGISTER_STRINGS = [
   'Please enter a password',
 ] as const
 
-const MEMBERSHIP_PLANS: Record<
+const DEFAULT_MEMBERSHIP_PLANS: Record<
   string,
   { id: string; price: number; yearlyPrice: number; labelIndex: number }
 > = {
@@ -268,11 +268,43 @@ export default function RegisterPage() {
   const [policyAgreed, setPolicyAgreed] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
   const [selectedMembership, setSelectedMembership] = useState('viewer')
+  const [membershipPlans, setMembershipPlans] = useState(DEFAULT_MEMBERSHIP_PLANS)
   const [showMembershipBillingModal, setShowMembershipBillingModal] = useState(false)
   const [pendingMembershipPlan, setPendingMembershipPlan] = useState<
-    (typeof MEMBERSHIP_PLANS)[string] | null
+    (typeof DEFAULT_MEMBERSHIP_PLANS)[string] | null
   >(null)
   const [pendingBillingPeriod, setPendingBillingPeriod] = useState<'month' | 'year' | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/membership/plans')
+        if (!res.ok) return
+        const data = await res.json()
+        const rows = Array.isArray(data.plans) ? data.plans : []
+        if (cancelled || rows.length === 0) return
+        setMembershipPlans((prev) => {
+          const next = { ...prev }
+          for (const id of ['basic', 'advanced', 'premium'] as const) {
+            const row = rows.find((r: { planId?: string }) => r.planId === id)
+            if (!row || !next[id]) continue
+            next[id] = {
+              ...next[id],
+              price: Number(row.monthlyPrice) || next[id].price,
+              yearlyPrice: Number(row.yearlyPrice) || next[id].yearlyPrice,
+            }
+          }
+          return next
+        })
+      } catch (err) {
+        console.error('Error fetching membership plans:', err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const closeMembershipBillingModal = () => {
     setShowMembershipBillingModal(false)
@@ -296,7 +328,7 @@ export default function RegisterPage() {
       return
     }
 
-    const plan = MEMBERSHIP_PLANS[newPlanId]
+    const plan = membershipPlans[newPlanId]
     if (!plan) return
 
     setSelectedMembership(newPlanId)
@@ -1268,9 +1300,15 @@ export default function RegisterPage() {
                     title={tr[R.membershipPlanLabel]}
                   >
                     <option value="viewer">{tr[R.membershipViewer]}</option>
-                    <option value="basic">{tr[R.membershipBasic]}</option>
-                    <option value="advanced">{tr[R.membershipAdvanced]}</option>
-                    <option value="premium">{tr[R.membershipPremium]}</option>
+                    <option value="basic">
+                      {`Basic Plan — $${Number(membershipPlans.basic.price).toFixed(2)}/month`}
+                    </option>
+                    <option value="advanced">
+                      {`Advanced Plan — $${Number(membershipPlans.advanced.price).toFixed(2)}/month`}
+                    </option>
+                    <option value="premium">
+                      {`Premium Plan — $${Number(membershipPlans.premium.price).toFixed(2)}/month`}
+                    </option>
                   </select>
                   <p className="text-xs text-gray-500 mt-2">
                     {selectedMembership === 'viewer'
@@ -1427,7 +1465,7 @@ export default function RegisterPage() {
                     <p className="text-sm text-gray-300">{tr[R.billedMonthly]}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold">${pendingMembershipPlan.price}</p>
+                    <p className="text-2xl font-bold">${Number(pendingMembershipPlan.price).toFixed(2)}</p>
                     <p className="text-sm text-gray-300">{tr[R.perMonth]}</p>
                   </div>
                 </div>
@@ -1446,7 +1484,7 @@ export default function RegisterPage() {
                     <p className="text-sm text-gray-300">{tr[R.billedAnnually]}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold">${pendingMembershipPlan.yearlyPrice}</p>
+                    <p className="text-2xl font-bold">${Number(pendingMembershipPlan.yearlyPrice).toFixed(2)}</p>
                     <p className="text-sm text-gray-300">{tr[R.perYear]}</p>
                   </div>
                 </div>

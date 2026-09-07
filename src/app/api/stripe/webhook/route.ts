@@ -71,7 +71,7 @@ export async function POST(request: Request) {
             where: { id: userId },
             select: { membershipType: true, freeUploadsUsed: true },
           })
-          const creditUpdate = buildMembershipPlanChangeCreditUpdate(
+          const creditUpdate = await buildMembershipPlanChangeCreditUpdate(
             existing?.membershipType,
             existing?.freeUploadsUsed,
             membershipType
@@ -394,7 +394,7 @@ export async function POST(request: Request) {
         const periodEnd = new Date(subscription.current_period_end * 1000)
 
         // Only mutate free/bonus credits when the plan actually changes (not renewals / duplicate events)
-        const creditUpdate = buildMembershipPlanChangeCreditUpdate(
+        const creditUpdate = await buildMembershipPlanChangeCreditUpdate(
           user.membershipType,
           user.freeUploadsUsed,
           membershipType

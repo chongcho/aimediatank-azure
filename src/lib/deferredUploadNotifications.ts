@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { sendEmail } from '@/lib/email'
 import { wherePublicHomeFeedVisible } from '@/lib/homeFeedVisibility'
-import { UPLOAD_CONFIG } from '@/lib/uploadPlanConfig'
+import { getUploadPlanConfig } from '@/lib/membershipPlans'
 import {
   generateGenericVideoLiveEmail,
   generatePaidUploadEmail,
@@ -126,7 +126,7 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
       return
     }
 
-    const config = UPLOAD_CONFIG[user.membershipType] || UPLOAD_CONFIG.VIEWER
+    const config = await getUploadPlanConfig(user.membershipType)
     const planName = `${user.membershipType.charAt(0) + user.membershipType.slice(1).toLowerCase()} Plan`
     const userName = user.name || user.username || 'User'
     const totalUploads = user._count?.media || 0

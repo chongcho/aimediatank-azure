@@ -36,7 +36,7 @@ export async function applyAppleMembershipEntitlement(params: {
     where: { id: params.userId },
     select: { membershipType: true, freeUploadsUsed: true },
   })
-  const creditUpdate = buildMembershipPlanChangeCreditUpdate(
+  const creditUpdate = await buildMembershipPlanChangeCreditUpdate(
     existing?.membershipType,
     existing?.freeUploadsUsed,
     membershipType

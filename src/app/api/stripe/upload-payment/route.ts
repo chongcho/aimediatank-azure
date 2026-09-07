@@ -4,14 +4,9 @@ import { authOptions } from '@/lib/auth'
 import { getStripe, isStripeConfigured } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 import { uploadBlobExceedsLimitMessage } from '@/lib/uploadBlobByteLength'
+import { getStripeUploadCostCents } from '@/lib/membershipPlans'
 
 export const dynamic = 'force-dynamic'
-
-// Upload costs per plan (in cents)
-const UPLOAD_COSTS: Record<string, number> = {
-  BASIC: 100, // $1.00
-  ADVANCED: 50, // $0.50
-}
 
 export async function POST(request: Request) {
   try {
@@ -77,8 +72,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Check if user needs to pay for upload
-    const uploadCost = UPLOAD_COSTS[user.membershipType]
+    // Check if user needs to pay for upload (Admin MembershipPlan.pricePerUpload)
+    const uploadCost = await getStripeUploadCostCents(user.membershipType)
     if (!uploadCost) {
       return NextResponse.json({ error: 'Your plan does not support paid uploads' }, { status: 400 })
     }

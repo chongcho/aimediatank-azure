@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AboutTrans } from '@/components/AboutTrans'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -96,15 +96,80 @@ const features = [
   { icon: '🛡️', title: 'Admin Controls', desc: 'Full admin panel with user and media management, chat moderation, access logs, badge and navbar toggles, home layout, and translation settings.' },
 ]
 
-const plans = [
-  { name: 'Viewer', price: 'Free', period: 'Forever', features: ['Browse all content', 'Purchase media', '5 free uploads', 'Sell content', 'Open Chat, Private Chat & Voice Talk'] },
-  { name: 'Basic', price: '$2', period: '/month', features: ['Everything in Viewer', '5 free uploads/month', '$1 per additional upload', 'Unwatermarked downloads', 'Yearly billing available'] },
-  { name: 'Advanced', price: '$5', period: '/month', features: ['Everything in Basic', '5 free uploads/month', '$0.50 per additional upload', 'Priority support', 'Yearly billing available'] },
-  { name: 'Premium', price: '$8', period: '/month', features: ['Everything in Advanced', 'Unlimited free uploads', 'Featured placement', 'Premium creator badge', 'Yearly billing available'] },
+const DEFAULT_ABOUT_PLANS = [
+  { id: 'viewer', name: 'Viewer', price: 'Free', period: 'Forever', features: ['Browse all content', 'Purchase media', '5 free uploads', 'Sell content', 'Open Chat, Private Chat & Voice Talk'] },
+  { id: 'basic', name: 'Basic', price: '$2.00', period: '/month', features: ['Everything in Viewer', '5 free uploads/month', '$1.00 per additional upload', 'Unwatermarked downloads', 'Yearly billing available'] },
+  { id: 'advanced', name: 'Advanced', price: '$5.00', period: '/month', features: ['Everything in Basic', '5 free uploads/month', '$0.50 per additional upload', 'Priority support', 'Yearly billing available'] },
+  { id: 'premium', name: 'Premium', price: '$8.00', period: '/month', features: ['Everything in Advanced', 'Unlimited free uploads', 'Featured placement', 'Premium creator badge', 'Yearly billing available'] },
 ]
 
 export default function AboutPage() {
   const [expandedArch, setExpandedArch] = useState(false)
+  const [plans, setPlans] = useState(DEFAULT_ABOUT_PLANS)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/membership/plans')
+        if (!res.ok) return
+        const data = await res.json()
+        const rows = Array.isArray(data.plans) ? data.plans : []
+        if (cancelled || rows.length === 0) return
+        setPlans((prev) =>
+          prev.map((plan) => {
+            const row = rows.find((r: { planId?: string }) => r.planId === plan.id)
+            if (!row) return plan
+            if (plan.id === 'viewer') {
+              return {
+                ...plan,
+                features: [
+                  'Browse all content',
+                  'Purchase media',
+                  `${row.freeUploads} free uploads`,
+                  'Sell content',
+                  'Open Chat, Private Chat & Voice Talk',
+                ],
+              }
+            }
+            if (plan.id === 'premium') {
+              return {
+                ...plan,
+                price: `$${Number(row.monthlyPrice).toFixed(2)}`,
+                features: [
+                  'Everything in Advanced',
+                  'Unlimited free uploads',
+                  'Featured placement',
+                  'Premium creator badge',
+                  'Yearly billing available',
+                ],
+              }
+            }
+            const uploadPrice =
+              row.pricePerUpload == null ? null : Number(row.pricePerUpload).toFixed(2)
+            return {
+              ...plan,
+              price: `$${Number(row.monthlyPrice).toFixed(2)}`,
+              features: [
+                plan.id === 'basic' ? 'Everything in Viewer' : 'Everything in Basic',
+                `${row.freeUploads} free uploads/month`,
+                uploadPrice
+                  ? `$${uploadPrice} per additional upload`
+                  : 'Free additional uploads',
+                plan.id === 'basic' ? 'Unwatermarked downloads' : 'Priority support',
+                'Yearly billing available',
+              ],
+            }
+          })
+        )
+      } catch (err) {
+        console.error('Error fetching membership plans:', err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-tank-dark text-white pb-[500px]">

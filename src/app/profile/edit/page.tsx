@@ -103,7 +103,7 @@ const EDIT_PROFILE_STRINGS = [
   'You can cancel anytime. Your subscription continues until the end of the billing period.',
 ] as const
 
-const MEMBERSHIP_PLANS: Record<
+const DEFAULT_MEMBERSHIP_PLANS: Record<
   string,
   { id: string; price: number; yearlyPrice: number; labelIndex: number }
 > = {
@@ -304,15 +304,47 @@ export default function EditProfilePage() {
   const [panelPasswordError, setPanelPasswordError] = useState<string | null>(null)
   const [selectedMembership, setSelectedMembership] = useState('viewer')
   const [originalMembership, setOriginalMembership] = useState('viewer')
+  const [membershipPlans, setMembershipPlans] = useState(DEFAULT_MEMBERSHIP_PLANS)
   const [showMembershipBillingModal, setShowMembershipBillingModal] = useState(false)
   const [pendingMembershipPlan, setPendingMembershipPlan] = useState<
-    (typeof MEMBERSHIP_PLANS)[string] | null
+    (typeof DEFAULT_MEMBERSHIP_PLANS)[string] | null
   >(null)
   const [membershipCheckoutLoading, setMembershipCheckoutLoading] = useState<string | null>(null)
   const [nativeIosApp, setNativeIosApp] = useState(false)
 
   useEffect(() => {
     setNativeIosApp(isNativeIosApp())
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/membership/plans')
+        if (!res.ok) return
+        const data = await res.json()
+        const rows = Array.isArray(data.plans) ? data.plans : []
+        if (cancelled || rows.length === 0) return
+        setMembershipPlans((prev) => {
+          const next = { ...prev }
+          for (const id of ['basic', 'advanced', 'premium'] as const) {
+            const row = rows.find((r: { planId?: string }) => r.planId === id)
+            if (!row || !next[id]) continue
+            next[id] = {
+              ...next[id],
+              price: Number(row.monthlyPrice) || next[id].price,
+              yearlyPrice: Number(row.yearlyPrice) || next[id].yearlyPrice,
+            }
+          }
+          return next
+        })
+      } catch (err) {
+        console.error('Error fetching membership plans:', err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const tr = useLanguageModeList(EDIT_PROFILE_STRINGS)
@@ -405,7 +437,7 @@ export default function EditProfilePage() {
       return
     }
 
-    const plan = MEMBERSHIP_PLANS[newPlanId]
+    const plan = membershipPlans[newPlanId]
     if (!plan) return
 
     setSelectedMembership(newPlanId)
@@ -1477,9 +1509,15 @@ export default function EditProfilePage() {
                   title={tr[E.membershipPlanLabel]}
                 >
                   <option value="viewer">{tr[E.membershipViewer]}</option>
-                  <option value="basic">{tr[E.membershipBasic]}</option>
-                  <option value="advanced">{tr[E.membershipAdvanced]}</option>
-                  <option value="premium">{tr[E.membershipPremium]}</option>
+                  <option value="basic">
+                    {`Basic Plan — $${Number(membershipPlans.basic.price).toFixed(2)}/month`}
+                  </option>
+                  <option value="advanced">
+                    {`Advanced Plan — $${Number(membershipPlans.advanced.price).toFixed(2)}/month`}
+                  </option>
+                  <option value="premium">
+                    {`Premium Plan — $${Number(membershipPlans.premium.price).toFixed(2)}/month`}
+                  </option>
                 </select>
                 <p className="text-xs text-gray-500 mt-2">
                   {selectedMembership === originalMembership
@@ -1578,7 +1616,7 @@ export default function EditProfilePage() {
                     <p className="text-sm text-gray-300">{tr[E.billedMonthly]}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold">${pendingMembershipPlan.price}</p>
+                    <p className="text-2xl font-bold">${Number(pendingMembershipPlan.price).toFixed(2)}</p>
                     <p className="text-sm text-gray-300">{tr[E.perMonth]}</p>
                   </div>
                 </div>
@@ -1597,7 +1635,7 @@ export default function EditProfilePage() {
                     <p className="text-sm text-gray-300">{tr[E.billedAnnually]}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold">${pendingMembershipPlan.yearlyPrice}</p>
+                    <p className="text-2xl font-bold">${Number(pendingMembershipPlan.yearlyPrice).toFixed(2)}</p>
                     <p className="text-sm text-gray-300">{tr[E.perYear]}</p>
                   </div>
                 </div>
