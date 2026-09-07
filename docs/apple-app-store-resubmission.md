@@ -63,15 +63,15 @@ Migration: `20260903120000_apple_iap`
 Features in the app:
 
 - **Terms:** Register requires a checked agreement (zero-tolerance language). Returning users log in without re-checking; Terms §6.1: no tolerance, Report/Block, **24-hour** remove + eject.
-- **Report:** Media page → **Report content**; TalkChat → long-press message → **Report**.
-- **Block:** **Block user** — hides feed/chat immediately and notifies admin.
+- **Report:** Media page → red flag next to Created by → **Report content**; TalkChat → long-press message → **Report**.
+- **Block:** Same flag menu → **Block user** — hides that creator only for the blocker (feed/chat); notifies admin. Does not remove content for other users.
 - **Filter:** Blocked users excluded from feed/chat APIs; automated content inspection where enabled.
 
 ### Physical iPhone recording (attach in App Review Information Notes)
 
 1. Register → check Terms + open Terms (show §6.1 if possible)  
-2. Open media → Report content → submit  
-3. Block user → confirm content disappears  
+2. Open media → red flag next to Created by → Report content → submit  
+3. Flag → Block user → leave detail; their posts no longer appear in your feed  
 4. Optional: TalkChat long-press → Report / Block  
 
 ### Resolution Center reply — UGC (Guideline 1.2)
@@ -81,9 +81,9 @@ Guideline 1.2 precautions are implemented:
 
 1) EULA / Terms — Required checkbox on Register before account creation. Terms §6.1 state zero tolerance for objectionable content and abusive users, and that we act on reports within 24 hours by removing content and ejecting the offending user.
 
-2) Flag content — Report content on media pages; long-press a message in TalkChat → Report. Reports go to admin moderation.
+2) Flag content — Media: red flag next to Created by → Report content; TalkChat: long-press message → Report. Reports go to admin moderation.
 
-3) Block users — Block user on media and TalkChat. Blocking immediately hides that user’s content from the blocker’s feed and chat and creates an admin report.
+3) Block users — Same media flag menu / TalkChat. Blocking hides that user’s content only for the blocker (feed and chat) and creates an admin report. Public content for other users is unchanged.
 
 4) Filtering — Blocked users are excluded from the viewer’s feed and chat. Automated and manual moderation are used.
 
@@ -146,7 +146,7 @@ Account deletion: Profile menu → Edit Profile → Delete account (permanent).
 
 UGC safety (Guideline 1.2):
 - Register: required Terms checkbox (zero tolerance + 24h moderation in Terms §6.1).
-- Media: Safety section → Report content / Block user.
+- Media: red flag next to Created by → Report content / Block user (personal hide only).
 - TalkChat: long-press message → Report content / Block user.
 Blocking hides content immediately; reports go to admin (act within 24 hours).
 Attach physical-device screen recording in Notes.

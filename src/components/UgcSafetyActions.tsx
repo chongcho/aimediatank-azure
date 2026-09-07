@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { nativeFetch } from '@/lib/iosAppStoreCompliance'
 
 export type UgcReportType = 'MEDIA' | 'USER' | 'CHAT_MESSAGE'
@@ -163,6 +163,36 @@ type BlockUserButtonProps = {
   onBlocked?: () => void
 }
 
+async function blockUserForViewer(opts: {
+  blockedUserId: string
+  blockedUsername?: string | null
+}): Promise<{ ok: boolean; error?: string }> {
+  const label = opts.blockedUsername ? `@${opts.blockedUsername}` : 'this user'
+  if (
+    !window.confirm(
+      `Block ${label}?\n\nOnly you will stop seeing their content in your feed and chat. Other users and the app’s public content are not changed.`,
+    )
+  ) {
+    return { ok: false }
+  }
+  const res = await nativeFetch('/api/ugc/report', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ blockedUserId: opts.blockedUserId }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: typeof data.error === 'string' ? data.error : 'Could not block user',
+    }
+  }
+  window.dispatchEvent(
+    new CustomEvent('ugc-user-blocked', { detail: { blockedUserId: opts.blockedUserId } }),
+  )
+  return { ok: true }
+}
+
 export function BlockUserButton({
   blockedUserId,
   blockedUsername,
@@ -173,27 +203,13 @@ export function BlockUserButton({
   const [loading, setLoading] = useState(false)
 
   const block = async () => {
-    const label = blockedUsername ? `@${blockedUsername}` : 'this user'
-    if (
-      !window.confirm(
-        `Block ${label}? Their content will be hidden from your feed and chat immediately.`,
-      )
-    ) {
-      return
-    }
     setLoading(true)
     try {
-      const res = await nativeFetch('/api/ugc/report', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blockedUserId }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        window.alert(typeof data.error === 'string' ? data.error : 'Could not block user')
+      const result = await blockUserForViewer({ blockedUserId, blockedUsername })
+      if (!result.ok) {
+        if (result.error) window.alert(result.error)
         return
       }
-      window.dispatchEvent(new CustomEvent('ugc-user-blocked', { detail: { blockedUserId } }))
       onBlocked?.()
     } finally {
       setLoading(false)
@@ -214,6 +230,109 @@ export function BlockUserButton({
     >
       {loading ? 'Blocking…' : 'Block user'}
     </button>
+  )
+}
+
+/** Red flag next to creator; opens Report / Block menu (personal hide only for Block). */
+type UgcCreatorSafetyMenuProps = {
+  blockedUserId: string
+  blockedUsername?: string | null
+  onReport: () => void
+  onBlocked?: () => void
+}
+
+export function UgcCreatorSafetyMenu({
+  blockedUserId,
+  blockedUsername,
+  onReport,
+  onBlocked,
+}: UgcCreatorSafetyMenuProps) {
+  const [open, setOpen] = useState(false)
+  const [blocking, setBlocking] = useState(false)
+  const rootRef = useRef<HTMLSpanElement>(null)
+  const menuId = useId()
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null
+      if (target && rootRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('touchstart', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('touchstart', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  const handleBlock = async () => {
+    setBlocking(true)
+    try {
+      const result = await blockUserForViewer({ blockedUserId, blockedUsername })
+      if (!result.ok) {
+        if (result.error) window.alert(result.error)
+        return
+      }
+      setOpen(false)
+      onBlocked?.()
+    } finally {
+      setBlocking(false)
+    }
+  }
+
+  return (
+    <span ref={rootRef} className="relative inline-flex items-center align-middle">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="ml-1.5 inline-flex h-6 w-6 items-center justify-center rounded text-red-500 hover:bg-red-950/50 hover:text-red-400 transition-colors"
+        aria-label="Report or block"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        title="Report or block"
+      >
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M4 3h2v18H4V3zm3 1h9.2c.7 0 1.1.8.7 1.4L15.5 9l1.4 3.6c.4.6 0 1.4-.7 1.4H7V4z" />
+        </svg>
+      </button>
+
+      {open ? (
+        <div
+          id={menuId}
+          role="menu"
+          className="absolute left-0 top-full z-40 mt-1 min-w-[10.5rem] overflow-hidden rounded-lg border border-tank-light bg-tank-dark shadow-xl"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className="block w-full px-3 py-2.5 text-left text-sm text-gray-200 hover:bg-tank-light/40"
+            onClick={() => {
+              setOpen(false)
+              onReport()
+            }}
+          >
+            Report content
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={blocking}
+            className="block w-full px-3 py-2.5 text-left text-sm text-red-300 hover:bg-red-950/40 disabled:opacity-50"
+            onClick={() => void handleBlock()}
+          >
+            {blocking ? 'Blocking…' : 'Block user'}
+          </button>
+        </div>
+      ) : null}
+    </span>
   )
 }
 

@@ -31,7 +31,7 @@ import {
   nativeFetch,
 } from '@/lib/iosAppStoreCompliance'
 import { purchaseAppleMediaUnlock } from '@/lib/appleIap'
-import { BlockUserButton, UgcReportModal } from '@/components/UgcSafetyActions'
+import { UgcCreatorSafetyMenu, UgcReportModal } from '@/components/UgcSafetyActions'
 import {
   formatMediaViewsLabel,
   mediaPageInterpolate,
@@ -1000,11 +1000,19 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   {media.type === 'VIDEO' ? tMedia('typeVideo') : media.type === 'IMAGE' ? tMedia('typeImage') : tMedia('typeMusic')}
                 </span>
                 <span>{formatDate(media.createdAt)}</span>
-                <span>
+                <span className="inline-flex items-center">
                   {tMedia('createdBy')}{' '}
                   <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
                     {media.user.username}
                   </Link>
+                  {session && !isOwner && media.user?.id ? (
+                    <UgcCreatorSafetyMenu
+                      blockedUserId={media.user.id}
+                      blockedUsername={media.user.username}
+                      onReport={() => setReportOpen(true)}
+                      onBlocked={handleLeaveDetail}
+                    />
+                  ) : null}
                 </span>
                 {mediaDetailAiToolEnabled && media.aiTool && (
                   <span>
@@ -1013,28 +1021,6 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   </span>
                 )}
               </div>
-
-              {session && !isOwner && media.user?.id ? (
-                <div className="mb-4 rounded-xl border border-amber-800/40 bg-amber-950/20 p-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-200/90">
-                    Safety
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setReportOpen(true)}
-                      className="rounded-lg border border-amber-700/40 bg-amber-950/30 px-3 py-1.5 text-xs font-medium text-amber-200 hover:bg-amber-900/40"
-                    >
-                      Report content
-                    </button>
-                    <BlockUserButton
-                      blockedUserId={media.user.id}
-                      blockedUsername={media.user.username}
-                      compact
-                    />
-                  </div>
-                </div>
-              ) : null}
 
               {/* Views + Reactions Row */}
               <div className="flex items-center gap-6 mb-4">
