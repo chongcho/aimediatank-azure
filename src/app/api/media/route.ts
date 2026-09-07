@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { publicHomeFeedMediaReadyClause } from '@/lib/homeFeedVisibility'
 import { getBlockedUserIdsForViewer } from '@/lib/userBlocks'
+import { getBlockedMediaIdsForViewer } from '@/lib/mediaBlocks'
 import { selectVideoStreams } from '@/lib/videoStreamRenditions'
 
 // Force dynamic rendering since we use request.url
@@ -27,7 +28,10 @@ export async function GET(request: Request) {
     const skip = (page - 1) * limit
 
     const session = await getServerSession(authOptions)
-    const blockedUserIds = await getBlockedUserIdsForViewer(session?.user?.id)
+    const [blockedUserIds, blockedMediaIds] = await Promise.all([
+      getBlockedUserIdsForViewer(session?.user?.id),
+      getBlockedMediaIdsForViewer(session?.user?.id),
+    ])
 
     // When profile owner requests their own media with includeProcessing=1, include pending/processing/failed so they can see upload progress
     let allowProcessingStatuses = false
@@ -50,6 +54,9 @@ export async function GET(request: Request) {
       isApproved: true,
       isDeleted: false,
       ...(viewingOwnProfile ? {} : { isPublic: true }),
+      ...(blockedMediaIds.length > 0 && !viewingOwnProfile
+        ? { id: { notIn: blockedMediaIds } }
+        : {}),
     }
     if (!allowProcessingStatuses) {
       where.AND = [publicHomeFeedMediaReadyClause]

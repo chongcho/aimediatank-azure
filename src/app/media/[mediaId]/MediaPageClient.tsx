@@ -1005,12 +1005,17 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
                     {media.user.username}
                   </Link>
-                  {session && !isOwner && media.user?.id ? (
+                  {session ? (
                     <UgcCreatorSafetyMenu
-                      blockedUserId={media.user.id}
-                      blockedUsername={media.user.username}
+                      mediaId={media.id}
                       onReport={() => setReportOpen(true)}
                       onBlocked={handleLeaveDetail}
+                      onSave={() => void handleToggleSave()}
+                      isSaved={isSaved}
+                      saving={savingMedia}
+                      saveLabel={tMedia('saveToMyContents')}
+                      savedLabel={tMedia('savedToMyContents')}
+                      showSafetyActions={!isOwner && Boolean(media.user?.id)}
                     />
                   ) : null}
                 </span>
@@ -1028,7 +1033,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   type="button"
                   onClick={handleBuyNow}
                   disabled={buyingMedia}
-                  className="mb-3 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/25"
+                  className="mb-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/25"
                 >
                   {buyingMedia ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1049,13 +1054,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
               )}
 
               {media.price && media.price > 0 && !isOwner && nativeIosApp && (
-                <p className="mb-3 text-center text-xs text-gray-400">
+                <p className="mb-4 text-center text-xs text-gray-400">
                   iOS purchases use Apple In-App Purchase (charged at the nearest unlock tier).
                 </p>
               )}
 
               {media.price && media.price > 0 && isOwner && (
-                <div className="mb-3 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold bg-tank-gray border border-tank-light text-gray-400">
+                <div className="mb-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold bg-tank-gray border border-tank-light text-gray-400">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -1067,37 +1072,6 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   {mediaPageInterpolate(tMedia('yourPriceWithAmount'), { price: `$${media.price.toFixed(2)}` })}
                 </div>
               )}
-
-              {/* Save — under Buy Now / Created by row */}
-              <button
-                type="button"
-                onClick={handleToggleSave}
-                disabled={savingMedia}
-                className={`mb-4 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap ${
-                  isSaved
-                    ? 'bg-tank-accent text-tank-black hover:bg-tank-accent/90'
-                    : 'bg-tank-gray border border-tank-light text-white hover:bg-tank-light'
-                }`}
-              >
-                {savingMedia ? (
-                  <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                ) : (
-                  <svg
-                    className="w-5 h-5"
-                    fill={isSaved ? 'currentColor' : 'none'}
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                    />
-                  </svg>
-                )}
-                {isSaved ? tMedia('savedToMyContents') : tMedia('saveToMyContents')}
-              </button>
 
               {/* Views + Reactions Row */}
               <div className="flex items-center gap-6 mb-4">

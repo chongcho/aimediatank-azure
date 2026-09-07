@@ -98,6 +98,7 @@ model User {
   nativeAuthHandoffs   NativeAuthHandoff[]
   blocksMade           UserBlock[] @relation("UserBlocksMade")
   blocksReceived       UserBlock[] @relation("UserBlocksReceived")
+  mediaBlocksMade      MediaBlock[] @relation("MediaBlocksMade")
   reportsAgainst       Report[]    @relation("ReportsAgainstUser")
 }
 
@@ -156,6 +157,7 @@ model Media {
   savedBy       SavedMedia[]
   versions      MediaVersion[]  // per-resolution variants (YouTube-style)
   celebrationCards CelebrationCard[]
+  blockedBy     MediaBlock[]
 
   @@index([userId])
   @@index([type])
@@ -282,6 +284,22 @@ model UserBlock {
   @@unique([blockerId, blockedId])
   @@index([blockerId])
   @@index([blockedId])
+}
+
+/// Personal hide of a single media item for the viewer (does not block the creator).
+model MediaBlock {
+  id        String   @id @default(uuid())
+  blockerId String
+  mediaId   String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  blocker User  @relation("MediaBlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  media   Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, mediaId])
+  @@index([blockerId])
+  @@index([mediaId])
 }
 
 // Site access logs for analytics, support, and security (IP, UA, location, pages, session)

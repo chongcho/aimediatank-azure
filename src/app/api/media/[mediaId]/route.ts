@@ -11,6 +11,7 @@ import {
 import { selectVideoStreams } from '@/lib/videoStreamRenditions'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
 import { requireAdminContentElevation } from '@/lib/requireAdminElevation'
+import { isMediaBlocked } from '@/lib/mediaBlocks'
 
 // Force dynamic rendering to always get fresh data
 export const dynamic = 'force-dynamic'
@@ -82,6 +83,14 @@ export async function GET(
 
     // Check if media is deleted (soft delete) - return 404 for regular users
     if (media.isDeleted) {
+      return NextResponse.json({ error: 'Media not found' }, { status: 404 })
+    }
+
+    const sessionForBlock = await getServerSession(authOptions)
+    if (
+      sessionForBlock?.user?.id &&
+      (await isMediaBlocked(sessionForBlock.user.id, mediaId))
+    ) {
       return NextResponse.json({ error: 'Media not found' }, { status: 404 })
     }
 

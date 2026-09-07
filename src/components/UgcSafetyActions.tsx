@@ -233,19 +233,58 @@ export function BlockUserButton({
   )
 }
 
-/** Red flag next to creator; opens Report / Block menu (personal hide only for Block). */
+async function blockContentForViewer(opts: {
+  mediaId: string
+}): Promise<{ ok: boolean; error?: string }> {
+  if (
+    !window.confirm(
+      'Block this content?\n\nOnly you will stop seeing this item in your feed. Other posts from the same creator stay visible. Other users are not affected.',
+    )
+  ) {
+    return { ok: false }
+  }
+  const res = await nativeFetch('/api/ugc/report', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mediaId: opts.mediaId }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: typeof data.error === 'string' ? data.error : 'Could not block content',
+    }
+  }
+  window.dispatchEvent(
+    new CustomEvent('ugc-media-blocked', { detail: { mediaId: opts.mediaId } }),
+  )
+  return { ok: true }
+}
+
+/** Red flag next to creator; Save / Report / Block content (this media only). */
 type UgcCreatorSafetyMenuProps = {
-  blockedUserId: string
-  blockedUsername?: string | null
+  mediaId: string
   onReport: () => void
   onBlocked?: () => void
+  onSave?: () => void
+  isSaved?: boolean
+  saving?: boolean
+  saveLabel?: string
+  savedLabel?: string
+  /** When false, only Save is shown (e.g. own content). Default true. */
+  showSafetyActions?: boolean
 }
 
 export function UgcCreatorSafetyMenu({
-  blockedUserId,
-  blockedUsername,
+  mediaId,
   onReport,
   onBlocked,
+  onSave,
+  isSaved = false,
+  saving = false,
+  saveLabel = 'Save to My Contents',
+  savedLabel = 'Saved to My Contents',
+  showSafetyActions = true,
 }: UgcCreatorSafetyMenuProps) {
   const [open, setOpen] = useState(false)
   const [blocking, setBlocking] = useState(false)
@@ -275,7 +314,7 @@ export function UgcCreatorSafetyMenu({
   const handleBlock = async () => {
     setBlocking(true)
     try {
-      const result = await blockUserForViewer({ blockedUserId, blockedUsername })
+      const result = await blockContentForViewer({ mediaId })
       if (!result.ok) {
         if (result.error) window.alert(result.error)
         return
@@ -293,11 +332,11 @@ export function UgcCreatorSafetyMenu({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className="ml-1.5 inline-flex h-6 w-6 items-center justify-center rounded text-red-500 hover:bg-red-950/50 hover:text-red-400 transition-colors"
-        aria-label="Report or block"
+        aria-label="More actions"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        title="Report or block"
+        title="More actions"
       >
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
           <path d="M4 3h2v18H4V3zm3 1h9.2c.7 0 1.1.8.7 1.4L15.5 9l1.4 3.6c.4.6 0 1.4-.7 1.4H7V4z" />
@@ -308,28 +347,46 @@ export function UgcCreatorSafetyMenu({
         <div
           id={menuId}
           role="menu"
-          className="absolute left-0 top-full z-40 mt-1 min-w-[10.5rem] overflow-hidden rounded-lg border border-tank-light bg-tank-dark shadow-xl"
+          className="absolute left-0 top-full z-40 mt-1 min-w-[12rem] overflow-hidden rounded-lg border border-tank-light bg-tank-dark shadow-xl"
         >
-          <button
-            type="button"
-            role="menuitem"
-            className="block w-full px-3 py-2.5 text-left text-sm text-gray-200 hover:bg-tank-light/40"
-            onClick={() => {
-              setOpen(false)
-              onReport()
-            }}
-          >
-            Report content
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            disabled={blocking}
-            className="block w-full px-3 py-2.5 text-left text-sm text-red-300 hover:bg-red-950/40 disabled:opacity-50"
-            onClick={() => void handleBlock()}
-          >
-            {blocking ? 'Blocking…' : 'Block user'}
-          </button>
+          {onSave ? (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={saving}
+              className="block w-full px-3 py-2.5 text-left text-sm text-gray-200 hover:bg-tank-light/40 disabled:opacity-50"
+              onClick={() => {
+                setOpen(false)
+                onSave()
+              }}
+            >
+              {saving ? 'Saving…' : isSaved ? savedLabel : saveLabel}
+            </button>
+          ) : null}
+          {showSafetyActions ? (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                className="block w-full px-3 py-2.5 text-left text-sm text-gray-200 hover:bg-tank-light/40"
+                onClick={() => {
+                  setOpen(false)
+                  onReport()
+                }}
+              >
+                Report content
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={blocking}
+                className="block w-full px-3 py-2.5 text-left text-sm text-red-300 hover:bg-red-950/40 disabled:opacity-50"
+                onClick={() => void handleBlock()}
+              >
+                {blocking ? 'Blocking…' : 'Block content'}
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
     </span>

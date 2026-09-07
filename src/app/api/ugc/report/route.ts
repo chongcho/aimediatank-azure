@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { isUserBlocked } from '@/lib/userBlocks'
+import { isMediaBlocked } from '@/lib/mediaBlocks'
 
 export const dynamic = 'force-dynamic'
 
@@ -146,21 +147,33 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ blockedUserIds: [] })
+      return NextResponse.json({ blockedUserIds: [], blockedMediaIds: [] })
     }
 
-    const rows = await prisma.userBlock.findMany({
-      where: { blockerId: session.user.id },
-      select: { blockedId: true },
+    const [userRows, mediaRows] = await Promise.all([
+      prisma.userBlock.findMany({
+        where: { blockerId: session.user.id },
+        select: { blockedId: true },
+      }),
+      prisma.mediaBlock.findMany({
+        where: { blockerId: session.user.id },
+        select: { mediaId: true },
+      }),
+    ])
+    return NextResponse.json({
+      blockedUserIds: userRows.map((row) => row.blockedId),
+      blockedMediaIds: mediaRows.map((row) => row.mediaId),
     })
-    return NextResponse.json({ blockedUserIds: rows.map((row) => row.blockedId) })
   } catch (error) {
     console.error('Blocked users fetch error:', error)
-    return NextResponse.json({ blockedUserIds: [] })
+    return NextResponse.json({ blockedUserIds: [], blockedMediaIds: [] })
   }
 }
 
-/** Block a user, notify admins via Report, and hide their content immediately for the blocker. */
+/**
+ * Block content (this media only) or block a user (chat / creator-wide).
+ * Body: { mediaId } for content hide, or { blockedUserId } for user hide.
+ */
 export async function PUT(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -168,16 +181,58 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Please log in' }, { status: 401 })
     }
 
-    const body = (await request.json()) as { blockedUserId?: unknown; reason?: unknown }
+    const body = (await request.json()) as {
+      blockedUserId?: unknown
+      mediaId?: unknown
+      reason?: unknown
+    }
+    const mediaId = typeof body.mediaId === 'string' ? body.mediaId.trim() : ''
     const blockedUserId =
       typeof body.blockedUserId === 'string' ? body.blockedUserId.trim() : ''
     const reason =
       typeof body.reason === 'string' && body.reason.trim()
         ? body.reason.trim()
-        : 'Blocked by user'
+        : mediaId
+          ? 'Blocked content by user'
+          : 'Blocked by user'
+
+    if (mediaId) {
+      const media = await prisma.media.findUnique({
+        where: { id: mediaId },
+        select: { id: true, userId: true, isDeleted: true },
+      })
+      if (!media || media.isDeleted) {
+        return NextResponse.json({ error: 'Content not found' }, { status: 404 })
+      }
+      if (media.userId === session.user.id) {
+        return NextResponse.json({ error: 'You cannot block your own content' }, { status: 400 })
+      }
+
+      const alreadyBlocked = await isMediaBlocked(session.user.id, mediaId)
+      if (!alreadyBlocked) {
+        await prisma.mediaBlock.create({
+          data: {
+            blockerId: session.user.id,
+            mediaId,
+            reason,
+          },
+        })
+        await prisma.report.create({
+          data: {
+            userId: session.user.id,
+            reportType: 'MEDIA',
+            mediaId,
+            reportedUserId: media.userId,
+            reason: `media_block: ${reason}`,
+          },
+        })
+      }
+
+      return NextResponse.json({ success: true, mediaId })
+    }
 
     if (!blockedUserId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Media ID or user ID is required' }, { status: 400 })
     }
     if (blockedUserId === session.user.id) {
       return NextResponse.json({ error: 'You cannot block yourself' }, { status: 400 })
@@ -212,7 +267,7 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ success: true, blockedUserId })
   } catch (error) {
-    console.error('Block user error:', error)
-    return NextResponse.json({ error: 'Failed to block user' }, { status: 500 })
+    console.error('Block error:', error)
+    return NextResponse.json({ error: 'Failed to block' }, { status: 500 })
   }
 }

@@ -8,7 +8,7 @@ Use this after an App Store rejection. Code changes in this repo address most Gu
 |-----------|-----|
 | **3.1.1 Payments** | Native iOS uses **Apple In-App Purchase** for memberships + paid media unlocks. Stripe remains for web and Android. Stripe checkout APIs stay blocked on native iOS. |
 | **5.1.1 Account deletion** | Profile → Edit Profile → **Delete account** permanently deletes the user (not soft deactivate). |
-| **1.2 UGC** | **Report** (media + chat) and **Block user** (instant feed/chat hide + admin report). |
+| **1.2 UGC** | **Report** (media + chat); media **Block content** (hide this item only); TalkChat **Block user** (hide that person in feed/chat). |
 | **2.1 Login on iPad** | Native auth session uses a reliable presentation anchor; login links use full-page navigation in the native shell. |
 | **5 CallKit + China** | `isCallKitAllowed()` disables CallKit when App Store storefront is **CHN** or device region is **CN/CHN**. VoIP keeps working with in-app UI. Keep China listed; do not remove the territory. |
 
@@ -56,7 +56,7 @@ Create an **In-App Purchase** key in App Store Connect → Users and Access → 
 npx prisma migrate deploy
 ```
 
-Migration: `20260903120000_apple_iap`
+Migration: `20260903120000_apple_iap` (and later UGC migrations including `20260907140000_media_blocks`)
 
 ## Guideline 1.2 — UGC Safety (screen recording required)
 
@@ -64,15 +64,16 @@ Features in the app:
 
 - **Terms:** Register requires a checked agreement (zero-tolerance language). Returning users log in without re-checking; Terms §6.1: no tolerance, Report/Block, **24-hour** remove + eject.
 - **Report:** Media page → red flag next to Created by → **Report content**; TalkChat → long-press message → **Report**.
-- **Block:** Same flag menu → **Block user** — hides that creator only for the blocker (feed/chat); notifies admin. Does not remove content for other users.
-- **Filter:** Blocked users excluded from feed/chat APIs; automated content inspection where enabled.
+- **Block content (media):** Same flag menu → **Block content** — hides **this media only** for the blocker; notifies admin. Other posts from the same creator stay visible.
+- **Block user (chat):** TalkChat long-press → **Block user** — hides that person in the blocker’s feed/chat.
+- **Filter:** Blocked media/users excluded from the viewer’s feed/chat APIs; automated content inspection where enabled.
 
 ### Physical iPhone recording (attach in App Review Information Notes)
 
 1. Register → check Terms + open Terms (show §6.1 if possible)  
 2. Open media → red flag next to Created by → Report content → submit  
-3. Flag → Block user → leave detail; their posts no longer appear in your feed  
-4. Optional: TalkChat long-press → Report / Block  
+3. Flag → Block content → leave detail; that item no longer appears in your feed (other posts from the creator can still appear)  
+4. Optional: TalkChat long-press → Report / Block user  
 
 ### Resolution Center reply — UGC (Guideline 1.2)
 
@@ -83,9 +84,11 @@ Guideline 1.2 precautions are implemented:
 
 2) Flag content — Media: red flag next to Created by → Report content; TalkChat: long-press message → Report. Reports go to admin moderation.
 
-3) Block users — Same media flag menu / TalkChat. Blocking hides that user’s content only for the blocker (feed and chat) and creates an admin report. Public content for other users is unchanged.
+3) Block content — Media flag menu → Block content. Hides only that media item for the blocker and creates an admin report. Other content from the same creator remains visible. Public content for other users is unchanged.
 
-4) Filtering — Blocked users are excluded from the viewer’s feed and chat. Automated and manual moderation are used.
+4) Block users — TalkChat long-press → Block user. Hides that user’s content in the blocker’s feed and chat and creates an admin report.
+
+5) Filtering — Blocked media and blocked users are excluded from the viewer’s feed and chat. Automated and manual moderation are used.
 
 Screen recording on a physical device is attached in App Review Information Notes.
 ```
@@ -146,9 +149,9 @@ Account deletion: Profile menu → Edit Profile → Delete account (permanent).
 
 UGC safety (Guideline 1.2):
 - Register: required Terms checkbox (zero tolerance + 24h moderation in Terms §6.1).
-- Media: red flag next to Created by → Report content / Block user (personal hide only).
+- Media: red flag next to Created by → Report content / Block content (hides this item only for you).
 - TalkChat: long-press message → Report content / Block user.
-Blocking hides content immediately; reports go to admin (act within 24 hours).
+Blocking hides content immediately for the viewer; reports go to admin (act within 24 hours).
 Attach physical-device screen recording in Notes.
 
 Payments (3.1.1): iOS uses Apple IAP for memberships and paid media. Stripe is web/Android only.
