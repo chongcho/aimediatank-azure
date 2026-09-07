@@ -457,6 +457,8 @@ export default function AdminPage() {
   const [mediaDetailSendByEmail, setMediaDetailSendByEmail] = useState(true)
   const [mediaDetailCard, setMediaDetailCard] = useState(true)
   const [mediaDetailAiTool, setMediaDetailAiTool] = useState(true)
+  const [mediaDetailViews, setMediaDetailViews] = useState(true)
+  const [mediaDetailLike, setMediaDetailLike] = useState(true)
   const [mediaDetailShareApps, setMediaDetailShareApps] = useState<Record<string, boolean>>({
     email: true, whatsapp: true, kakao: true, facebook: true, x: true, linkedin: true, reddit: true, youtube: true, tiktok: true, instagram: true,
   })
@@ -1171,6 +1173,8 @@ export default function AdminPage() {
           setMediaDetailSendByEmail(data.sendByEmailEnabled !== false)
           setMediaDetailCard(data.cardEnabled !== false)
           setMediaDetailAiTool(data.aiToolEnabled !== false)
+          setMediaDetailViews(data.viewsEnabled !== false)
+          setMediaDetailLike(data.likeEnabled !== false)
           if (data.shareAppsEnabled && typeof data.shareAppsEnabled === 'object' && !Array.isArray(data.shareAppsEnabled)) {
             setMediaDetailShareApps((prev) => ({ ...prev, ...data.shareAppsEnabled }))
           }
@@ -1607,6 +1611,8 @@ export default function AdminPage() {
     sendByEmailEnabled: boolean
     cardEnabled: boolean
     aiToolEnabled: boolean
+    viewsEnabled: boolean
+    likeEnabled: boolean
     shareAppsEnabled: Record<string, boolean>
   }) => {
     setMediaDetailSaving(true)
@@ -1629,6 +1635,8 @@ export default function AdminPage() {
       if (typeof data.sendByEmailEnabled === 'boolean') setMediaDetailSendByEmail(data.sendByEmailEnabled)
       if (typeof data.cardEnabled === 'boolean') setMediaDetailCard(data.cardEnabled)
       if (typeof data.aiToolEnabled === 'boolean') setMediaDetailAiTool(data.aiToolEnabled)
+      if (typeof data.viewsEnabled === 'boolean') setMediaDetailViews(data.viewsEnabled)
+      if (typeof data.likeEnabled === 'boolean') setMediaDetailLike(data.likeEnabled)
       if (data.shareAppsEnabled && typeof data.shareAppsEnabled === 'object') {
         setMediaDetailShareApps((prev) => ({ ...prev, ...data.shareAppsEnabled }))
       }
@@ -4152,7 +4160,7 @@ export default function AdminPage() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">📄 Media Detail</h2>
                 <p className="text-gray-400 text-sm">
-                  Show or hide Download, Share, Send by email, Card, and AI Tool label on the media detail page
+                  Show or hide Download, Share, Send by email, Card, AI Tool, View, and Like on the media detail page
                 </p>
               </div>
               {mediaDetailLoading ? (
@@ -4166,6 +4174,8 @@ export default function AdminPage() {
                       { label: 'Send by email', value: mediaDetailSendByEmail, key: 'sendByEmailEnabled' as const },
                       { label: 'Card', value: mediaDetailCard, key: 'cardEnabled' as const },
                       { label: 'AI Tool', value: mediaDetailAiTool, key: 'aiToolEnabled' as const },
+                      { label: 'View', value: mediaDetailViews, key: 'viewsEnabled' as const },
+                      { label: 'Like', value: mediaDetailLike, key: 'likeEnabled' as const },
                     ].map(({ label, value, key }) => (
                       <div key={label} className="flex shrink-0 items-center gap-2 whitespace-nowrap">
                         <label className="text-gray-300 text-sm">{label}</label>
@@ -4177,13 +4187,17 @@ export default function AdminPage() {
                             else if (key === 'shareEnabled') setMediaDetailShare(next)
                             else if (key === 'sendByEmailEnabled') setMediaDetailSendByEmail(next)
                             else if (key === 'cardEnabled') setMediaDetailCard(next)
-                            else setMediaDetailAiTool(next)
+                            else if (key === 'aiToolEnabled') setMediaDetailAiTool(next)
+                            else if (key === 'viewsEnabled') setMediaDetailViews(next)
+                            else setMediaDetailLike(next)
                             void persistMediaDetailSettings({
                               downloadEnabled: key === 'downloadEnabled' ? next : mediaDetailDownload,
                               shareEnabled: key === 'shareEnabled' ? next : mediaDetailShare,
                               sendByEmailEnabled: key === 'sendByEmailEnabled' ? next : mediaDetailSendByEmail,
                               cardEnabled: key === 'cardEnabled' ? next : mediaDetailCard,
                               aiToolEnabled: key === 'aiToolEnabled' ? next : mediaDetailAiTool,
+                              viewsEnabled: key === 'viewsEnabled' ? next : mediaDetailViews,
+                              likeEnabled: key === 'likeEnabled' ? next : mediaDetailLike,
                               shareAppsEnabled: mediaDetailShareApps,
                             })
                           }}
@@ -4227,6 +4241,8 @@ export default function AdminPage() {
                                 sendByEmailEnabled: mediaDetailSendByEmail,
                                 cardEnabled: mediaDetailCard,
                                 aiToolEnabled: mediaDetailAiTool,
+                                viewsEnabled: mediaDetailViews,
+                                likeEnabled: mediaDetailLike,
                                 shareAppsEnabled: nextShareApps,
                               })
                             }}

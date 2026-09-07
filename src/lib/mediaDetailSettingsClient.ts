@@ -6,6 +6,8 @@ export type MediaDetailUiSettings = {
   sendByEmailEnabled: boolean
   cardEnabled: boolean
   aiToolEnabled: boolean
+  viewsEnabled: boolean
+  likeEnabled: boolean
   shareAppsEnabled: Record<string, boolean>
 }
 
@@ -15,6 +17,8 @@ const DEFAULT_SETTINGS: MediaDetailUiSettings = {
   sendByEmailEnabled: true,
   cardEnabled: true,
   aiToolEnabled: true,
+  viewsEnabled: true,
+  likeEnabled: true,
   shareAppsEnabled: { ...DEFAULT_SHARE_APPS },
 }
 
@@ -45,6 +49,8 @@ export async function fetchMediaDetailSettings(): Promise<MediaDetailUiSettings>
         sendByEmailEnabled: data.sendByEmailEnabled !== false,
         cardEnabled: data.cardEnabled !== false,
         aiToolEnabled: data.aiToolEnabled !== false,
+        viewsEnabled: data.viewsEnabled !== false,
+        likeEnabled: data.likeEnabled !== false,
         shareAppsEnabled: normalizeShareAppsEnabled(data.shareAppsEnabled),
       }
       settingsCache = payload

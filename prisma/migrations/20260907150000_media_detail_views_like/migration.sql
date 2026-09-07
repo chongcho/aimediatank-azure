@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "MediaDetailSetting" ADD COLUMN IF NOT EXISTS "viewsEnabled" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "MediaDetailSetting" ADD COLUMN IF NOT EXISTS "likeEnabled" BOOLEAN NOT NULL DEFAULT true;

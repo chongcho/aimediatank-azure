@@ -979,6 +979,8 @@ export async function GET(request: Request) {
           sendByEmailEnabled: rowWithExtras.sendByEmailEnabled ?? true,
           cardEnabled: row.cardEnabled ?? true,
           aiToolEnabled: row.aiToolEnabled ?? true,
+          viewsEnabled: row.viewsEnabled ?? true,
+          likeEnabled: row.likeEnabled ?? true,
           shareAppsEnabled,
         })
       } catch (error) {
@@ -990,6 +992,8 @@ export async function GET(request: Request) {
           sendByEmailEnabled: true,
           cardEnabled: true,
           aiToolEnabled: true,
+          viewsEnabled: true,
+          likeEnabled: true,
           shareAppsEnabled: { ...DEFAULT_SHARE_APPS },
         })
       }
@@ -2670,6 +2674,8 @@ export async function POST(request: Request) {
           sendByEmailEnabled: sendByEmailPayload,
           cardEnabled: cardPayload,
           aiToolEnabled: aiToolPayload,
+          viewsEnabled: viewsPayload,
+          likeEnabled: likePayload,
           shareAppsEnabled: shareAppsPayload,
         } = data || {}
         const downloadBool = typeof downloadPayload === 'boolean' ? downloadPayload : undefined
@@ -2677,6 +2683,8 @@ export async function POST(request: Request) {
         const sendByEmailBool = typeof sendByEmailPayload === 'boolean' ? sendByEmailPayload : undefined
         const cardBool = typeof cardPayload === 'boolean' ? cardPayload : undefined
         const aiToolBool = typeof aiToolPayload === 'boolean' ? aiToolPayload : undefined
+        const viewsBool = typeof viewsPayload === 'boolean' ? viewsPayload : undefined
+        const likeBool = typeof likePayload === 'boolean' ? likePayload : undefined
         const shareAppsObj = shareAppsPayload && typeof shareAppsPayload === 'object' && !Array.isArray(shareAppsPayload)
           ? (shareAppsPayload as Record<string, boolean>)
           : undefined
@@ -2706,6 +2714,8 @@ export async function POST(request: Request) {
         if (sendByEmailBool !== undefined) updateData.sendByEmailEnabled = sendByEmailBool
         if (cardBool !== undefined) updateData.cardEnabled = cardBool
         if (aiToolBool !== undefined) updateData.aiToolEnabled = aiToolBool
+        if (viewsBool !== undefined) updateData.viewsEnabled = viewsBool
+        if (likeBool !== undefined) updateData.likeEnabled = likeBool
         if (shareAppsJson !== undefined) updateData.shareAppsEnabled = shareAppsJson
         if (!row) {
           const createData: Prisma.MediaDetailSettingUncheckedCreateInput = {}
@@ -2714,6 +2724,8 @@ export async function POST(request: Request) {
           if (sendByEmailBool !== undefined) createData.sendByEmailEnabled = sendByEmailBool
           if (cardBool !== undefined) createData.cardEnabled = cardBool
           if (aiToolBool !== undefined) createData.aiToolEnabled = aiToolBool
+          if (viewsBool !== undefined) createData.viewsEnabled = viewsBool
+          if (likeBool !== undefined) createData.likeEnabled = likeBool
           if (shareAppsJson !== undefined) createData.shareAppsEnabled = shareAppsJson
           row = await prisma.mediaDetailSetting.create({
             data: createData,
@@ -2733,6 +2745,8 @@ export async function POST(request: Request) {
           sendByEmailEnabled: updated.sendByEmailEnabled,
           cardEnabled: row.cardEnabled,
           aiToolEnabled: row.aiToolEnabled,
+          viewsEnabled: row.viewsEnabled,
+          likeEnabled: row.likeEnabled,
           shareAppsEnabled,
         })
         return NextResponse.json({
@@ -2742,6 +2756,8 @@ export async function POST(request: Request) {
           sendByEmailEnabled: updated.sendByEmailEnabled,
           cardEnabled: row.cardEnabled,
           aiToolEnabled: row.aiToolEnabled,
+          viewsEnabled: row.viewsEnabled,
+          likeEnabled: row.likeEnabled,
           shareAppsEnabled,
         })
       }

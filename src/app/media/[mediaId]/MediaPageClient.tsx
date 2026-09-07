@@ -156,6 +156,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const [mediaDetailSendByEmailEnabled, setMediaDetailSendByEmailEnabled] = useState(true)
   const [mediaDetailCardEnabled, setMediaDetailCardEnabled] = useState(true)
   const [mediaDetailAiToolEnabled, setMediaDetailAiToolEnabled] = useState(true)
+  const [mediaDetailViewsEnabled, setMediaDetailViewsEnabled] = useState(true)
+  const [mediaDetailLikeEnabled, setMediaDetailLikeEnabled] = useState(true)
   const [showCardModal, setShowCardModal] = useState(false)
   const [shareAppsEnabled, setShareAppsEnabled] = useState<Record<string, boolean>>({
     email: true, whatsapp: true, kakao: true, facebook: true, x: true, linkedin: true, reddit: true, youtube: true, tiktok: true, instagram: true,
@@ -303,6 +305,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
         setMediaDetailSendByEmailEnabled(data.sendByEmailEnabled)
         setMediaDetailCardEnabled(data.cardEnabled)
         setMediaDetailAiToolEnabled(data.aiToolEnabled)
+        setMediaDetailViewsEnabled(data.viewsEnabled)
+        setMediaDetailLikeEnabled(data.likeEnabled)
         setShareAppsEnabled(data.shareAppsEnabled)
       } catch (error) {
         if ((error as Error).name === 'AbortError') return
@@ -1000,11 +1004,40 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   {media.type === 'VIDEO' ? tMedia('typeVideo') : media.type === 'IMAGE' ? tMedia('typeImage') : tMedia('typeMusic')}
                 </span>
                 <span>{formatDate(media.createdAt)}</span>
-                <span className="inline-flex items-center">
+                <span className="inline-flex items-center gap-2 flex-wrap">
                   {tMedia('createdBy')}{' '}
                   <Link href={`/profile/${media.user.username}`} className="text-tank-accent hover:underline font-medium">
                     {media.user.username}
                   </Link>
+                  {mediaDetailViewsEnabled ? (
+                    <span className="inline-flex items-center gap-1.5 text-sm text-gray-400">
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      <span>{formatMediaViewsLabel(media.views, chromeLocaleTag)}</span>
+                    </span>
+                  ) : null}
+                  {mediaDetailLikeEnabled ? (
+                    <button
+                      type="button"
+                      onClick={() => handleReaction('happy')}
+                      disabled={likePending}
+                      className={`inline-flex items-center gap-1.5 text-sm text-gray-400 transition-transform hover:scale-110 disabled:opacity-60 disabled:pointer-events-none ${
+                        userReaction === 'happy' ? 'scale-110' : ''
+                      }`}
+                      aria-label={userReaction === 'happy' ? tMedia('unlike') : tMedia('like')}
+                    >
+                      <ThumbsUpIcon
+                        className={`w-4 h-4 shrink-0 ${
+                          userReaction === 'happy'
+                            ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]'
+                            : 'text-gray-400'
+                        }`}
+                      />
+                      <span>{reactions.happy}</span>
+                    </button>
+                  ) : null}
                   {session ? (
                     <UgcCreatorSafetyMenu
                       mediaId={media.id}
@@ -1053,12 +1086,6 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 </button>
               )}
 
-              {media.price && media.price > 0 && !isOwner && nativeIosApp && (
-                <p className="mb-4 text-center text-xs text-gray-400">
-                  iOS purchases use Apple In-App Purchase (charged at the nearest unlock tier).
-                </p>
-              )}
-
               {media.price && media.price > 0 && isOwner && (
                 <div className="mb-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold bg-tank-gray border border-tank-light text-gray-400">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1072,38 +1099,6 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   {mediaPageInterpolate(tMedia('yourPriceWithAmount'), { price: `$${media.price.toFixed(2)}` })}
                 </div>
               )}
-
-              {/* Views + Reactions Row */}
-              <div className="flex items-center gap-6 mb-4">
-                {/* Views */}
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  <span>{formatMediaViewsLabel(media.views, chromeLocaleTag)}</span>
-                </div>
-
-                {/* Reactions (like only) — icon sizing matches MediaCard; count text matches views row */}
-                <button
-                  type="button"
-                  onClick={() => handleReaction('happy')}
-                  disabled={likePending}
-                  className={`flex items-center gap-2 text-sm text-gray-400 transition-transform hover:scale-110 disabled:opacity-60 disabled:pointer-events-none ${
-                    userReaction === 'happy' ? 'scale-110' : ''
-                  }`}
-                  aria-label={userReaction === 'happy' ? tMedia('unlike') : tMedia('like')}
-                >
-                  <ThumbsUpIcon
-                    className={`w-4 h-4 shrink-0 ${
-                      userReaction === 'happy'
-                        ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]'
-                        : 'text-gray-400'
-                    }`}
-                  />
-                  <span>{reactions.happy}</span>
-                </button>
-              </div>
 
             <div className="flex flex-col gap-3 w-full">
               {/* Download & Share row */}

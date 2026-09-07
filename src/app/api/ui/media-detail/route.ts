@@ -11,6 +11,8 @@ async function getOrCreateSetting(): Promise<{
   sendByEmailEnabled: boolean
   cardEnabled: boolean
   aiToolEnabled: boolean
+  viewsEnabled: boolean
+  likeEnabled: boolean
   shareAppsEnabled: Record<string, boolean>
 }> {
   let row = await getFirstMediaDetailSetting()
@@ -26,15 +28,34 @@ async function getOrCreateSetting(): Promise<{
     sendByEmailEnabled: row.sendByEmailEnabled ?? true,
     cardEnabled: row.cardEnabled ?? true,
     aiToolEnabled: row.aiToolEnabled ?? true,
+    viewsEnabled: row.viewsEnabled ?? true,
+    likeEnabled: row.likeEnabled ?? true,
     shareAppsEnabled: normalizeShareAppsEnabled(shareAppsRaw),
   }
 }
 
 export async function GET() {
   try {
-    const { downloadEnabled, shareEnabled, sendByEmailEnabled, cardEnabled, aiToolEnabled, shareAppsEnabled } =
-      await getOrCreateSetting()
-    return NextResponse.json({ downloadEnabled, shareEnabled, sendByEmailEnabled, cardEnabled, aiToolEnabled, shareAppsEnabled })
+    const {
+      downloadEnabled,
+      shareEnabled,
+      sendByEmailEnabled,
+      cardEnabled,
+      aiToolEnabled,
+      viewsEnabled,
+      likeEnabled,
+      shareAppsEnabled,
+    } = await getOrCreateSetting()
+    return NextResponse.json({
+      downloadEnabled,
+      shareEnabled,
+      sendByEmailEnabled,
+      cardEnabled,
+      aiToolEnabled,
+      viewsEnabled,
+      likeEnabled,
+      shareAppsEnabled,
+    })
   } catch (error) {
     console.error('Media detail settings unavailable:', error)
     return NextResponse.json({
@@ -43,6 +64,8 @@ export async function GET() {
       sendByEmailEnabled: true,
       cardEnabled: true,
       aiToolEnabled: true,
+      viewsEnabled: true,
+      likeEnabled: true,
       shareAppsEnabled: { ...DEFAULT_SHARE_APPS },
     })
   }

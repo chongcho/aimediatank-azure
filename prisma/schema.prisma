@@ -845,7 +845,7 @@ model HomeLayoutSetting {
   updatedAt DateTime @updatedAt
 }
 
-// Media detail page: show/hide Download, Share, Send by email, and AI Tool metadata (admin)
+// Media detail page: show/hide Download, Share, Send by email, View, Like, and AI Tool metadata (admin)
 // shareAppsEnabled: JSON object e.g. { email, whatsapp, kakao, facebook, x, linkedin, reddit, youtube, tiktok, instagram } — Share modal toggles
 model MediaDetailSetting {
   id                  String   @id @default(uuid())
@@ -854,6 +854,8 @@ model MediaDetailSetting {
   sendByEmailEnabled  Boolean  @default(true)
   cardEnabled         Boolean  @default(true) // show Celebration Card button on media detail page
   aiToolEnabled       Boolean  @default(true) // show "AI Tool: …" when media has aiTool set
+  viewsEnabled        Boolean  @default(true) // show view count next to Created by
+  likeEnabled         Boolean  @default(true) // show like control next to Created by
   shareAppsEnabled    Json?    // { email, whatsapp, kakao, facebook, x, linkedin, reddit, youtube, tiktok, instagram }
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
