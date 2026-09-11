@@ -9,10 +9,11 @@ type BreakSource = 'manual' | 'tilt'
 type Vec = { x: number; y: number }
 
 const BREAK_MAX = 100
-/** Degrees of phone roll mapped to full break. */
 const TILT_FULL_DEG = 18
-/** Phone pitch degrees mapped to ~6% slope. */
 const SLOPE_FULL_DEG = 8
+/** Low-res grid for green-surface detection (mobile-friendly). */
+const MASK_W = 160
+const MASK_H = 284
 
 const SLOPE_STOPS: { max: number; color: string; label: string }[] = [
   { max: 1, color: '#f4f4f5', label: '0-1%' },
@@ -56,20 +57,14 @@ function breakLabel(breakAmt: number) {
   return breakAmt < 0 ? `Left ${Math.abs(Math.round(breakAmt))}` : `Right ${Math.round(breakAmt)}`
 }
 
-function slopeColor(pct: number): string {
-  for (const s of SLOPE_STOPS) {
-    if (pct <= s.max) return s.color
-  }
-  return SLOPE_STOPS[SLOPE_STOPS.length - 1].color
-}
-
-function hexToRgba(hex: string, a: number) {
+function slopeColorRgb(pct: number): [number, number, number] {
+  const hex = (() => {
+    for (const s of SLOPE_STOPS) if (pct <= s.max) return s.color
+    return SLOPE_STOPS[SLOPE_STOPS.length - 1].color
+  })()
   const h = hex.replace('#', '')
   const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16)
-  const r = (n >> 16) & 255
-  const g = (n >> 8) & 255
-  const b = n & 255
-  return `rgba(${r},${g},${b},${a})`
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
 function unit(v: Vec): Vec {
@@ -77,7 +72,6 @@ function unit(v: Vec): Vec {
   return { x: v.x / len, y: v.y / len }
 }
 
-/** Quadratic curve from ball → hole with lateral break at mid-putt. */
 function buildBreakPath(ball: Point, hole: Point, breakAmt: number): string {
   const mx = (ball.x + hole.x) / 2
   const my = (ball.y + hole.y) / 2
@@ -113,56 +107,6 @@ function startAimPoint(ball: Point, hole: Point, breakAmt: number): Point {
   }
 }
 
-/** Perspective-ish green footprint for the status overlay. */
-function greenPolygon(w: number, h: number, ball: Point | null, hole: Point | null): Point[] {
-  if (ball && hole) {
-    const dx = hole.x - ball.x
-    const dy = hole.y - ball.y
-    const len = Math.hypot(dx, dy) || 1
-    const ux = dx / len
-    const uy = dy / len
-    const px = -uy
-    const py = ux
-    const nearW = Math.min(w * 0.42, len * 0.95)
-    const farW = Math.min(w * 0.28, len * 0.55)
-    const back = 0.22 * len
-    const ahead = 0.28 * len
-    const near = { x: ball.x - ux * back, y: ball.y - uy * back }
-    const far = { x: hole.x + ux * ahead, y: hole.y + uy * ahead }
-    return [
-      { x: near.x + px * nearW, y: near.y + py * nearW },
-      { x: near.x - px * nearW, y: near.y - py * nearW },
-      { x: far.x - px * farW, y: far.y - py * farW },
-      { x: far.x + px * farW, y: far.y + py * farW },
-    ]
-  }
-  // Default: looking down the green from behind the ball
-  return [
-    { x: w * 0.06, y: h * 0.78 },
-    { x: w * 0.94, y: h * 0.78 },
-    { x: w * 0.72, y: h * 0.22 },
-    { x: w * 0.28, y: h * 0.22 },
-  ]
-}
-
-function pointInPoly(p: Point, poly: Point[]) {
-  let inside = false
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i].x
-    const yi = poly[i].y
-    const xj = poly[j].x
-    const yj = poly[j].y
-    const intersect =
-      yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi + 1e-9) + xi
-    if (intersect) inside = !inside
-  }
-  return inside
-}
-
-/**
- * Synthetic height field: overall fall from phone/manual slope, plus mild undulation
- * so the heatmap/arrows look like a real green (assistive estimate, not a survey).
- */
 function heightAt(x: number, y: number, w: number, h: number, fall: Vec, undulation: number) {
   const nx = x / w - 0.5
   const ny = y / h - 0.5
@@ -184,21 +128,112 @@ function localSlope(
   undulation: number,
   basePct: number,
 ) {
-  const e = 4
+  const e = 3
   const hx = heightAt(x + e, y, w, h, fall, undulation) - heightAt(x - e, y, w, h, fall, undulation)
   const hy = heightAt(x, y + e, w, h, fall, undulation) - heightAt(x, y - e, w, h, fall, undulation)
   const grad = { x: hx / (2 * e), y: hy / (2 * e) }
   const mag = Math.hypot(grad.x, grad.y)
-  // Downhill = opposite gradient; scale to % for coloring
   const pct = clamp(basePct * (0.45 + mag * 3.2), 0, 8)
   const down = unit({ x: -grad.x, y: -grad.y })
   return { pct, down }
 }
 
+/** Putting-green biased grass detector (fairway/rough/sand filtered). */
+function greenConfidence(r: number, g: number, b: number): number {
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const d = max - min
+  if (max < 28) return 0
+  const v = max / 255
+  const s = max === 0 ? 0 : d / max
+  let h = 0
+  if (d > 0) {
+    if (max === r) h = (60 * ((g - b) / d) + 360) % 360
+    else if (max === g) h = 60 * ((b - r) / d) + 120
+    else h = 60 * ((r - g) / d) + 240
+  }
+
+  // Sand / dirt / sky
+  if (h < 55 || h > 175) return 0
+  if (s < 0.12 || s > 0.9) return 0
+  if (v < 0.18 || v > 0.95) return 0
+  if (g < r * 0.92 || g < b * 0.95) return 0
+
+  // Prefer typical green hues; down-weight yellow fringe and blue-green water-ish
+  const hueScore = h >= 75 && h <= 155 ? 1 : 0.45
+  // Putting surfaces are often a bit smoother/lighter than rough
+  const tone = clamp(1 - Math.abs(v - 0.48) * 1.4, 0.35, 1)
+  const sat = clamp(1 - Math.abs(s - 0.42) * 1.6, 0.35, 1)
+  return clamp(hueScore * tone * sat * (0.55 + s), 0, 1)
+}
+
+function blurMask(src: Float32Array, w: number, h: number, passes = 2): Float32Array {
+  let a = src
+  let b = new Float32Array(w * h)
+  for (let p = 0; p < passes; p++) {
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let sum = 0
+        let n = 0
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = x + dx
+            const yy = y + dy
+            if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue
+            sum += a[yy * w + xx]
+            n++
+          }
+        }
+        b[y * w + x] = sum / n
+      }
+    }
+    const tmp = a
+    a = b
+    b = tmp
+  }
+  return a
+}
+
+/** Soft weight toward the putt corridor so fringe/fairway fades out. */
+function corridorWeight(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  ball: Point | null,
+  hole: Point | null,
+): number {
+  if (!ball || !hole) {
+    // Soft vignette toward middle of the green view when markers aren't set
+    const nx = (x / w - 0.5) * 2
+    const ny = (y / h - 0.42) * 2
+    return clamp(1 - Math.hypot(nx * 0.75, ny * 1.05) * 0.55, 0.25, 1)
+  }
+  const dx = hole.x - ball.x
+  const dy = hole.y - ball.y
+  const len = Math.hypot(dx, dy) || 1
+  const ux = dx / len
+  const uy = dy / len
+  const px = -uy
+  const py = ux
+  const vx = x - ball.x
+  const vy = y - ball.y
+  const along = vx * ux + vy * uy
+  const side = vx * px + vy * py
+  const t = along / len
+  // Wider near the ball, narrower toward the cup (perspective feel)
+  const halfW = len * (0.55 - 0.22 * clamp(t, -0.2, 1.2))
+  const alongOk = t > -0.35 && t < 1.35
+  if (!alongOk) return 0
+  const sideNorm = Math.abs(side) / Math.max(24, halfW)
+  return clamp(1 - sideNorm * sideNorm, 0, 1)
+}
+
 function FlagPin({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`} style={{ filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.55))' }}>
-      <circle r={18} fill="#111" stroke="#fff" strokeWidth={2.5} />
+      <line x1={0} y1={0} x2={0} y2={28} stroke="rgba(255,255,255,0.85)" strokeWidth={1.5} />
+      <circle r={17} fill="#111" stroke="#fff" strokeWidth={2.5} />
       <path d="M -3 -6 L -3 7 M -3 -5 L 9 -2 L -3 2 Z" fill="#fff" stroke="none" />
     </g>
   )
@@ -208,8 +243,16 @@ export default function GreenReadPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const heatRef = useRef<HTMLCanvasElement>(null)
+  const sampleRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+  const fallRef = useRef<Vec>({ x: 0.15, y: 0.65 })
+  const slopePctRef = useRef(3)
+  const undulationRef = useRef(0.18)
+  const showStatusRef = useRef(true)
+  const ballRef = useRef<Point | null>(null)
+  const holeRef = useRef<Point | null>(null)
+  const stageSizeRef = useRef({ w: 390, h: 700 })
 
   const [cameraError, setCameraError] = useState('')
   const [cameraReady, setCameraReady] = useState(false)
@@ -226,7 +269,9 @@ export default function GreenReadPage() {
   const [manualSlopePct, setManualSlopePct] = useState(3)
   const [dragging, setDragging] = useState<'ball' | 'hole' | null>(null)
   const [showStatus, setShowStatus] = useState(true)
-  const [stageSize, setStageSize] = useState({ w: 390, h: 700 })
+  const [, setStageSize] = useState({ w: 390, h: 700 })
+  const [surfaceLocked, setSurfaceLocked] = useState(false)
+  const surfaceLockedRef = useRef(false)
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -274,7 +319,9 @@ export default function GreenReadPage() {
     if (!el) return
     const update = () => {
       const r = el.getBoundingClientRect()
-      setStageSize({ w: Math.max(1, r.width), h: Math.max(1, r.height) })
+      const next = { w: Math.max(1, r.width), h: Math.max(1, r.height) }
+      stageSizeRef.current = next
+      setStageSize(next)
     }
     update()
     const ro = new ResizeObserver(update)
@@ -328,9 +375,7 @@ export default function GreenReadPage() {
       setTiltLive(mapped)
       if (breakSource === 'tilt') setBreakAmt(mapped)
 
-      // Project phone tilt into a screen-space "fall" direction for the green overlay.
       const fallX = clamp(roll / TILT_FULL_DEG, -1, 1)
-      // Holding phone to look at green: beta ~40–70; deviation from ~55° ≈ pitch slope toward/away.
       const fallY = clamp((pitch - 55) / SLOPE_FULL_DEG, -1, 1)
       const fall = unit({ x: fallX, y: Math.max(0.2, 0.55 + fallY * 0.45) })
       setTiltFall(fall)
@@ -361,8 +406,6 @@ export default function GreenReadPage() {
     }
   }, [tiltLive])
 
-  const { w, h } = stageSize
-
   const fall = useMemo(() => {
     if (breakSource === 'tilt') return tiltFall
     if (ball && hole) {
@@ -371,7 +414,6 @@ export default function GreenReadPage() {
       const len = Math.hypot(dx, dy) || 1
       const px = -dy / len
       const py = dx / len
-      // Positive break = fall to the right of the putt line
       const side = breakAmt / BREAK_MAX
       return unit({
         x: px * side + (dx / len) * 0.15,
@@ -384,82 +426,164 @@ export default function GreenReadPage() {
   const slopePct = breakSource === 'tilt' ? tiltSlopePct : manualSlopePct
   const undulation = 0.12 + (slopePct / 8) * 0.18
 
-  const poly = useMemo(() => greenPolygon(w, h, ball, hole), [w, h, ball, hole])
-
-  const arrows = useMemo(() => {
-    if (!showStatus) return [] as { x: number; y: number; angle: number; pct: number }[]
-    const cols = 9
-    const rows = 11
-    const items: { x: number; y: number; angle: number; pct: number }[] = []
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const x = ((col + 0.5) / cols) * w
-        const y = ((row + 0.55) / rows) * h * 0.85 + h * 0.08
-        if (!pointInPoly({ x, y }, poly)) continue
-        const { pct, down } = localSlope(x, y, w, h, fall, undulation, slopePct)
-        items.push({
-          x,
-          y,
-          angle: (Math.atan2(down.y, down.x) * 180) / Math.PI,
-          pct,
-        })
-      }
-    }
-    return items
-  }, [showStatus, w, h, poly, fall, undulation, slopePct])
-
-  // Paint translucent slope heatmap onto the green polygon.
   useEffect(() => {
-    const canvas = heatRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    fallRef.current = fall
+    slopePctRef.current = slopePct
+    undulationRef.current = undulation
+    showStatusRef.current = showStatus
+    ballRef.current = ball
+    holeRef.current = hole
+  }, [fall, slopePct, undulation, showStatus, ball, hole])
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    canvas.width = Math.floor(w * dpr)
-    canvas.height = Math.floor(h * dpr)
-    canvas.style.width = `${w}px`
-    canvas.style.height = `${h}px`
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.clearRect(0, 0, w, h)
+  // Live overlay: mask to detected green surface (no fixed trapezoid).
+  useEffect(() => {
+    if (!cameraReady) return
+    const video = videoRef.current
+    const out = heatRef.current
+    if (!video || !out) return
 
-    if (!showStatus) return
+    if (!sampleRef.current) sampleRef.current = document.createElement('canvas')
+    const sample = sampleRef.current
+    sample.width = MASK_W
+    sample.height = MASK_H
+    const sctx = sample.getContext('2d', { willReadFrequently: true })
+    const octx = out.getContext('2d')
+    if (!sctx || !octx) return
 
-    ctx.save()
-    ctx.beginPath()
-    poly.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
-    ctx.closePath()
-    ctx.clip()
+    let raf = 0
+    let alive = true
+    let lastMask: Float32Array | null = null
 
-    const step = Math.max(10, Math.floor(Math.min(w, h) / 28))
-    for (let y = 0; y < h; y += step) {
-      for (let x = 0; x < w; x += step) {
-        const cx = x + step / 2
-        const cy = y + step / 2
-        if (!pointInPoly({ x: cx, y: cy }, poly)) continue
-        const { pct } = localSlope(cx, cy, w, h, fall, undulation, slopePct)
-        ctx.fillStyle = hexToRgba(slopeColor(pct), 0.42)
-        ctx.fillRect(x, y, step + 1, step + 1)
+    const paint = () => {
+      if (!alive) return
+      raf = requestAnimationFrame(paint)
+
+      const { w: sw, h: sh } = stageSizeRef.current
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      if (out.width !== Math.floor(sw * dpr) || out.height !== Math.floor(sh * dpr)) {
+        out.width = Math.floor(sw * dpr)
+        out.height = Math.floor(sh * dpr)
+        out.style.width = `${sw}px`
+        out.style.height = `${sh}px`
+      }
+      octx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      octx.clearRect(0, 0, sw, sh)
+
+      if (!showStatusRef.current) {
+        if (surfaceLockedRef.current) {
+          surfaceLockedRef.current = false
+          setSurfaceLocked(false)
+        }
+        return
+      }
+      if (video.readyState < 2 || video.videoWidth < 2) return
+
+      // object-cover sample of the live camera into a small buffer
+      const vw = video.videoWidth
+      const vh = video.videoHeight
+      const cover = Math.max(MASK_W / vw, MASK_H / vh)
+      const dw = vw * cover
+      const dh = vh * cover
+      sctx.clearRect(0, 0, MASK_W, MASK_H)
+      sctx.drawImage(video, (MASK_W - dw) / 2, (MASK_H - dh) / 2, dw, dh)
+      const frame = sctx.getImageData(0, 0, MASK_W, MASK_H)
+      const data = frame.data
+
+      const raw = new Float32Array(MASK_W * MASK_H)
+      let greenSum = 0
+      for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+        const c = greenConfidence(data[i], data[i + 1], data[i + 2])
+        raw[p] = c
+        greenSum += c
+      }
+      const soft = blurMask(raw, MASK_W, MASK_H, 2)
+      lastMask = soft
+      const locked = greenSum / (MASK_W * MASK_H) > 0.04
+      if (locked !== surfaceLockedRef.current) {
+        surfaceLockedRef.current = locked
+        setSurfaceLocked(locked)
+      }
+
+      const fallV = fallRef.current
+      const basePct = slopePctRef.current
+      const und = undulationRef.current
+      const ballP = ballRef.current
+      const holeP = holeRef.current
+
+      // Heatmap pixels on the green surface only
+      const heat = octx.createImageData(MASK_W, MASK_H)
+      const hd = heat.data
+      for (let y = 0; y < MASK_H; y++) {
+        for (let x = 0; x < MASK_W; x++) {
+          const idx = y * MASK_W + x
+          const m = soft[idx]
+          if (m < 0.12) continue
+          const sx = ((x + 0.5) / MASK_W) * sw
+          const sy = ((y + 0.5) / MASK_H) * sh
+          const focus = corridorWeight(sx, sy, sw, sh, ballP, holeP)
+          const a = m * focus
+          if (a < 0.08) continue
+          const { pct } = localSlope(sx, sy, sw, sh, fallV, und, basePct)
+          const [r, g, b] = slopeColorRgb(pct)
+          const o = idx * 4
+          hd[o] = r
+          hd[o + 1] = g
+          hd[o + 2] = b
+          hd[o + 3] = Math.round(255 * clamp(a * 0.55, 0, 0.62))
+        }
+      }
+
+      // Upscale soft heatmap to stage (feathered edge → draped look)
+      const tmp = sample
+      const tctx = sctx
+      tctx.putImageData(heat, 0, 0)
+      octx.imageSmoothingEnabled = true
+      octx.imageSmoothingQuality = 'high'
+      octx.drawImage(tmp, 0, 0, MASK_W, MASK_H, 0, 0, sw, sh)
+
+      // Perspective arrow field on the detected surface
+      const cols = 10
+      const rows = 14
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const u = (col + 0.5) / cols
+          const v = (row + 0.35) / rows
+          const x = u * sw
+          const y = (0.12 + v * 0.78) * sh
+          const mx = clamp(Math.floor((x / sw) * MASK_W), 0, MASK_W - 1)
+          const my = clamp(Math.floor((y / sh) * MASK_H), 0, MASK_H - 1)
+          const m = (lastMask?.[my * MASK_W + mx] ?? 0) * corridorWeight(x, y, sw, sh, ballP, holeP)
+          if (m < 0.28) continue
+          const { down } = localSlope(x, y, sw, sh, fallV, und, basePct)
+          const depth = 0.55 + 0.75 * (y / sh) // nearer arrows larger
+          const ang = Math.atan2(down.y, down.x)
+          const len = 9 * depth
+          octx.save()
+          octx.translate(x, y)
+          octx.rotate(ang)
+          octx.globalAlpha = clamp(0.35 + m * 0.55, 0.35, 0.9)
+          octx.fillStyle = '#fff'
+          octx.strokeStyle = 'rgba(0,0,0,0.35)'
+          octx.lineWidth = 0.7
+          octx.beginPath()
+          octx.moveTo(len, 0)
+          octx.lineTo(-len * 0.45, len * 0.38)
+          octx.lineTo(-len * 0.2, 0)
+          octx.lineTo(-len * 0.45, -len * 0.38)
+          octx.closePath()
+          octx.fill()
+          octx.stroke()
+          octx.restore()
+        }
       }
     }
 
-    // Soft blend so it reads like an AR mesh, not a pixel grid
-    ctx.globalCompositeOperation = 'source-atop'
-    const g = ctx.createLinearGradient(0, h * 0.2, 0, h * 0.85)
-    g.addColorStop(0, 'rgba(255,255,255,0.08)')
-    g.addColorStop(1, 'rgba(0,0,0,0.12)')
-    ctx.fillStyle = g
-    ctx.fillRect(0, 0, w, h)
-    ctx.restore()
-
-    // Outline of green status region
-    ctx.beginPath()
-    poly.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
-    ctx.closePath()
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)'
-    ctx.lineWidth = 1.5
-    ctx.stroke()
-  }, [showStatus, w, h, poly, fall, undulation, slopePct])
+    raf = requestAnimationFrame(paint)
+    return () => {
+      alive = false
+      cancelAnimationFrame(raf)
+    }
+  }, [cameraReady])
 
   const clientPoint = (clientX: number, clientY: number): Point | null => {
     const el = stageRef.current
@@ -541,14 +665,13 @@ export default function GreenReadPage() {
           className="absolute inset-0 h-full w-full object-cover"
         />
 
-        {/* Green status heatmap (AR-style overlay on the green) */}
         <canvas
           ref={heatRef}
           className="pointer-events-none absolute inset-0 h-full w-full"
           aria-hidden
         />
 
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.4)_100%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.28)_100%)]" />
 
         {!cameraReady && !cameraError && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-sm text-white/80">
@@ -573,24 +696,11 @@ export default function GreenReadPage() {
         )}
 
         <svg className="pointer-events-none absolute inset-0 h-full w-full">
-          {/* Break direction arrows */}
-          {showStatus &&
-            arrows.map((a, i) => (
-              <g key={i} transform={`translate(${a.x}, ${a.y}) rotate(${a.angle})`}>
-                <polygon
-                  points="-5,-4 10,0 -5,4 -2,0"
-                  fill="rgba(255,255,255,0.92)"
-                  stroke="rgba(0,0,0,0.35)"
-                  strokeWidth={0.6}
-                />
-              </g>
-            ))}
-
           {straight && (
             <path
               d={straight}
               fill="none"
-              stroke="rgba(255,255,255,0.35)"
+              stroke="rgba(255,255,255,0.3)"
               strokeWidth={2}
               strokeDasharray="6 8"
             />
@@ -636,7 +746,6 @@ export default function GreenReadPage() {
           {hole && <FlagPin x={hole.x} y={hole.y} />}
         </svg>
 
-        {/* Top bar */}
         <div className="pointer-events-none absolute left-0 right-0 top-0 flex items-start justify-between gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <Link
             href="/game"
@@ -648,7 +757,7 @@ export default function GreenReadPage() {
             <div className="rounded-lg bg-black/55 px-3 py-2 text-right backdrop-blur-sm">
               <div className="text-xs font-semibold tracking-wide text-emerald-300">GREEN READ</div>
               <div className="text-[11px] text-white/75">
-                Status ~{slopePct.toFixed(1)}% · assistive estimate
+                {surfaceLocked ? 'On green surface' : 'Aim at the green'} · ~{slopePct.toFixed(1)}%
               </div>
             </div>
             <button
@@ -666,16 +775,14 @@ export default function GreenReadPage() {
           </div>
         </div>
 
-        {/* Hint */}
         <div className="pointer-events-none absolute left-1/2 top-16 w-[90%] -translate-x-1/2 rounded-lg bg-black/50 px-3 py-2 text-center text-xs text-white/90 backdrop-blur-sm sm:top-[4.5rem]">
           {!ball
-            ? 'Aim the camera at the green. Tap the ball, then the cup — status overlay follows the slope.'
+            ? 'Point at the putting green — status drapes on the grass. Tap ball, then cup to focus the read.'
             : !hole
               ? 'Tap the cup / flag.'
-              : 'Arrows = downhill · colors = slope % · yellow = putt curve'}
+              : 'Overlay follows the green surface · arrows = downhill · colors = slope %'}
         </div>
 
-        {/* Slope legend */}
         {showStatus && (
           <div
             className="pointer-events-none absolute left-3 z-10 rounded-lg bg-black/60 px-2.5 py-2 backdrop-blur-sm"
@@ -695,7 +802,6 @@ export default function GreenReadPage() {
           </div>
         )}
 
-        {/* Controls */}
         <div className="absolute bottom-0 left-0 right-0 space-y-2 bg-gradient-to-t from-black via-black/90 to-transparent px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-10">
           <div className="flex gap-2">
             <button
