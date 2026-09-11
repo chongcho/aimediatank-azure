@@ -762,7 +762,7 @@ model PromotionUsage {
 // Game settings (managed by admin)
 model GameSetting {
   id          String    @id @default(uuid())
-  gameId      String    @unique  // "tetris", "minesweeper", "donkeykong", "pacman", "breakout", "pong"
+  gameId      String    @unique  // "tetris", "minesweeper", "donkeykong", "pacman", "breakout", "pong", "green-read"
   name        String              // Display name
   isEnabled   Boolean   @default(true)
   sortOrder   Int       @default(0)

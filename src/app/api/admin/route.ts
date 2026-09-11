@@ -811,25 +811,28 @@ export async function GET(request: Request) {
         orderBy: { sortOrder: 'asc' },
       })
       
-      // If no game settings exist, create defaults
-      if (games.length === 0) {
-        const defaultGames = [
-          { gameId: 'tetris', name: 'Tetris', isEnabled: true, sortOrder: 0 },
-          { gameId: 'minesweeper', name: 'Minesweeper', isEnabled: true, sortOrder: 1 },
-          { gameId: 'donkeykong', name: 'Donkey Kong', isEnabled: true, sortOrder: 2 },
-          { gameId: 'pacman', name: 'Pac-Man', isEnabled: true, sortOrder: 3 },
-          { gameId: 'breakout', name: 'Block Breaker', isEnabled: true, sortOrder: 4 },
-          { gameId: 'pong', name: 'Racquetball', isEnabled: true, sortOrder: 5 },
-        ]
-        
-        for (const game of defaultGames) {
-          await prisma.gameSetting.create({ data: game })
-        }
-        
-        games = await prisma.gameSetting.findMany({
-          orderBy: { sortOrder: 'asc' },
+      const defaultGames = [
+        { gameId: 'tetris', name: 'Tetris', isEnabled: true, sortOrder: 0 },
+        { gameId: 'minesweeper', name: 'Minesweeper', isEnabled: true, sortOrder: 1 },
+        { gameId: 'donkeykong', name: 'Donkey Kong', isEnabled: true, sortOrder: 2 },
+        { gameId: 'pacman', name: 'Pac-Man', isEnabled: true, sortOrder: 3 },
+        { gameId: 'breakout', name: 'Block Breaker', isEnabled: true, sortOrder: 4 },
+        { gameId: 'pong', name: 'Racquetball', isEnabled: true, sortOrder: 5 },
+        { gameId: 'green-read', name: 'Green Read', isEnabled: true, sortOrder: 6 },
+      ]
+
+      // Create defaults when empty; also upsert any newly shipped games on existing installs.
+      for (const game of defaultGames) {
+        await prisma.gameSetting.upsert({
+          where: { gameId: game.gameId },
+          create: game,
+          update: {},
         })
       }
+
+      games = await prisma.gameSetting.findMany({
+        orderBy: { sortOrder: 'asc' },
+      })
       
       return NextResponse.json({ games })
     }

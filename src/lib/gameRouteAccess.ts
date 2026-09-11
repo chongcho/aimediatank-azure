@@ -6,6 +6,7 @@ export const VALID_GAME_IDS = [
   'pacman',
   'breakout',
   'pong',
+  'green-read',
 ] as const
 
 export type ParsedGamePath =

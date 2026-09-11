@@ -183,6 +183,18 @@ function PongIcon() {
   )
 }
 
+// Green Read Icon — on-course putting assist
+function GreenReadIcon() {
+  return (
+    <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-b from-emerald-700 to-emerald-900">
+      <div className="absolute inset-x-2 top-3 h-10 rounded-full bg-emerald-500/40" />
+      <div className="absolute bottom-5 left-4 h-3 w-3 rounded-full bg-white shadow" />
+      <div className="absolute right-5 top-6 h-4 w-4 rounded-full border-2 border-yellow-300 bg-black" />
+      <div className="absolute bottom-6 left-6 h-8 w-10 rotate-[-18deg] border-t-2 border-yellow-300" />
+    </div>
+  )
+}
+
 // Game icons mapping
 const gameIcons: Record<string, React.ReactNode> = {
   tetris: <TetrisIcon />,
@@ -191,6 +203,7 @@ const gameIcons: Record<string, React.ReactNode> = {
   pacman: <PacManIcon />,
   breakout: <BlockBreakerIcon />,
   pong: <PongIcon />,
+  'green-read': <GreenReadIcon />,
 }
 
 export default function PlayPage() {
@@ -213,6 +226,7 @@ export default function PlayPage() {
           { gameId: 'pacman', name: 'Pac-Man', isEnabled: true },
           { gameId: 'breakout', name: 'Block Breaker', isEnabled: true },
           { gameId: 'pong', name: 'Racquetball', isEnabled: true },
+          { gameId: 'green-read', name: 'Green Read', isEnabled: true },
         ])
       } finally {
         setLoading(false)

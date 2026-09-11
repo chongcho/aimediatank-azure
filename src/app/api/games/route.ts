@@ -3,6 +3,27 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
+const DEFAULT_GAMES = [
+  { gameId: 'tetris', name: 'Tetris', isEnabled: true, sortOrder: 0 },
+  { gameId: 'minesweeper', name: 'Minesweeper', isEnabled: true, sortOrder: 1 },
+  { gameId: 'donkeykong', name: 'Donkey Kong', isEnabled: true, sortOrder: 2 },
+  { gameId: 'pacman', name: 'Pac-Man', isEnabled: true, sortOrder: 3 },
+  { gameId: 'breakout', name: 'Block Breaker', isEnabled: true, sortOrder: 4 },
+  { gameId: 'pong', name: 'Racquetball', isEnabled: true, sortOrder: 5 },
+  { gameId: 'green-read', name: 'Green Read', isEnabled: true, sortOrder: 6 },
+] as const
+
+/** Ensure newly shipped games exist for installs that already have GameSetting rows. */
+async function ensureKnownGames() {
+  for (const game of DEFAULT_GAMES) {
+    await prisma.gameSetting.upsert({
+      where: { gameId: game.gameId },
+      create: { ...game },
+      update: {},
+    })
+  }
+}
+
 // GET - Fetch enabled games (public endpoint)
 export async function GET() {
   try {
@@ -12,28 +33,13 @@ export async function GET() {
       data: { name: 'Racquetball' },
     })
 
-    let games = await prisma.gameSetting.findMany({
+    await ensureKnownGames()
+
+    const games = await prisma.gameSetting.findMany({
       where: { isEnabled: true },
       orderBy: { sortOrder: 'asc' },
     })
-    
-    // If no game settings exist, return all games as enabled by default
-    if (games.length === 0) {
-      // Check if table is empty
-      const count = await prisma.gameSetting.count()
-      if (count === 0) {
-        // Return default games
-        games = [
-          { id: '1', gameId: 'tetris', name: 'Tetris', isEnabled: true, sortOrder: 0, createdAt: new Date(), updatedAt: new Date() },
-          { id: '2', gameId: 'minesweeper', name: 'Minesweeper', isEnabled: true, sortOrder: 1, createdAt: new Date(), updatedAt: new Date() },
-          { id: '3', gameId: 'donkeykong', name: 'Donkey Kong', isEnabled: true, sortOrder: 2, createdAt: new Date(), updatedAt: new Date() },
-          { id: '4', gameId: 'pacman', name: 'Pac-Man', isEnabled: true, sortOrder: 3, createdAt: new Date(), updatedAt: new Date() },
-          { id: '5', gameId: 'breakout', name: 'Block Breaker', isEnabled: true, sortOrder: 4, createdAt: new Date(), updatedAt: new Date() },
-          { id: '6', gameId: 'pong', name: 'Racquetball', isEnabled: true, sortOrder: 5, createdAt: new Date(), updatedAt: new Date() },
-        ]
-      }
-    }
-    
+
     return NextResponse.json({ games })
   } catch (error) {
     console.error('Error fetching games:', error)
