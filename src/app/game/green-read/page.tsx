@@ -11,6 +11,8 @@ type Vec = { x: number; y: number }
 const BREAK_MAX = 100
 const TILT_FULL_DEG = 18
 const SLOPE_FULL_DEG = 8
+/** Default steepness when not using live phone tilt. */
+const DEFAULT_SLOPE_PCT = 3
 /** Low-res grid for green-surface detection (mobile-friendly). */
 const MASK_W = 160
 const MASK_H = 284
@@ -266,7 +268,6 @@ export default function GreenReadPage() {
   const [tiltLive, setTiltLive] = useState(0)
   const [tiltFall, setTiltFall] = useState<Vec>({ x: 0.15, y: 0.55 })
   const [tiltSlopePct, setTiltSlopePct] = useState(2.5)
-  const [manualSlopePct, setManualSlopePct] = useState(3)
   const [dragging, setDragging] = useState<'ball' | 'hole' | null>(null)
   const [showStatus, setShowStatus] = useState(true)
   const [, setStageSize] = useState({ w: 390, h: 700 })
@@ -423,7 +424,7 @@ export default function GreenReadPage() {
     return unit({ x: breakAmt / BREAK_MAX, y: 0.65 })
   }, [ball, hole, breakAmt, breakSource, tiltFall])
 
-  const slopePct = breakSource === 'tilt' ? tiltSlopePct : manualSlopePct
+  const slopePct = breakSource === 'tilt' ? tiltSlopePct : DEFAULT_SLOPE_PCT
   const undulation = 0.12 + (slopePct / 8) * 0.18
 
   useEffect(() => {
@@ -529,7 +530,7 @@ export default function GreenReadPage() {
           hd[o] = r
           hd[o + 1] = g
           hd[o + 2] = b
-          hd[o + 3] = Math.round(255 * clamp(a * 0.55, 0, 0.62))
+          hd[o + 3] = Math.round(255 * clamp(a * 0.48, 0, 0.5))
         }
       }
 
@@ -541,9 +542,9 @@ export default function GreenReadPage() {
       octx.imageSmoothingQuality = 'high'
       octx.drawImage(tmp, 0, 0, MASK_W, MASK_H, 0, 0, sw, sh)
 
-      // Perspective arrow field on the detected surface
-      const cols = 10
-      const rows = 14
+      // Perspective arrow field — colored to match slope legend, high contrast
+      const cols = 9
+      const rows = 12
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
           const u = (col + 0.5) / cols
@@ -553,23 +554,34 @@ export default function GreenReadPage() {
           const mx = clamp(Math.floor((x / sw) * MASK_W), 0, MASK_W - 1)
           const my = clamp(Math.floor((y / sh) * MASK_H), 0, MASK_H - 1)
           const m = (lastMask?.[my * MASK_W + mx] ?? 0) * corridorWeight(x, y, sw, sh, ballP, holeP)
-          if (m < 0.28) continue
-          const { down } = localSlope(x, y, sw, sh, fallV, und, basePct)
-          const depth = 0.55 + 0.75 * (y / sh) // nearer arrows larger
+          if (m < 0.22) continue
+          const { down, pct } = localSlope(x, y, sw, sh, fallV, und, basePct)
+          const depth = 0.7 + 0.85 * (y / sh) // nearer arrows larger
           const ang = Math.atan2(down.y, down.x)
-          const len = 9 * depth
+          const len = 14 * depth
+          const [cr, cg, cb] = slopeColorRgb(pct)
           octx.save()
           octx.translate(x, y)
           octx.rotate(ang)
-          octx.globalAlpha = clamp(0.35 + m * 0.55, 0.35, 0.9)
-          octx.fillStyle = '#fff'
-          octx.strokeStyle = 'rgba(0,0,0,0.35)'
-          octx.lineWidth = 0.7
+          octx.globalAlpha = 1
+          // Dark halo for sunlight readability
+          octx.fillStyle = 'rgba(0,0,0,0.55)'
+          octx.beginPath()
+          octx.moveTo(len + 1.5, 0)
+          octx.lineTo(-len * 0.5, len * 0.48)
+          octx.lineTo(-len * 0.18, 0)
+          octx.lineTo(-len * 0.5, -len * 0.48)
+          octx.closePath()
+          octx.fill()
+          // Slope-colored arrow matching legend
+          octx.fillStyle = `rgb(${cr},${cg},${cb})`
+          octx.strokeStyle = 'rgba(0,0,0,0.75)'
+          octx.lineWidth = 1.25
           octx.beginPath()
           octx.moveTo(len, 0)
-          octx.lineTo(-len * 0.45, len * 0.38)
-          octx.lineTo(-len * 0.2, 0)
-          octx.lineTo(-len * 0.45, -len * 0.38)
+          octx.lineTo(-len * 0.45, len * 0.4)
+          octx.lineTo(-len * 0.18, 0)
+          octx.lineTo(-len * 0.45, -len * 0.4)
           octx.closePath()
           octx.fill()
           octx.stroke()
@@ -786,7 +798,7 @@ export default function GreenReadPage() {
         {showStatus && (
           <div
             className="pointer-events-none absolute left-3 z-10 rounded-lg bg-black/60 px-2.5 py-2 backdrop-blur-sm"
-            style={{ bottom: 'calc(11.5rem + env(safe-area-inset-bottom))' }}
+            style={{ bottom: 'calc(8.5rem + env(safe-area-inset-bottom))' }}
           >
             <div className="mb-1 text-[10px] font-semibold tracking-wide text-white/80">SLOPE</div>
             <div className="flex h-2.5 w-44 overflow-hidden rounded-sm">
@@ -844,51 +856,23 @@ export default function GreenReadPage() {
             className="rounded-xl bg-black/55 p-3 backdrop-blur-sm"
             onPointerDown={(e) => e.stopPropagation()}
           >
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold">{breakLabel(breakAmt)}</span>
-              <span className="text-[11px] text-white/60">
-                {breakSource === 'tilt' ? 'Tilt live' : 'Manual'}
-              </span>
+            <div className="mb-2 text-center text-[11px] text-white/70">
+              {breakSource === 'tilt'
+                ? `${breakLabel(breakAmt)} · tilt live`
+                : 'Straight putt · or enable phone tilt'}
             </div>
-            <input
-              type="range"
-              min={-BREAK_MAX}
-              max={BREAK_MAX}
-              step={1}
-              value={breakAmt}
-              onChange={(e) => {
-                setBreakSource('manual')
-                setBreakAmt(Number(e.target.value))
-              }}
-              className="h-9 w-full accent-emerald-400"
-              aria-label="Break amount"
-            />
-            {breakSource === 'manual' && (
-              <>
-                <div className="mb-1 mt-2 flex items-center justify-between text-[11px] text-white/70">
-                  <span>Slope steepness</span>
-                  <span>{manualSlopePct.toFixed(1)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0.5}
-                  max={8}
-                  step={0.1}
-                  value={manualSlopePct}
-                  onChange={(e) => setManualSlopePct(Number(e.target.value))}
-                  className="h-8 w-full accent-orange-400"
-                  aria-label="Slope percent"
-                />
-              </>
-            )}
-            <div className="mt-2 flex gap-2">
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setBreakSource('manual')
                   setBreakAmt(0)
                 }}
-                className="flex-1 rounded-lg bg-white/10 py-2 text-xs font-semibold"
+                className={`flex-1 rounded-lg py-2.5 text-xs font-semibold ${
+                  breakSource === 'manual' && Math.abs(breakAmt) < 3
+                    ? 'bg-white text-black'
+                    : 'bg-white/10'
+                }`}
               >
                 Straight
               </button>
@@ -896,7 +880,7 @@ export default function GreenReadPage() {
                 <button
                   type="button"
                   onClick={() => void enableTilt()}
-                  className={`flex-1 rounded-lg py-2 text-xs font-semibold ${
+                  className={`flex-1 rounded-lg py-2.5 text-xs font-semibold ${
                     breakSource === 'tilt' ? 'bg-cyan-400 text-black' : 'bg-white/10'
                   }`}
                 >
