@@ -8,6 +8,7 @@ import { HomePreplayFocusProvider } from '@/contexts/HomePreplayFocusContext'
 import LiveChat from '@/components/LiveChat'
 import MarketingPopup from '@/components/MarketingPopup'
 import { getHomeFeed, saveHomeFeed } from '@/lib/homePrefetchCache'
+import { registerHomeFeedNav, unregisterHomeFeedNav } from '@/lib/homeFeedNav'
 import { getNativePlatform } from '@/lib/nativeShellBoot'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { useFeedGridAutoTranslation } from '@/hooks/useFeedGridAutoTranslation'
@@ -134,6 +135,22 @@ function HomeContent() {
   // Keep current filters in a ref so load-more (effect with [page]) always uses latest sort/type/search
   const filtersRef = useRef({ sort: 'popular', type: null as string | null, search: '' })
   filtersRef.current = { sort, type, search }
+
+  registerHomeFeedNav({
+    exitSearchMode: () => {
+      const hadSearch = Boolean(filtersRef.current.search)
+      setSearch('')
+      setSuggestions([])
+      setUserSuggestions([])
+      setShowSuggestions(false)
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
+      filtersRef.current = { ...filtersRef.current, search: '' }
+      return hadSearch
+    },
+  })
   const pageRef = useRef(page)
   pageRef.current = page
   const hasMoreRef = useRef(hasMore)
@@ -264,80 +281,122 @@ function HomeContent() {
     return out
   }, [media, columns, isGridLayout])
 
-  // When user clicks Home/All while already on homepage, reset feed and refetch page 1 (so "Most Recent" is the true first page)
-  useEffect(() => {
-    const handler = () => {
-      setPage(1)
-      setMedia([])
-      setHasMore(true)
-      setLoading(true)
-      const { sort: s, type: t, search: q } = filtersRef.current
-      const params = new URLSearchParams({ sort: s, page: '1', limit: '20' })
-      if (t) params.set('type', t)
-      if (q?.startsWith('@')) params.set('user', q.slice(1))
-      else if (q) params.set('search', q)
-      fetch(`/api/media?${params}`, { cache: 'no-store' })
-        .then((res) => res.json())
-        .then((data) => {
-          const list = (data.media || []).map((m: Media) => ({ ...m, _page: 1 }))
-          mediaFiltersRef.current = { sort: s, type: t, search: q }
-          setMedia(list)
-          setHasMore((data.pagination?.totalPages ?? 1) > 1)
-        })
-        .catch((err) => console.error('Home refresh failed:', err))
-        .finally(() => setLoading(false))
+  const exitSearchMode = useCallback(() => {
+    setSearch('')
+    setSuggestions([])
+    setUserSuggestions([])
+    setShowSuggestions(false)
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
     }
-    window.addEventListener('homeRefreshRequested', handler)
-    return () => window.removeEventListener('homeRefreshRequested', handler)
   }, [])
 
-  // Handle filter changes dispatched from the navbar. These bypass the Next.js
-  // router (using replaceState instead of Link) to preserve the @modal parallel
-  // route context needed for intercepted routes to keep working.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail
-      const newType: string | null = detail?.type ?? null
+  const homeRefreshHandlerRef = useRef<(e: Event) => void>(() => {})
+  homeRefreshHandlerRef.current = (e: Event) => {
+    const force = Boolean((e as CustomEvent).detail?.force)
+    const hadSearch = Boolean(filtersRef.current.search)
+    if (!force && !hadSearch) return
 
-      filterChangeFromNavRef.current = true
+    // Home should leave search and show the default (All) feed.
+    if (hadSearch) {
+      exitSearchMode()
+      filtersRef.current = { ...filtersRef.current, search: '', type: null }
       filterOwnedByNavRef.current = true
       restoreStateRef.current = null
       isRestoringRef.current = false
       activeRestoreRunIdRef.current = null
       scrollRestoredRef.current = false
-      setType(newType)
-      setPage(1)
-      setMedia([])
-      setHasMore(true)
-      setLoading(true)
+      setType(null)
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState(window.history.state, '', '/')
+      }
       document.body.scrollTop = 0
-
-      const s = filtersRef.current.sort
-      const q = filtersRef.current.search
-      const params = new URLSearchParams({ sort: s, page: '1', limit: '20' })
-      if (newType) params.set('type', newType)
-      if (q?.startsWith('@')) params.set('user', q.slice(1))
-      else if (q) params.set('search', q)
-
-      fetch(`/api/media?${params}`, { cache: 'no-store' })
-        .then((res) => res.json())
-        .then((data) => {
-          const list = (data.media || []).map((m: Media) => ({ ...m, _page: 1 }))
-          mediaFiltersRef.current = { sort: s, type: newType, search: q }
-          setMedia(list)
-          setHasMore((data.pagination?.totalPages ?? 1) > 1)
-        })
-        .catch((err) => console.error('Filter change failed:', err))
-        .finally(() => {
-          setLoading(false)
-          filterChangeFromNavRef.current = false
-          document.body.scrollTop = 0
-          requestAnimationFrame(() => { document.body.scrollTop = 0 })
-          setTimeout(() => { document.body.scrollTop = 0 }, 100)
-        })
+      return
     }
+
+    setPage(1)
+    setMedia([])
+    setHasMore(true)
+    setLoading(true)
+    const { sort: s, type: t } = filtersRef.current
+    const params = new URLSearchParams({ sort: s, page: '1', limit: '20' })
+    if (t) params.set('type', t)
+    fetch(`/api/media?${params}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        const list = (data.media || []).map((m: Media) => ({ ...m, _page: 1 }))
+        mediaFiltersRef.current = { sort: s, type: t, search: '' }
+        setMedia(list)
+        setHasMore((data.pagination?.totalPages ?? 1) > 1)
+      })
+      .catch((err) => console.error('Home refresh failed:', err))
+      .finally(() => setLoading(false))
+  }
+
+  // When user clicks Home while already on homepage, reset feed and refetch page 1.
+  useEffect(() => {
+    const handler = (e: Event) => homeRefreshHandlerRef.current(e)
+    window.addEventListener('homeRefreshRequested', handler)
+    return () => window.removeEventListener('homeRefreshRequested', handler)
+  }, [])
+
+  const homeFilterChangeHandlerRef = useRef<(e: Event) => void>(() => {})
+  homeFilterChangeHandlerRef.current = (e: Event) => {
+    const detail = (e as CustomEvent).detail
+    const newType: string | null = detail?.type ?? null
+
+    exitSearchMode()
+    filtersRef.current = { ...filtersRef.current, search: '', type: newType }
+
+    filterChangeFromNavRef.current = true
+    filterOwnedByNavRef.current = true
+    restoreStateRef.current = null
+    isRestoringRef.current = false
+    activeRestoreRunIdRef.current = null
+    scrollRestoredRef.current = false
+    setType(newType)
+    setPage(1)
+    setMedia([])
+    setHasMore(true)
+    setLoading(true)
+    document.body.scrollTop = 0
+
+    const s = filtersRef.current.sort
+    const params = new URLSearchParams({ sort: s, page: '1', limit: '20' })
+    if (newType) params.set('type', newType)
+
+    fetch(`/api/media?${params}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        const list = (data.media || []).map((m: Media) => ({ ...m, _page: 1 }))
+        mediaFiltersRef.current = { sort: s, type: newType, search: '' }
+        setMedia(list)
+        setHasMore((data.pagination?.totalPages ?? 1) > 1)
+      })
+      .catch((err) => console.error('Filter change failed:', err))
+      .finally(() => {
+        setLoading(false)
+        document.body.scrollTop = 0
+        requestAnimationFrame(() => { document.body.scrollTop = 0 })
+        setTimeout(() => { document.body.scrollTop = 0 }, 100)
+      })
+    setTimeout(() => {
+      filterChangeFromNavRef.current = false
+    }, 0)
+  }
+
+  // Handle filter changes dispatched from the navbar. These bypass the Next.js
+  // router (using replaceState instead of Link) to preserve the @modal parallel
+  // route context needed for intercepted routes to keep working.
+  // Search is cleared here; the [sort, type, search] effect fetches the unfiltered view.
+  useEffect(() => {
+    const handler = (e: Event) => homeFilterChangeHandlerRef.current(e)
     window.addEventListener('homeFilterChange', handler)
-    return () => window.removeEventListener('homeFilterChange', handler)
+    return () => {
+      window.removeEventListener('homeFilterChange', handler)
+      unregisterHomeFeedNav()
+    }
   }, [])
 
   // Check for pending scroll restoration on mount, or scroll to top

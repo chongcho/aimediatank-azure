@@ -9,6 +9,7 @@ import dynamic from 'next/dynamic'
 import { setAppBadge, clearAppBadge, calculateTotalNotifications, isInstalledPWA, requestNotificationPermission } from '@/lib/appBadge'
 import { playNotificationSound, unlockNotificationAudio } from '@/lib/notificationSound'
 import { clearHomeFeed } from '@/lib/homePrefetchCache'
+import { exitHomeSearchMode } from '@/lib/homeFeedNav'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
 import { goToAdminPanel } from '@/lib/adminPanelNav'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
@@ -243,8 +244,16 @@ function NavbarContent() {
 
       if (pathname === '/') {
         document.body.scrollTop = 0
-        if (options?.refreshIfAlreadyHome) {
-          window.dispatchEvent(new Event('homeRefreshRequested'))
+        const hadSearch = exitHomeSearchMode()
+        if (hadSearch) {
+          window.history.replaceState(window.history.state, '', '/')
+          window.dispatchEvent(new CustomEvent('homeFilterChange', {
+            detail: { type: null, clearSearch: true },
+          }))
+        } else if (options?.refreshIfAlreadyHome) {
+          window.dispatchEvent(new CustomEvent('homeRefreshRequested', {
+            detail: { force: true },
+          }))
         }
         return
       }
@@ -1825,6 +1834,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 
       if (isOnHomePage) {
         window.history.replaceState(window.history.state, '', href)
+        exitHomeSearchMode()
 
         sessionStorage.removeItem('homeScrollState')
         clearHomeFeed()
@@ -1832,7 +1842,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
         document.body.scrollTop = 0
         const url = new URL(href, window.location.origin)
         window.dispatchEvent(new CustomEvent('homeFilterChange', {
-          detail: { type: url.searchParams.get('type') }
+          detail: { type: url.searchParams.get('type'), clearSearch: true }
         }))
       } else {
         if (href === '/') {
@@ -1882,6 +1892,7 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
     if ((href === '/' || href.startsWith('/?')) && isOnHomePage) {
       dismissTalkChatBeforeHomeNav()
       window.history.replaceState(window.history.state, '', href)
+      exitHomeSearchMode()
 
       sessionStorage.removeItem('homeScrollState')
       clearHomeFeed()
@@ -1889,7 +1900,7 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
       document.body.scrollTop = 0
       const url = new URL(href, window.location.origin)
       window.dispatchEvent(new CustomEvent('homeFilterChange', {
-        detail: { type: url.searchParams.get('type') }
+        detail: { type: url.searchParams.get('type'), clearSearch: true }
       }))
     } else {
       if (href === '/') {
