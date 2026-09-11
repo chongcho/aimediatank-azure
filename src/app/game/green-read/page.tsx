@@ -168,8 +168,8 @@ function greenConfidence(r: number, g: number, b: number): number {
 }
 
 function blurMask(src: Float32Array, w: number, h: number, passes = 2): Float32Array {
-  let a = src
-  let b = new Float32Array(w * h)
+  let a: Float32Array = new Float32Array(src)
+  let b: Float32Array = new Float32Array(w * h)
   for (let p = 0; p < passes; p++) {
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
