@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 type Point = { x: number; y: number }
 type PlaceMode = 'ball' | 'hole'
-type BreakSource = 'manual' | 'tilt'
+type BreakSource = 'manual' | 'tilt' | 'auto'
 type Vec = { x: number; y: number }
 
 const BREAK_MAX = 100
@@ -241,6 +241,197 @@ function FlagPin({ x, y }: { x: number; y: number }) {
   )
 }
 
+function isBrightCandidate(r: number, g: number, b: number): boolean {
+  const avg = (r + g + b) / 3
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const s = max === 0 ? 0 : (max - min) / max
+  return avg >= 168 && max >= 185 && s <= 0.34
+}
+
+function isStickCandidate(r: number, g: number, b: number): boolean {
+  const avg = (r + g + b) / 3
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const s = max === 0 ? 0 : (max - min) / max
+  return avg >= 130 && max >= 145 && s <= 0.38
+}
+
+function isDarkCup(r: number, g: number, b: number): boolean {
+  return (r + g + b) / 3 < 58 && Math.max(r, g, b) < 85
+}
+
+type DetectBlob = { x: number; y: number; score: number }
+
+/** Bright circular blob on grass ≈ golf ball. */
+function detectBallBlob(
+  data: Uint8ClampedArray,
+  w: number,
+  h: number,
+  green: Float32Array,
+): DetectBlob | null {
+  const visited = new Uint8Array(w * h)
+  let best: DetectBlob | null = null
+
+  for (let y = 2; y < h - 2; y++) {
+    for (let x = 2; x < w - 2; x++) {
+      const start = y * w + x
+      if (visited[start]) continue
+      const o0 = start * 4
+      if (!isBrightCandidate(data[o0], data[o0 + 1], data[o0 + 2])) continue
+
+      const stack = [start]
+      visited[start] = 1
+      let n = 0
+      let sx = 0
+      let sy = 0
+      let minX = x
+      let maxX = x
+      let minY = y
+      let maxY = y
+
+      while (stack.length && n < 220) {
+        const p = stack.pop()!
+        const cx = p % w
+        const cy = (p / w) | 0
+        n++
+        sx += cx
+        sy += cy
+        minX = Math.min(minX, cx)
+        maxX = Math.max(maxX, cx)
+        minY = Math.min(minY, cy)
+        maxY = Math.max(maxY, cy)
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue
+            const nx = cx + dx
+            const ny = cy + dy
+            if (nx < 1 || ny < 1 || nx >= w - 1 || ny >= h - 1) continue
+            const ni = ny * w + nx
+            if (visited[ni]) continue
+            const no = ni * 4
+            if (!isBrightCandidate(data[no], data[no + 1], data[no + 2])) continue
+            visited[ni] = 1
+            stack.push(ni)
+          }
+        }
+      }
+
+      if (n < 4 || n > 90) continue
+      const bw = maxX - minX + 1
+      const bh = maxY - minY + 1
+      const aspect = bw / Math.max(1, bh)
+      if (aspect < 0.45 || aspect > 2.2) continue
+      const cx = sx / n
+      const cy = sy / n
+
+      // Prefer blobs sitting on green (not sky / sand glare)
+      let greenRing = 0
+      let ringN = 0
+      for (let a = 0; a < 12; a++) {
+        const ang = (a / 12) * Math.PI * 2
+        const rx = clamp(Math.round(cx + Math.cos(ang) * Math.max(3, bw)), 0, w - 1)
+        const ry = clamp(Math.round(cy + Math.sin(ang) * Math.max(3, bh)), 0, h - 1)
+        greenRing += green[ry * w + rx]
+        ringN++
+      }
+      const gAvg = greenRing / Math.max(1, ringN)
+      if (gAvg < 0.12) continue
+
+      const area = Math.max(1, bw * bh)
+      const circularity = n / area
+      const score = n * (0.4 + gAvg) * (0.35 + circularity) * (cy / h + 0.35)
+      if (!best || score > best.score) best = { x: cx, y: cy, score }
+    }
+  }
+  return best && best.score > 2.2 ? best : null
+}
+
+/** Tall bright stick + dark cup ≈ flag / hole. */
+function detectPinBase(
+  data: Uint8ClampedArray,
+  w: number,
+  h: number,
+  avoid: DetectBlob | null,
+): DetectBlob | null {
+  let best: DetectBlob | null = null
+
+  for (let x = 2; x < w - 2; x++) {
+    let run = 0
+    let maxRun = 0
+    let stickPixels = 0
+    let bottom = 0
+    let top = h
+
+    for (let y = 0; y < h; y++) {
+      let hit = false
+      for (let dx = -1; dx <= 1; dx++) {
+        const o = (y * w + x + dx) * 4
+        if (isStickCandidate(data[o], data[o + 1], data[o + 2])) {
+          hit = true
+          break
+        }
+      }
+      if (hit) {
+        if (run === 0) top = y
+        run++
+        stickPixels++
+        bottom = y
+        if (run > maxRun) maxRun = run
+      } else {
+        run = 0
+      }
+    }
+
+    if (maxRun < 7 || stickPixels < 8) continue
+
+    let cup = 0
+    for (let dy = -1; dy <= 5; dy++) {
+      for (let dx = -4; dx <= 4; dx++) {
+        const yy = bottom + dy
+        const xx = x + dx
+        if (yy < 0 || yy >= h || xx < 0 || xx >= w) continue
+        const o = (yy * w + xx) * 4
+        if (isDarkCup(data[o], data[o + 1], data[o + 2])) cup++
+      }
+    }
+
+    let score = maxRun * 3.2 + stickPixels * 0.2 + cup * 2.4
+    // Prefer taller thin poles over big white glare patches
+    const height = Math.max(1, bottom - top)
+    score *= 0.7 + Math.min(1.4, height / 28)
+
+    if (avoid) {
+      const dist = Math.hypot(x - avoid.x, bottom - avoid.y)
+      if (dist < 10) continue
+      // slight preference for separation from ball
+      score *= 0.85 + Math.min(0.4, dist / 80)
+    }
+
+    if (!best || score > best.score) best = { x, y: bottom, score }
+  }
+
+  return best && best.score > 28 ? best : null
+}
+
+function suggestBreakFromFall(ball: Point, hole: Point, fall: Vec, slopePct: number): number {
+  const dx = hole.x - ball.x
+  const dy = hole.y - ball.y
+  const len = Math.hypot(dx, dy) || 1
+  const px = -dy / len
+  const py = dx / len
+  const side = fall.x * px + fall.y * py
+  return clamp(side * (slopePct / 3.2) * 58, -BREAK_MAX, BREAK_MAX)
+}
+
+function emaPoint(prev: Point | null, next: Point, alpha = 0.35): Point {
+  if (!prev) return next
+  return {
+    x: prev.x * (1 - alpha) + next.x * alpha,
+    y: prev.y * (1 - alpha) + next.y * alpha,
+  }
+}
+
 export default function GreenReadPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -255,6 +446,12 @@ export default function GreenReadPage() {
   const ballRef = useRef<Point | null>(null)
   const holeRef = useRef<Point | null>(null)
   const stageSizeRef = useRef({ w: 390, h: 700 })
+  const autoDetectRef = useRef(true)
+  const ballManualRef = useRef(false)
+  const holeManualRef = useRef(false)
+  const breakSourceRef = useRef<BreakSource>('auto')
+  const draggingRef = useRef<'ball' | 'hole' | null>(null)
+  const lastDetectPushRef = useRef(0)
 
   const [cameraError, setCameraError] = useState('')
   const [cameraReady, setCameraReady] = useState(false)
@@ -262,7 +459,7 @@ export default function GreenReadPage() {
   const [ball, setBall] = useState<Point | null>(null)
   const [hole, setHole] = useState<Point | null>(null)
   const [breakAmt, setBreakAmt] = useState(0)
-  const [breakSource, setBreakSource] = useState<BreakSource>('manual')
+  const [breakSource, setBreakSource] = useState<BreakSource>('auto')
   const [tiltSupported, setTiltSupported] = useState(false)
   const [tiltPermission, setTiltPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown')
   const [tiltLive, setTiltLive] = useState(0)
@@ -273,6 +470,8 @@ export default function GreenReadPage() {
   const [, setStageSize] = useState({ w: 390, h: 700 })
   const [surfaceLocked, setSurfaceLocked] = useState(false)
   const surfaceLockedRef = useRef(false)
+  const [autoDetect, setAutoDetect] = useState(true)
+  const [detectLabel, setDetectLabel] = useState('Scanning for ball & flag…')
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -408,7 +607,10 @@ export default function GreenReadPage() {
   }, [tiltLive])
 
   const fall = useMemo(() => {
-    if (breakSource === 'tilt') return tiltFall
+    if (breakSource === 'tilt' || breakSource === 'auto') {
+      // Keep fall independent of breakAmt so auto guide does not feedback-loop
+      return unit({ x: tiltFall.x * 0.9, y: Math.max(0.35, tiltFall.y) })
+    }
     if (ball && hole) {
       const dx = hole.x - ball.x
       const dy = hole.y - ball.y
@@ -434,9 +636,12 @@ export default function GreenReadPage() {
     showStatusRef.current = showStatus
     ballRef.current = ball
     holeRef.current = hole
-  }, [fall, slopePct, undulation, showStatus, ball, hole])
+    autoDetectRef.current = autoDetect
+    breakSourceRef.current = breakSource
+    draggingRef.current = dragging
+  }, [fall, slopePct, undulation, showStatus, ball, hole, autoDetect, breakSource, dragging])
 
-  // Live overlay: mask to detected green surface (no fixed trapezoid).
+  // Live overlay + ball/flag detection from the camera frame.
   useEffect(() => {
     if (!cameraReady) return
     const video = videoRef.current
@@ -454,10 +659,14 @@ export default function GreenReadPage() {
     let raf = 0
     let alive = true
     let lastMask: Float32Array | null = null
+    let smoothBall: Point | null = null
+    let smoothHole: Point | null = null
+    let frameCount = 0
 
     const paint = () => {
       if (!alive) return
       raf = requestAnimationFrame(paint)
+      frameCount++
 
       const { w: sw, h: sh } = stageSizeRef.current
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
@@ -470,13 +679,6 @@ export default function GreenReadPage() {
       octx.setTransform(dpr, 0, 0, dpr, 0, 0)
       octx.clearRect(0, 0, sw, sh)
 
-      if (!showStatusRef.current) {
-        if (surfaceLockedRef.current) {
-          surfaceLockedRef.current = false
-          setSurfaceLocked(false)
-        }
-        return
-      }
       if (video.readyState < 2 || video.videoWidth < 2) return
 
       // object-cover sample of the live camera into a small buffer
@@ -504,6 +706,65 @@ export default function GreenReadPage() {
         surfaceLockedRef.current = locked
         setSurfaceLocked(locked)
       }
+
+      // Detect ball + flag every other frame (cheaper on phones)
+      if (autoDetectRef.current && !draggingRef.current && frameCount % 2 === 0) {
+        const ballBlob = !ballManualRef.current ? detectBallBlob(data, MASK_W, MASK_H, soft) : null
+        const pinBlob = !holeManualRef.current
+          ? detectPinBase(data, MASK_W, MASK_H, ballBlob)
+          : null
+
+        if (ballBlob) {
+          const next = {
+            x: ((ballBlob.x + 0.5) / MASK_W) * sw,
+            y: ((ballBlob.y + 0.5) / MASK_H) * sh,
+          }
+          smoothBall = emaPoint(smoothBall, next, 0.4)
+        }
+        if (pinBlob) {
+          const next = {
+            x: ((pinBlob.x + 0.5) / MASK_W) * sw,
+            y: ((pinBlob.y + 0.5) / MASK_H) * sh,
+          }
+          smoothHole = emaPoint(smoothHole, next, 0.35)
+        }
+
+        const now = performance.now()
+        if (now - lastDetectPushRef.current > 120) {
+          lastDetectPushRef.current = now
+          if (!ballManualRef.current && smoothBall) {
+            ballRef.current = smoothBall
+            setBall(smoothBall)
+          }
+          if (!holeManualRef.current && smoothHole) {
+            holeRef.current = smoothHole
+            setHole(smoothHole)
+          }
+
+          const b = ballManualRef.current ? ballRef.current : smoothBall
+          const hpt = holeManualRef.current ? holeRef.current : smoothHole
+          if (b && hpt) {
+            setDetectLabel('Ball & flag locked · guide line ready')
+            if (breakSourceRef.current === 'auto') {
+              const suggested = suggestBreakFromFall(
+                b,
+                hpt,
+                fallRef.current,
+                slopePctRef.current,
+              )
+              setBreakAmt(suggested)
+            }
+          } else if (b) {
+            setDetectLabel('Ball found · looking for flag…')
+          } else if (hpt) {
+            setDetectLabel('Flag found · looking for ball…')
+          } else {
+            setDetectLabel('Scanning for ball & flag…')
+          }
+        }
+      }
+
+      if (!showStatusRef.current) return
 
       const fallV = fallRef.current
       const basePct = slopePctRef.current
@@ -556,7 +817,7 @@ export default function GreenReadPage() {
           const m = (lastMask?.[my * MASK_W + mx] ?? 0) * corridorWeight(x, y, sw, sh, ballP, holeP)
           if (m < 0.22) continue
           const { down, pct } = localSlope(x, y, sw, sh, fallV, und, basePct)
-          const depth = 0.7 + 0.85 * (y / sh) // nearer arrows larger
+          const depth = 0.7 + 0.85 * (y / sh)
           const ang = Math.atan2(down.y, down.x)
           const len = 14 * depth
           const [cr, cg, cb] = slopeColorRgb(pct)
@@ -564,7 +825,6 @@ export default function GreenReadPage() {
           octx.translate(x, y)
           octx.rotate(ang)
           octx.globalAlpha = 1
-          // Dark halo for sunlight readability
           octx.fillStyle = 'rgba(0,0,0,0.55)'
           octx.beginPath()
           octx.moveTo(len + 1.5, 0)
@@ -573,7 +833,6 @@ export default function GreenReadPage() {
           octx.lineTo(-len * 0.5, -len * 0.48)
           octx.closePath()
           octx.fill()
-          // Slope-colored arrow matching legend
           octx.fillStyle = `rgb(${cr},${cg},${cb})`
           octx.strokeStyle = 'rgba(0,0,0,0.75)'
           octx.lineWidth = 1.25
@@ -619,19 +878,23 @@ export default function GreenReadPage() {
 
     if (nearPoint(p, ball)) {
       setDragging('ball')
+      ballManualRef.current = true
       setBall(p)
       return
     }
     if (nearPoint(p, hole)) {
       setDragging('hole')
+      holeManualRef.current = true
       setHole(p)
       return
     }
 
     if (placeMode === 'ball' || !ball) {
+      ballManualRef.current = true
       setBall(p)
       setPlaceMode('hole')
     } else {
+      holeManualRef.current = true
       setHole(p)
       setPlaceMode('ball')
     }
@@ -652,7 +915,12 @@ export default function GreenReadPage() {
     setHole(null)
     setPlaceMode('ball')
     setBreakAmt(0)
-    setBreakSource('manual')
+    setBreakSource('auto')
+    ballManualRef.current = false
+    holeManualRef.current = false
+    setAutoDetect(true)
+    autoDetectRef.current = true
+    setDetectLabel('Scanning for ball & flag…')
   }
 
   const path = ball && hole ? buildBreakPath(ball, hole, breakAmt) : null
@@ -775,6 +1043,28 @@ export default function GreenReadPage() {
             <button
               type="button"
               className={`pointer-events-auto rounded-lg px-3 py-2 text-xs font-semibold backdrop-blur-sm ${
+                autoDetect ? 'bg-cyan-400 text-black' : 'bg-black/55 text-white'
+              }`}
+              onClick={(e) => {
+                e.stopPropagation()
+                setAutoDetect((v) => {
+                  const next = !v
+                  autoDetectRef.current = next
+                  if (next) {
+                    ballManualRef.current = false
+                    holeManualRef.current = false
+                    setBreakSource('auto')
+                    setDetectLabel('Scanning for ball & flag…')
+                  }
+                  return next
+                })
+              }}
+            >
+              {autoDetect ? 'Auto detect on' : 'Auto detect off'}
+            </button>
+            <button
+              type="button"
+              className={`pointer-events-auto rounded-lg px-3 py-2 text-xs font-semibold backdrop-blur-sm ${
                 showStatus ? 'bg-emerald-500/90 text-black' : 'bg-black/55 text-white'
               }`}
               onClick={(e) => {
@@ -788,11 +1078,13 @@ export default function GreenReadPage() {
         </div>
 
         <div className="pointer-events-none absolute left-1/2 top-16 w-[90%] -translate-x-1/2 rounded-lg bg-black/50 px-3 py-2 text-center text-xs text-white/90 backdrop-blur-sm sm:top-[4.5rem]">
-          {!ball
-            ? 'Point at the putting green — status drapes on the grass. Tap ball, then cup to focus the read.'
-            : !hole
-              ? 'Tap the cup / flag.'
-              : 'Overlay follows the green surface · arrows = downhill · colors = slope %'}
+          {autoDetect
+            ? detectLabel
+            : !ball
+              ? 'Auto off — tap the ball, then the flag/cup.'
+              : !hole
+                ? 'Tap the cup / flag.'
+                : 'Guide line ready · drag markers to adjust'}
         </div>
 
         {showStatus && (
@@ -859,7 +1151,9 @@ export default function GreenReadPage() {
             <div className="mb-2 text-center text-[11px] text-white/70">
               {breakSource === 'tilt'
                 ? `${breakLabel(breakAmt)} · tilt live`
-                : 'Straight putt · or enable phone tilt'}
+                : breakSource === 'auto'
+                  ? `${breakLabel(breakAmt)} · suggested guide`
+                  : 'Straight putt · or enable phone tilt'}
             </div>
             <div className="flex gap-2">
               <button
@@ -876,6 +1170,20 @@ export default function GreenReadPage() {
               >
                 Straight
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBreakSource('auto')
+                  if (ball && hole) {
+                    setBreakAmt(suggestBreakFromFall(ball, hole, fall, slopePct))
+                  }
+                }}
+                className={`flex-1 rounded-lg py-2.5 text-xs font-semibold ${
+                  breakSource === 'auto' ? 'bg-yellow-300 text-black' : 'bg-white/10'
+                }`}
+              >
+                Auto guide
+              </button>
               {tiltSupported && (
                 <button
                   type="button"
@@ -884,7 +1192,7 @@ export default function GreenReadPage() {
                     breakSource === 'tilt' ? 'bg-cyan-400 text-black' : 'bg-white/10'
                   }`}
                 >
-                  {tiltPermission === 'denied' ? 'Tilt blocked' : 'Use phone tilt'}
+                  {tiltPermission === 'denied' ? 'Tilt blocked' : 'Tilt'}
                 </button>
               )}
             </div>
