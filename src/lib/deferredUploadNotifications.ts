@@ -4,7 +4,6 @@ import { wherePublicHomeFeedVisible } from '@/lib/homeFeedVisibility'
 import { getUploadPlanConfig } from '@/lib/membershipPlans'
 import {
   generateGenericVideoLiveEmail,
-  generatePaidUploadEmail,
   generateStripeUploadFeeCompleteEmail,
   generateUploadConfirmationEmail,
 } from '@/lib/uploadEmailTemplates'
@@ -130,8 +129,6 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
     const planName = `${user.membershipType.charAt(0) + user.membershipType.slice(1).toLowerCase()} Plan`
     const userName = user.name || user.username || 'User'
     const totalUploads = user._count?.media || 0
-    const paidUploadsCount = Math.max(0, totalUploads - config.freeUploads)
-    const totalPaidCost = paidUploadsCount * config.costPerUpload
     const freeUploadsUsed = user.freeUploadsUsed || 0
     const newFreeUploadsRemaining =
       user.membershipType === 'PREMIUM'
@@ -140,7 +137,6 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
     const paidUploadCredits = user.paidUploadCredits || 0
     const bonusCredits = user.bonusCredits || 0
     const remainingCredits = paidUploadCredits + bonusCredits
-    const uploadCost = config.costPerUpload
     const stripeFee = user.membershipType === 'ADVANCED' ? 0.5 : 1.0
 
     const source = notifySource
@@ -203,24 +199,7 @@ export async function notifyUploadLiveAfterVideoProcessing(mediaId: string): Pro
           }
           break
         }
-        case 'per_upload': {
-          if (!hasInAppLiveNotify) {
-            await prisma.notification.create({
-              data: {
-                userId: user.id,
-                type: 'system',
-                title: '💳 Paid Upload',
-                message: `Upload charged: $${uploadCost.toFixed(2)}. Total this period: $${totalPaidCost.toFixed(2)}`,
-                link: mediaLink,
-              },
-            })
-          }
-          mail = {
-            subject: '💳 Paid Upload Processed | AI Media Tank (AMT)',
-            html: generatePaidUploadEmail(userName, media.title, uploadCost, paidUploadsCount, totalPaidCost),
-          }
-          break
-        }
+        case 'per_upload':
         case 'free':
         case 'premium': {
           const notificationMessage =

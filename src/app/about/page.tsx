@@ -97,9 +97,9 @@ const features = [
 ]
 
 const DEFAULT_ABOUT_PLANS = [
-  { id: 'viewer', name: 'Viewer', price: 'Free', period: 'Forever', features: ['Browse all content', 'Purchase media', '5 free uploads', 'Sell content', 'Open Chat, Private Chat & Voice Talk'] },
-  { id: 'basic', name: 'Basic', price: '$2.00', period: '/month', features: ['Everything in Viewer', '5 free uploads/month', '$1.00 per additional upload', 'Unwatermarked downloads', 'Yearly billing available'] },
-  { id: 'advanced', name: 'Advanced', price: '$5.00', period: '/month', features: ['Everything in Basic', '5 free uploads/month', '$0.50 per additional upload', 'Priority support', 'Yearly billing available'] },
+  { id: 'viewer', name: 'Viewer', price: 'Free', period: 'Forever', features: ['Browse all content', 'Purchase media', '5 free uploads/month', 'Sell content', 'Open Chat, Private Chat & Voice Talk'] },
+  { id: 'basic', name: 'Basic', price: '$2.00', period: '/month', features: ['Everything in Viewer', '10 free uploads/month', 'Upgrade membership to continue after the limit', 'Unwatermarked downloads', 'Yearly billing available'] },
+  { id: 'advanced', name: 'Advanced', price: '$5.00', period: '/month', features: ['Everything in Basic', '20 free uploads/month', 'Upgrade membership to continue after the limit', 'Priority support', 'Yearly billing available'] },
   { id: 'premium', name: 'Premium', price: '$8.00', period: '/month', features: ['Everything in Advanced', 'Unlimited free uploads', 'Featured placement', 'Premium creator badge', 'Yearly billing available'] },
 ]
 
@@ -126,7 +126,7 @@ export default function AboutPage() {
                 features: [
                   'Browse all content',
                   'Purchase media',
-                  `${row.freeUploads} free uploads`,
+                  `${row.freeUploads} free uploads/month`,
                   'Sell content',
                   'Open Chat, Private Chat & Voice Talk',
                 ],
@@ -145,17 +145,13 @@ export default function AboutPage() {
                 ],
               }
             }
-            const uploadPrice =
-              row.pricePerUpload == null ? null : Number(row.pricePerUpload).toFixed(2)
             return {
               ...plan,
               price: `$${Number(row.monthlyPrice).toFixed(2)}`,
               features: [
                 plan.id === 'basic' ? 'Everything in Viewer' : 'Everything in Basic',
                 `${row.freeUploads} free uploads/month`,
-                uploadPrice
-                  ? `$${uploadPrice} per additional upload`
-                  : 'Free additional uploads',
+                'Upgrade membership to continue after the limit',
                 plan.id === 'basic' ? 'Unwatermarked downloads' : 'Priority support',
                 'Yearly billing available',
               ],

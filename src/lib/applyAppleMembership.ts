@@ -7,8 +7,8 @@ import {
 } from '@/lib/appleIapCatalog'
 
 const PLAN_UPLOAD_BLURB: Record<string, string> = {
-  basic: '5 free uploads then $1 each',
-  advanced: '5 free uploads then $0.50 each',
+  basic: 'monthly free uploads — upgrade membership to continue after the limit',
+  advanced: 'monthly free uploads — upgrade membership to continue after the limit',
   premium: 'unlimited free uploads',
 }
 

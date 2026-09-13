@@ -3753,52 +3753,6 @@ export default function AdminPage() {
                       ))}
                     </tr>
                     
-                    {/* Price per Upload */}
-                    <tr className="border-b border-gray-400">
-                      <td className="p-4 text-gray-800 font-medium">Price per Upload</td>
-                      {membershipPlans.map((plan) => (
-                        <td key={plan.planId} className="text-center p-3">
-                          {plan.planId === 'viewer' ? (
-                            <span className="text-gray-500">—</span>
-                          ) : plan.planId === 'premium' ? (
-                            <span className="text-gray-700 font-medium">Free</span>
-                          ) : (
-                            <div className="flex items-center justify-center gap-1">
-                              <span className="text-gray-700">$</span>
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                key={`upload-${plan.planId}-${plan.pricePerUpload}`}
-                                defaultValue={plan.pricePerUpload != null ? Number(plan.pricePerUpload).toFixed(2) : ''}
-                                onBlur={(e) => {
-                                  const raw = e.target.value.trim()
-                                  if (raw === '') {
-                                    if (plan.pricePerUpload != null) {
-                                      updateMembershipPlan(plan.planId, 'pricePerUpload', null)
-                                    }
-                                    return
-                                  }
-                                  const n = parseFloat(raw)
-                                  if (Number.isNaN(n) || n < 0) {
-                                    e.target.value = plan.pricePerUpload != null ? Number(plan.pricePerUpload).toFixed(2) : ''
-                                    return
-                                  }
-                                  const rounded = Math.round(n * 100) / 100
-                                  if (rounded !== Number(plan.pricePerUpload)) {
-                                    updateMembershipPlan(plan.planId, 'pricePerUpload', rounded)
-                                  } else {
-                                    e.target.value = rounded.toFixed(2)
-                                  }
-                                }}
-                                disabled={membershipLoading}
-                                className="w-20 px-2 py-1 text-center bg-white border border-gray-400 rounded text-gray-800 focus:outline-none focus:border-blue-500"
-                              />
-                            </div>
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                    
                     {/* View Contents */}
                     <tr className="border-b border-gray-400">
                       <td className="p-4 text-gray-800 font-medium">View Contents</td>
@@ -3858,6 +3812,7 @@ export default function AdminPage() {
               
               <p className="text-gray-400 text-sm mt-4">
                 💡 Changes are saved automatically. Updates will be reflected immediately in the Pricing page.
+                When Free Uploads are exhausted, users must Upgrade Membership (no pay-per-upload).
               </p>
             </div>
           )}

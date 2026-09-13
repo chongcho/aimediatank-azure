@@ -680,8 +680,8 @@ model MembershipPlan {
   name            String              // "Viewer Plan", "Basic Plan", etc.
   monthlyPrice    Float     @default(0)    // Monthly price in USD
   yearlyPrice     Float     @default(0)    // Yearly price in USD
-  freeUploads     Int       @default(5)    // Number of free uploads
-  pricePerUpload  Float?                   // Price per upload after free (null = Free/NA)
+  freeUploads     Int       @default(5)    // Number of free uploads per month
+  pricePerUpload  Float?                   // Deprecated — pay-per-upload removed; unused
   viewContents    Boolean   @default(true)
   buyContents     Boolean   @default(true)
   sellContents    Boolean   @default(true)

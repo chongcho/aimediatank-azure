@@ -6,7 +6,10 @@ import {
   getCreditPool,
   normalizeMembershipType,
 } from '@/lib/uploadPlanConfig'
-import { getUploadPlanConfig } from '@/lib/membershipPlans'
+import {
+  buildMonthlyUploadLimitMessage,
+  getUploadPlanConfig,
+} from '@/lib/membershipPlans'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,8 +58,8 @@ export async function GET() {
     
     const isWithinFreeLimit = freeUploadsRemaining > 0 || membershipType === 'PREMIUM'
     const hasPaidCredits = totalCredits > 0
-    const canUpload = isWithinFreeLimit || hasPaidCredits || config.canUploadAfterFree
-    const nextUploadCost = isWithinFreeLimit || hasPaidCredits ? 0 : config.costPerUpload
+    const canUpload = isWithinFreeLimit || hasPaidCredits
+    const nextUploadCost = 0
     
     // Determine upload status message
     let statusMessage = ''
@@ -78,11 +81,8 @@ export async function GET() {
           ? `🎁 You have ${uploadsAvailable} upload credits (${parts.join(' + ')})`
           : `🎁 You have ${uploadsAvailable} upload credit${uploadsAvailable !== 1 ? 's' : ''}`
       statusType = 'free'
-    } else if (config.canUploadAfterFree) {
-      statusMessage = `💳 Each upload costs $${config.costPerUpload.toFixed(2)}`
-      statusType = 'paid'
     } else {
-      statusMessage = '⚠️ Free uploads exhausted. Upgrade to continue uploading.'
+      statusMessage = buildMonthlyUploadLimitMessage(config.freeUploads)
       statusType = 'blocked'
     }
 
@@ -97,7 +97,7 @@ export async function GET() {
       totalCredits,
       uploadsAvailable,
       creditsUsed,
-      costPerUpload: config.costPerUpload,
+      costPerUpload: 0,
       nextUploadCost,
       canUpload,
       statusMessage,
@@ -105,9 +105,7 @@ export async function GET() {
       planDescription:
         membershipType === 'PREMIUM'
           ? 'Unlimited Free Uploads'
-          : membershipType === 'VIEWER'
-            ? `${config.freeUploads} Free Uploads (upgrade to continue uploading)`
-            : `${config.freeUploads} Free Uploads, then $${config.costPerUpload.toFixed(2)} per upload`,
+          : `${config.freeUploads} Free Uploads / month (upgrade membership to continue after the limit)`,
     })
   } catch (error) {
     console.error('Error getting upload status:', error)

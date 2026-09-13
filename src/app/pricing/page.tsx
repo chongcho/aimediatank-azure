@@ -40,11 +40,11 @@ const PRICING_STRINGS = [
   'Suit for moderate creators',
   'Suit for scale creators',
   'Five Free Uploads',
-  '$1 per Upload after Five Free Uploads',
-  '$0.5 per Upload after Five Free Uploads',
+  'Free Uploads each month — upgrade to continue',
+  'Free Uploads each month — upgrade to continue',
   '5 Free Uploads',
-  '5 Free + $1/upload',
-  '5 Free + $0.5/upload',
+  'Free Uploads / month',
+  'Free Uploads / month',
   'Unlimited Free',
   'Free',
   '/month',
@@ -65,8 +65,8 @@ const PRICING_STRINGS = [
   '5 uploads',
   'Unlimited',
   '—',
-  '$1 per upload',
-  '$0.5 per upload',
+  'Upgrade Membership',
+  'Upgrade Membership',
   'View Contents',
   'Buy Contents',
   'Sell Contents',
@@ -76,7 +76,7 @@ const PRICING_STRINGS = [
   'What payment methods do you accept?',
   'We accept all major credit cards and debit cards through our secure Stripe payment system.',
   'What happens to my uploads if I cancel?',
-  'Your existing uploads will remain on the platform. However, you won\'t be able to upload new content until you resubscribe.',
+  'Your existing uploads will remain on the platform. However, you won\'t be able to upload new content until you resubscribe or upgrade membership after reaching your monthly free upload limit.',
   'Can I upgrade or downgrade?',
   'Yes, you can change your plan at any time using the "Change / Cancel Subscription" button above.',
   'Choose Billing Period',
@@ -208,7 +208,7 @@ const plans = [
     price: 2,
     yearlyPrice: 20,
     freeUploads: 10,
-    pricePerUpload: 1 as number | null,
+    pricePerUpload: null as number | null,
     period: 'month',
     strings: {
       name: S.basicPlan,
@@ -222,7 +222,7 @@ const plans = [
     price: 5,
     yearlyPrice: 50,
     freeUploads: 20,
-    pricePerUpload: 0.5 as number | null,
+    pricePerUpload: null as number | null,
     period: 'month',
     strings: {
       name: S.advancedPlan,
@@ -253,15 +253,12 @@ function formatPlanPrice(n: number): string {
 
 function planUploadCostLabel(plan: (typeof plans)[number]): string {
   if (plan.id === 'premium') return PRICING_STRINGS[S.unlimitedFreeUploads]
-  if (plan.id === 'viewer' || plan.isFree) return `${plan.freeUploads} Free Uploads`
-  if (plan.pricePerUpload == null) return PRICING_STRINGS[S.unlimitedFreeUploads]
-  return `$${formatPlanPrice(plan.pricePerUpload)} per Upload after ${plan.freeUploads} Free Uploads`
+  return `${plan.freeUploads} Free Uploads / month`
 }
 
 function planAfterFreeLabel(plan: (typeof plans)[number]): string {
-  if (plan.id === 'viewer') return PRICING_STRINGS[S.emDash]
-  if (plan.id === 'premium' || plan.pricePerUpload == null) return PRICING_STRINGS[S.free]
-  return `$${formatPlanPrice(plan.pricePerUpload)} per upload`
+  if (plan.id === 'premium') return PRICING_STRINGS[S.unlimited]
+  return PRICING_STRINGS[S.onePerUpload] // "Upgrade Membership"
 }
 
 const comparisonPlanLabels: Record<(typeof plans)[number]['id'], number> = {
@@ -329,10 +326,7 @@ function PricingPageContent() {
               price: Number(row.monthlyPrice) || 0,
               yearlyPrice: Number(row.yearlyPrice) || 0,
               freeUploads: Number(row.freeUploads) || plan.freeUploads,
-              pricePerUpload:
-                row.pricePerUpload == null || row.pricePerUpload === ''
-                  ? null
-                  : Number(row.pricePerUpload),
+              pricePerUpload: null,
             }
           })
         )
@@ -671,14 +665,25 @@ function PricingPageContent() {
                       {tr[S.left]}
                     </span>
                   ) : (
-                    <span className="text-sm text-yellow-400 bg-yellow-500/10 px-3 py-1 rounded-full">
-                      💳 ${uploadStatus.costPerUpload.toFixed(2)}/upload
+                    <span className="text-sm text-red-400 bg-red-500/10 px-3 py-1 rounded-full">
+                      Upload limit reached —{' '}
+                      <button
+                        type="button"
+                        onClick={() => router.push('/pricing')}
+                        className="underline font-semibold text-tank-accent"
+                      >
+                        Upgrade Membership
+                      </button>
                     </span>
                   )}
                 </div>
               ) : (
                 <span className="text-sm text-gray-300 bg-tank-gray px-3 py-1 rounded-full">
-                  {PRICING_STRINGS[getPlanByMembership(currentMembership, livePlans).strings.uploadCostShort]}
+                  {(() => {
+                    const p = getPlanByMembership(currentMembership, livePlans)
+                    if (p.id === 'premium') return PRICING_STRINGS[S.unlimitedFreeUploads]
+                    return `${p.freeUploads} Free Uploads / month`
+                  })()}
                 </span>
               )}
             </div>

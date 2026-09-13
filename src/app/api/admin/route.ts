@@ -2335,8 +2335,8 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: 'Missing planId or field' }, { status: 400 })
         }
         
-        // Validate field name to prevent arbitrary updates
-        const allowedFields = ['monthlyPrice', 'yearlyPrice', 'freeUploads', 'pricePerUpload', 'viewContents', 'buyContents', 'sellContents']
+        // Validate field name to prevent arbitrary updates (pricePerUpload retired)
+        const allowedFields = ['monthlyPrice', 'yearlyPrice', 'freeUploads', 'viewContents', 'buyContents', 'sellContents']
         if (!allowedFields.includes(field)) {
           return NextResponse.json({ error: 'Invalid field' }, { status: 400 })
         }
@@ -2351,7 +2351,7 @@ export async function POST(request: Request) {
         
         // Parse value based on field type
         let parsedValue: any = value
-        if (['monthlyPrice', 'yearlyPrice', 'pricePerUpload'].includes(field)) {
+        if (['monthlyPrice', 'yearlyPrice'].includes(field)) {
           parsedValue = value === null || value === '' ? null : parseFloat(value)
         } else if (field === 'freeUploads') {
           parsedValue = parseInt(value) || 0

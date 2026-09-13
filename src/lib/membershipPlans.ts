@@ -33,7 +33,7 @@ export const DEFAULT_MEMBERSHIP_PLANS: MembershipPlanPublic[] = [
     monthlyPrice: 2,
     yearlyPrice: 20,
     freeUploads: 10,
-    pricePerUpload: 1,
+    pricePerUpload: null,
     viewContents: true,
     buyContents: true,
     sellContents: true,
@@ -45,7 +45,7 @@ export const DEFAULT_MEMBERSHIP_PLANS: MembershipPlanPublic[] = [
     monthlyPrice: 5,
     yearlyPrice: 50,
     freeUploads: 20,
-    pricePerUpload: 0.5,
+    pricePerUpload: null,
     viewContents: true,
     buyContents: true,
     sellContents: true,
@@ -64,6 +64,21 @@ export const DEFAULT_MEMBERSHIP_PLANS: MembershipPlanPublic[] = [
     sortOrder: 3,
   },
 ]
+
+/** Plain-text monthly upload limit copy (Upgrade Membership is linked in UI/email). */
+export function buildMonthlyUploadLimitMessage(freeUploads: number): string {
+  const n = Number.isFinite(freeUploads) ? Math.max(0, Math.floor(freeUploads)) : 0
+  return `You've reached your monthly upload limit of ${n}. To continue posting content, please Upgrade Membership. All other platform features remain fully available for you to enjoy.`
+}
+
+/** HTML variant with Upgrade Membership linked to pricing. */
+export function buildMonthlyUploadLimitHtml(
+  freeUploads: number,
+  upgradeUrl = 'https://aimediatank.com/pricing'
+): string {
+  const n = Number.isFinite(freeUploads) ? Math.max(0, Math.floor(freeUploads)) : 0
+  return `You've reached your monthly upload limit of ${n}. To continue posting content, please <a href="${upgradeUrl}" style="color:#00ff88;font-weight:bold;text-decoration:underline;">Upgrade Membership</a>. All other platform features remain fully available for you to enjoy.`
+}
 
 export const PAID_PLAN_IDS = ['basic', 'advanced', 'premium'] as const
 export type PaidPlanId = (typeof PAID_PLAN_IDS)[number]
@@ -153,28 +168,23 @@ export async function getStripeMembershipCheckoutPlan(planId: string): Promise<{
     name: plan.name.includes('Plan') ? plan.name : `${plan.name} Plan`,
     amount: dollarsToCents(plan.monthlyPrice),
     yearlyAmount: dollarsToCents(plan.yearlyPrice),
-    uploadCost: plan.pricePerUpload == null ? 0 : dollarsToCents(plan.pricePerUpload),
+    // Pay-per-upload removed — membership upgrade only after free allowance.
+    uploadCost: 0,
   }
-}
-
-/** Paid single-upload Stripe amount in cents from MembershipPlan.pricePerUpload. */
-export async function getStripeUploadCostCents(
-  membershipType: string | null | undefined
-): Promise<number | null> {
-  const type = (membershipType || 'VIEWER').trim().toUpperCase()
-  if (type === 'VIEWER' || type === 'PREMIUM') return null
-
-  const plan = await getMembershipPlanById(type.toLowerCase())
-  if (!plan || plan.pricePerUpload == null || plan.pricePerUpload <= 0) {
-    const fallback = type === 'ADVANCED' ? 50 : type === 'BASIC' ? 100 : null
-    return fallback
-  }
-  return dollarsToCents(plan.pricePerUpload)
 }
 
 /**
- * Upload limits/costs for a membership type, driven by MembershipPlan when present.
- * Premium always has unlimited free uploads.
+ * @deprecated Pay-per-upload removed. Always returns null; callers should prompt Upgrade Membership.
+ */
+export async function getStripeUploadCostCents(
+  _membershipType?: string | null
+): Promise<number | null> {
+  return null
+}
+
+/**
+ * Upload limits for a membership type, driven by MembershipPlan when present.
+ * Premium always has unlimited free uploads. Over-limit uploads require upgrading — no pay-per-upload.
  */
 export async function getUploadPlanConfig(membershipType: string | null | undefined): Promise<{
   freeUploads: number
@@ -187,8 +197,8 @@ export async function getUploadPlanConfig(membershipType: string | null | undefi
     { freeUploads: number; costPerUpload: number; canUploadAfterFree: boolean }
   > = {
     VIEWER: { freeUploads: 5, costPerUpload: 0, canUploadAfterFree: false },
-    BASIC: { freeUploads: 10, costPerUpload: 1, canUploadAfterFree: true },
-    ADVANCED: { freeUploads: 20, costPerUpload: 0.5, canUploadAfterFree: true },
+    BASIC: { freeUploads: 10, costPerUpload: 0, canUploadAfterFree: false },
+    ADVANCED: { freeUploads: 20, costPerUpload: 0, canUploadAfterFree: false },
     PREMIUM: { freeUploads: Infinity, costPerUpload: 0, canUploadAfterFree: true },
   }
   const fallback = fallbackByType[type] || fallbackByType.VIEWER
@@ -201,7 +211,7 @@ export async function getUploadPlanConfig(membershipType: string | null | undefi
 
   return {
     freeUploads: Math.max(0, plan.freeUploads),
-    costPerUpload: plan.pricePerUpload ?? 0,
-    canUploadAfterFree: type !== 'VIEWER' && plan.pricePerUpload != null,
+    costPerUpload: 0,
+    canUploadAfterFree: false,
   }
 }

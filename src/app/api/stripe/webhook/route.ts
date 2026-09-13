@@ -7,11 +7,11 @@ import { sendEmail, generatePurchaseEmail, generateMembershipPurchaseEmail } fro
 // Video processing is now handled by Azure Function cron (process-videos)
 // import { processMedia } from '@/lib/mediaProcessor'
 
-// Plan upload conditions for emails
+// Plan upload conditions for emails (pay-per-upload removed)
 const PLAN_CONDITIONS: Record<string, { name: string; uploadCondition: string }> = {
-  viewer: { name: 'Viewer Plan', uploadCondition: 'Five Free Uploads' },
-  basic: { name: 'Basic Plan', uploadCondition: 'Five Free Uploads, then $1 per upload' },
-  advanced: { name: 'Advanced Plan', uploadCondition: 'Five Free Uploads, then $0.5 per upload' },
+  viewer: { name: 'Viewer Plan', uploadCondition: 'Monthly free uploads — upgrade membership to continue after the limit' },
+  basic: { name: 'Basic Plan', uploadCondition: 'Monthly free uploads — upgrade membership to continue after the limit' },
+  advanced: { name: 'Advanced Plan', uploadCondition: 'Monthly free uploads — upgrade membership to continue after the limit' },
   premium: { name: 'Premium Plan', uploadCondition: 'Unlimited Free Uploads' },
 }
 

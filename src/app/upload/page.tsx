@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { compressMedia, type QualitySettings } from '@/lib/mediaCompression'
 import { buildUploadFileSizeExceededMessage } from '@/lib/uploadPlanConfig'
 import { useLanguageModeList, useLanguageModeText } from '@/hooks/useLanguageModeText'
@@ -1093,11 +1094,14 @@ function UploadPageContent() {
       return
     }
 
-    // Check if payment is required (free uploads exhausted for paid plans)
-    // If user has any credits (paid or bonus), they can upload without payment
+    // Pay-per-upload removed — over limit requires membership upgrade (admin credits still work)
     const hasPaidCredits = ((uploadQuota?.paidUploadCredits || 0) + (uploadQuota?.bonusCredits || 0)) > 0
-    if (uploadQuota?.statusType === 'paid' && !uploadPaid && !hasPaidCredits) {
-      setShowPaymentModal(true)
+    if (uploadQuota?.statusType === 'blocked' && !hasPaidCredits) {
+      setError(
+        uploadPageInterpolate(tr[U.limitReachedBody], {
+          limit: String(uploadQuota.freeUploads ?? ''),
+        })
+      )
       return
     }
 
@@ -1248,8 +1252,6 @@ function UploadPageContent() {
         <div className={`mb-6 p-4 rounded-xl border ${
           uploadQuota.statusType === 'free' 
             ? 'bg-tank-accent/10 border-tank-accent/30' 
-            : uploadQuota.statusType === 'paid'
-            ? 'bg-yellow-500/10 border-yellow-500/30'
             : 'bg-red-500/10 border-red-500/30'
         }`}>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -1278,31 +1280,28 @@ function UploadPageContent() {
                       : ''}
                   </p>
                 </>
-              ) : uploadQuota.statusType === 'paid' ? (
-                <p className="font-semibold text-yellow-400">
-                  💳 ${uploadQuota.costPerUpload.toFixed(2)}/upload
-                </p>
               ) : (
-                <p className="font-semibold text-red-400">
-                  ⚠️ {tr[U.uploadsExhausted]}
+                <p className="font-semibold text-red-400 text-sm sm:text-base leading-relaxed">
+                  You&apos;ve reached your monthly upload limit of{' '}
+                  <span className="text-white">{uploadQuota.freeUploads}</span>
+                  . To continue posting content, please{' '}
+                  <Link href="/pricing" className="text-tank-accent underline font-bold">
+                    Upgrade Membership
+                  </Link>
+                  . All other platform features remain fully available for you to enjoy.
                 </p>
               )}
             </div>
           </div>
           {uploadQuota.statusType === 'blocked' && (
             <div className="mt-4 text-center">
-              <button
-                onClick={() => router.push('/pricing')}
-                className="px-6 py-2 bg-tank-accent text-black font-semibold rounded-lg hover:bg-tank-accent/90 transition-all"
+              <Link
+                href="/pricing"
+                className="inline-block px-6 py-2 bg-tank-accent text-black font-semibold rounded-lg hover:bg-tank-accent/90 transition-all"
               >
                 {tr[U.upgradePlanContinue]}
-              </button>
+              </Link>
             </div>
-          )}
-          {uploadQuota.statusType === 'paid' && (
-            <p className="mt-2 text-sm text-yellow-400/80 text-center">
-              💡 {tr[U.upgradePremiumHint]}
-            </p>
           )}
         </div>
       )}
@@ -1312,15 +1311,18 @@ function UploadPageContent() {
         <div className="card text-center py-12">
           <div className="text-6xl mb-4">🔒</div>
           <h2 className="text-xl font-bold mb-2">{tr[U.limitReachedTitle]}</h2>
-          <p className="text-gray-400 mb-6">
-            {tr[U.limitReachedBody]}
+          <p className="text-gray-400 mb-6 max-w-lg mx-auto leading-relaxed">
+            You&apos;ve reached your monthly upload limit of{' '}
+            <span className="text-white font-semibold">{uploadQuota.freeUploads}</span>
+            . To continue posting content, please{' '}
+            <Link href="/pricing" className="text-tank-accent underline font-bold">
+              Upgrade Membership
+            </Link>
+            . All other platform features remain fully available for you to enjoy.
           </p>
-          <button
-            onClick={() => router.push('/pricing')}
-            className="btn-primary"
-          >
+          <Link href="/pricing" className="btn-primary inline-block">
             {tr[U.viewPlans]}
-          </button>
+          </Link>
         </div>
       ) : (
       <div className="card">
@@ -2058,66 +2060,40 @@ function UploadPageContent() {
               className="w-full sm:w-auto px-8 py-3 bg-tank-accent text-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-all"
             >
               {loading ? tr[U.uploading] : 
-                uploadQuota?.statusType === 'paid' && !uploadPaid && !((uploadQuota?.paidUploadCredits ?? 0) > 0) 
-                  ? uploadPageInterpolate(tr[U.payAndUpload], { price: `$${uploadQuota.costPerUpload.toFixed(2)}` })
-                  : (uploadQuota?.paidUploadCredits ?? 0) > 0 
-                    ? tr[U.uploadPaidCredit]
-                    : tr[U.submitUpload]}
+                (uploadQuota?.totalCredits ?? 0) > 0 &&
+                !(typeof uploadQuota?.freeUploadsRemaining === 'number' && uploadQuota.freeUploadsRemaining > 0)
+                  ? tr[U.uploadPaidCredit]
+                  : tr[U.submitUpload]}
             </button>
           </div>
         </form>
       </div>
       )}
 
-      {/* Payment Required Modal */}
+      {/* Upgrade required (pay-per-upload retired) */}
       {showPaymentModal && uploadQuota && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-tank-dark border border-tank-light rounded-2xl max-w-md w-full p-6">
             <div className="text-center">
-              <div className="text-5xl mb-4">💳</div>
-              <h3 className="text-xl font-bold mb-2">{tr[U.paymentRequiredTitle]}</h3>
-              <p className="text-gray-400 mb-6">
-                {uploadPageInterpolate(tr[U.paymentRequiredBody], {
-                  price: `$${uploadQuota.costPerUpload.toFixed(2)}`,
-                })}
+              <div className="text-5xl mb-4">🔒</div>
+              <h3 className="text-xl font-bold mb-2">{tr[U.limitReachedTitle]}</h3>
+              <p className="text-gray-400 mb-6 leading-relaxed">
+                You&apos;ve reached your monthly upload limit of{' '}
+                <span className="text-white font-semibold">{uploadQuota.freeUploads}</span>
+                . To continue posting content, please{' '}
+                <Link href="/pricing" className="text-tank-accent underline font-bold">
+                  Upgrade Membership
+                </Link>
+                . All other platform features remain fully available for you to enjoy.
               </p>
 
-              <div className="bg-tank-gray rounded-xl p-4 mb-6">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400">{tr[U.uploadFeeLabel]}</span>
-                  <span className="font-bold">${uploadQuota.costPerUpload.toFixed(2)}</span>
-                </div>
-              </div>
-
               <div className="space-y-3">
-                <button
-                  onClick={handlePayForUpload}
-                  disabled={paymentLoading}
-                  className="w-full py-3 bg-tank-accent text-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-all flex items-center justify-center gap-2"
+                <Link
+                  href="/pricing"
+                  className="block w-full py-3 bg-tank-accent text-black font-semibold rounded-xl hover:bg-tank-accent/90 transition-all text-center"
                 >
-                  {paymentLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                      {tr[U.processing]}
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                      </svg>
-                      {uploadPageInterpolate(tr[U.payUploadButton], {
-                        price: `$${uploadQuota.costPerUpload.toFixed(2)}`,
-                      })}
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={() => router.push('/pricing')}
-                  className="w-full py-3 bg-tank-gray border border-tank-light text-white rounded-xl hover:bg-tank-light transition-all"
-                >
-                  {tr[U.upgradePremiumModal]}
-                </button>
+                  {tr[U.upgradePlanContinue]}
+                </Link>
 
                 <button
                   onClick={() => setShowPaymentModal(false)}

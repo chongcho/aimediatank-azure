@@ -36,14 +36,15 @@ export function buildUploadFileSizeExceededMessage(
   return `File size exceeds the maximum allowed (${maxLabel}). You cannot upload this file.`
 }
 
-/** Upload limits and costs per plan — shared by upload complete API and deferred video notifications */
+/** Upload limits per plan — shared by upload complete API and deferred video notifications.
+ * Pay-per-upload removed: over free allowance, users must upgrade membership. */
 export const UPLOAD_CONFIG: Record<
   string,
   { freeUploads: number; costPerUpload: number; canUploadAfterFree: boolean }
 > = {
   VIEWER: { freeUploads: 5, costPerUpload: 0, canUploadAfterFree: false },
-  BASIC: { freeUploads: 5, costPerUpload: 1.0, canUploadAfterFree: true },
-  ADVANCED: { freeUploads: 5, costPerUpload: 0.5, canUploadAfterFree: true },
+  BASIC: { freeUploads: 10, costPerUpload: 0, canUploadAfterFree: false },
+  ADVANCED: { freeUploads: 20, costPerUpload: 0, canUploadAfterFree: false },
   PREMIUM: { freeUploads: Infinity, costPerUpload: 0, canUploadAfterFree: true },
 }
 

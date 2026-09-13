@@ -8,11 +8,10 @@ import { inspectMediaForAgeRating } from '@/lib/contentInspection'
 // import { processMedia } from '@/lib/mediaProcessor'
 import { BlobServiceClient } from '@azure/storage-blob'
 import { pingProcessVideosCron } from '@/lib/pingAzureCron'
-import { getUploadPlanConfig } from '@/lib/membershipPlans'
+import { buildMonthlyUploadLimitMessage, getUploadPlanConfig } from '@/lib/membershipPlans'
 import { uploadBlobExceedsLimitMessage } from '@/lib/uploadBlobByteLength'
 import {
   generateFreeUploadsExhaustedEmail,
-  generatePaidUploadEmail,
   generateUploadConfirmationEmail,
 } from '@/lib/uploadEmailTemplates'
 
@@ -122,14 +121,15 @@ export async function POST(request: Request) {
     
     const isFreeUpload = freeUploadsRemaining > 0 || user.membershipType === 'PREMIUM'
     const hasPaidCredit = totalCredits > 0
-    const canUpload = isFreeUpload || hasPaidCredit || config.canUploadAfterFree
+    const canUpload = isFreeUpload || hasPaidCredit
 
-    // Check if user can upload
+    // Check if user can upload (no pay-per-upload — upgrade membership after free allowance)
     if (!canUpload) {
       return NextResponse.json(
         { 
-          error: `You have used all ${config.freeUploads} free uploads. Upgrade your plan to upload more.`,
-          upgradeRequired: true 
+          error: buildMonthlyUploadLimitMessage(config.freeUploads),
+          upgradeRequired: true,
+          freeUploadsLimit: config.freeUploads,
         },
         { status: 403 }
       )
@@ -176,9 +176,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: thumbTooLarge }, { status: 400 })
     }
 
-    // Calculate upload cost for this upload
-    // If user has paid credits, use them (cost is already paid)
-    const uploadCost = isFreeUpload || isPaidWithCredit ? 0 : config.costPerUpload
+    // Calculate upload cost for this upload (pay-per-upload removed; credits already paid)
+    const uploadCost = 0
 
     // For VIDEO uploads, server-side FFmpeg processing will create 720p + HQ versions.
     // Set processingStatus to 'pending' so the UI shows a "Processing…" indicator.
@@ -208,8 +207,6 @@ export async function POST(request: Request) {
         videoUploadNotifySource = user.membershipType === 'PREMIUM' ? 'premium' : 'free'
       } else if (isPaidWithCredit) {
         videoUploadNotifySource = 'credit'
-      } else if (uploadCost > 0) {
-        videoUploadNotifySource = 'per_upload'
       } else {
         videoUploadNotifySource = 'free'
       }
@@ -318,7 +315,7 @@ export async function POST(request: Request) {
 
     const totalUploads = (user._count?.media || 0) + 1
     const paidUploadsCount = Math.max(0, totalUploads - config.freeUploads)
-    const totalPaidCost = paidUploadsCount * config.costPerUpload
+    const totalPaidCost = 0
     const planName = `${user.membershipType.charAt(0) + user.membershipType.slice(1).toLowerCase()} Plan`
 
     // Calculate response info
@@ -339,7 +336,9 @@ export async function POST(request: Request) {
         totalPaidCost,
         message: isFreeUpload 
           ? `✅ Free upload! ${uploadsRemaining} remaining.`
-          : `💳 Upload cost: $${uploadCost.toFixed(2)}`
+          : isPaidWithCredit
+            ? '✅ Upload complete (credit used).'
+            : '✅ Upload complete.'
       }
     })
 
@@ -354,14 +353,12 @@ export async function POST(request: Request) {
                                           user.membershipType !== 'PREMIUM'
 
         if (justExhaustedFreeUploads) {
-          const exhaustedEmailHtml = generateFreeUploadsExhaustedEmail(userName, planName, config.costPerUpload)
+          const exhaustedEmailHtml = generateFreeUploadsExhaustedEmail(userName, planName, config.freeUploads)
           await sendEmail({ to: user.email, subject: '⚠️ Free Uploads Exhausted | AI Media Tank (AMT)', html: exhaustedEmailHtml })
           await prisma.notification.create({
             data: {
               userId: user.id, type: 'system', title: '⚠️ Free Uploads Exhausted',
-              message: config.canUploadAfterFree 
-                ? `You have used all 5 free uploads. Future uploads will cost $${config.costPerUpload.toFixed(2)} each.`
-                : `You have used all 5 free uploads. Upgrade your plan to continue uploading.`,
+              message: buildMonthlyUploadLimitMessage(config.freeUploads),
               link: '/pricing',
             }
           })
@@ -379,18 +376,6 @@ export async function POST(request: Request) {
                 userId: user.id, type: 'system', title: '✅ Upload Complete (Credit Used)',
                 message: `"${title}" uploaded using credit. ${remainingCredits} credit${remainingCredits !== 1 ? 's' : ''} remaining.`,
                 link: `/media/${media.id}`,
-              }
-            })
-          }
-        } else if (!isFreeUpload && uploadCost > 0) {
-          if (!deferVideoSuccessNotify) {
-            const paidEmailHtml = generatePaidUploadEmail(userName, title, uploadCost, paidUploadsCount, totalPaidCost)
-            await sendEmail({ to: user.email, subject: '💳 Paid Upload Processed | AI Media Tank (AMT)', html: paidEmailHtml })
-            await prisma.notification.create({
-              data: {
-                userId: user.id, type: 'system', title: '💳 Paid Upload',
-                message: `Upload charged: $${uploadCost.toFixed(2)}. Total this period: $${totalPaidCost.toFixed(2)}`,
-                link: '/pricing',
               }
             })
           }

@@ -434,7 +434,7 @@ export function generateUploadLimitEmail(
   planName: string,
   totalUploads: number,
   freeUploads: number,
-  uploadCost: string
+  _uploadCost?: string
 ): string {
   return `
 <!DOCTYPE html>
@@ -467,24 +467,14 @@ export function generateUploadLimitEmail(
         <td style="padding: 8px 0; color: #666;">Total Uploads:</td>
         <td style="padding: 8px 0; font-weight: bold; text-align: right;">${totalUploads}</td>
       </tr>
-      <tr>
-        <td style="padding: 8px 0; color: #666;">Cost per Upload:</td>
-        <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #ffa500;">${uploadCost}</td>
-      </tr>
     </table>
   </div>
   
-  <p style="font-size: 16px;">Future uploads will be charged at <strong>${uploadCost}</strong> per upload.</p>
-  
-  <div style="background: #f0fff0; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0f8;">
-    <p style="margin: 0; font-size: 14px;">
-      💡 <strong>Tip:</strong> Upgrade to Premium Plan for unlimited free uploads!
-    </p>
-  </div>
+  <p style="font-size: 16px;">You've reached your monthly upload limit of <strong>${freeUploads}</strong>. To continue posting content, please <a href="https://www.aimediatank.com/pricing" style="color:#00aa66;font-weight:bold;">Upgrade Membership</a>. All other platform features remain fully available for you to enjoy.</p>
   
   <div style="text-align: center; margin: 30px 0;">
     <a href="https://www.aimediatank.com/pricing" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-      Upgrade Plan
+      Upgrade Membership
     </a>
   </div>
   

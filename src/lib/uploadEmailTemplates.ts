@@ -1,5 +1,7 @@
 /** HTML bodies for upload-related user emails — shared by /api/upload/complete, Stripe webhook, and deferred video notifications */
 
+import { buildMonthlyUploadLimitHtml } from '@/lib/membershipPlans'
+
 export function generateUploadConfirmationEmail(
   userName: string,
   mediaTitle: string,
@@ -14,7 +16,9 @@ export function generateUploadConfirmationEmail(
 
   const costSection = isFreeUpload
     ? `<p style="color: #0f8; font-weight: bold;">✅ This was a FREE upload!</p>`
-    : `<p style="color: #ffa500; font-weight: bold;">💳 Upload cost: $${uploadCost.toFixed(2)}</p>`
+    : uploadCost > 0
+      ? `<p style="color: #ffa500; font-weight: bold;">💳 Upload cost: $${uploadCost.toFixed(2)}</p>`
+      : `<p style="color: #0f8; font-weight: bold;">✅ Upload credited to your account</p>`
 
   return `
 <!DOCTYPE html>
@@ -71,13 +75,9 @@ export function generateUploadConfirmationEmail(
 export function generateFreeUploadsExhaustedEmail(
   userName: string,
   planName: string,
-  costPerUpload: number
+  freeUploadsLimit: number
 ): string {
-  const nextStepSection =
-    costPerUpload > 0
-      ? `<p style="font-size: 16px;">Future uploads will cost <strong>$${costPerUpload.toFixed(2)} per upload</strong>.</p>
-       <p style="font-size: 16px;">Consider upgrading to <strong>Premium Plan</strong> for unlimited free uploads!</p>`
-      : `<p style="font-size: 16px;">You've reached the upload limit for your plan. <strong>Upgrade now</strong> to continue uploading!</p>`
+  const limitMessageHtml = buildMonthlyUploadLimitHtml(freeUploadsLimit)
 
   return `
 <!DOCTYPE html>
@@ -93,15 +93,15 @@ export function generateFreeUploadsExhaustedEmail(
   
   <p style="font-size: 16px;">Hi ${userName},</p>
   
-  <p style="font-size: 16px;">You've used all <strong>5 free uploads</strong> included with your <strong>${planName}</strong>.</p>
+  <p style="font-size: 16px;">You've used all <strong>${freeUploadsLimit} free uploads</strong> included with your <strong>${planName}</strong>.</p>
   
   <div style="background: #fff8e6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffa500;">
-    ${nextStepSection}
+    <p style="font-size: 16px; margin: 0;">${limitMessageHtml}</p>
   </div>
   
   <div style="text-align: center; margin: 30px 0;">
     <a href="https://aimediatank.com/pricing" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-      View Plans
+      Upgrade Membership
     </a>
   </div>
   
