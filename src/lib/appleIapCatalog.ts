@@ -34,10 +34,13 @@ export const MEDIA_UNLOCK_TIERS: MediaUnlockTier[] = [
   { productId: 'com.aimediatank.apple.media.unlock.099', usd: 0.99 },
   { productId: 'com.aimediatank.apple.media.unlock.199', usd: 1.99 },
   { productId: 'com.aimediatank.apple.media.unlock.299', usd: 2.99 },
+  { productId: 'com.aimediatank.apple.media.unlock.399', usd: 3.99 },
   { productId: 'com.aimediatank.apple.media.unlock.499', usd: 4.99 },
+  { productId: 'com.aimediatank.apple.media.unlock.599', usd: 5.99 },
+  { productId: 'com.aimediatank.apple.media.unlock.699', usd: 6.99 },
+  { productId: 'com.aimediatank.apple.media.unlock.799', usd: 7.99 },
+  { productId: 'com.aimediatank.apple.media.unlock.899', usd: 8.99 },
   { productId: 'com.aimediatank.apple.media.unlock.999', usd: 9.99 },
-  { productId: 'com.aimediatank.apple.media.unlock.1999', usd: 19.99 },
-  { productId: 'com.aimediatank.apple.media.unlock.4999', usd: 49.99 },
 ]
 
 const membershipByProductId = new Map(MEMBERSHIP_PRODUCTS.map((p) => [p.productId, p]))

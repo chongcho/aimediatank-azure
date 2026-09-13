@@ -25,17 +25,20 @@ Subscription group (e.g. `amt_membership`):
 | `com.aimediatank.apple.membership.premium.month` | Auto-renewable | $8 / month |
 | `com.aimediatank.apple.membership.premium.year` | Auto-renewable | $80 / year |
 
-Consumable media unlock tiers (nearest tier ≥ media price):
+Consumable media unlock tiers (lowest tier ≥ media price; max $9.99 for now):
 
 | Product ID | Price |
 |------------|-------|
 | `com.aimediatank.apple.media.unlock.099` | $0.99 |
 | `com.aimediatank.apple.media.unlock.199` | $1.99 |
 | `com.aimediatank.apple.media.unlock.299` | $2.99 |
+| `com.aimediatank.apple.media.unlock.399` | $3.99 |
 | `com.aimediatank.apple.media.unlock.499` | $4.99 |
+| `com.aimediatank.apple.media.unlock.599` | $5.99 |
+| `com.aimediatank.apple.media.unlock.699` | $6.99 |
+| `com.aimediatank.apple.media.unlock.799` | $7.99 |
+| `com.aimediatank.apple.media.unlock.899` | $8.99 |
 | `com.aimediatank.apple.media.unlock.999` | $9.99 |
-| `com.aimediatank.apple.media.unlock.1999` | $19.99 |
-| `com.aimediatank.apple.media.unlock.4999` | $49.99 |
 
 Submit each IAP with the app binary (or “Ready to Submit”).
 
