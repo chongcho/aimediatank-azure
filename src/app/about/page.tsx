@@ -98,9 +98,9 @@ const features = [
 
 const DEFAULT_ABOUT_PLANS = [
   { id: 'viewer', name: 'Viewer', price: 'Free', period: 'Forever', features: ['Browse all content', 'Purchase media', '5 free uploads/month', 'Sell content', 'Open Chat, Private Chat & Voice Talk'] },
-  { id: 'basic', name: 'Basic', price: '$2.00', period: '/month', features: ['Everything in Viewer', '10 free uploads/month', 'Upgrade membership to continue after the limit', 'Unwatermarked downloads', 'Yearly billing available'] },
-  { id: 'advanced', name: 'Advanced', price: '$5.00', period: '/month', features: ['Everything in Basic', '20 free uploads/month', 'Upgrade membership to continue after the limit', 'Priority support', 'Yearly billing available'] },
-  { id: 'premium', name: 'Premium', price: '$8.00', period: '/month', features: ['Everything in Advanced', 'Unlimited free uploads', 'Featured placement', 'Premium creator badge', 'Yearly billing available'] },
+  { id: 'basic', name: 'Basic', price: '$1.99', period: '/month', features: ['Everything in Viewer', '10 free uploads/month', 'Upgrade membership to continue after the limit', 'Unwatermarked downloads', 'Yearly billing available'] },
+  { id: 'advanced', name: 'Advanced', price: '$4.99', period: '/month', features: ['Everything in Basic', '20 free uploads/month', 'Upgrade membership to continue after the limit', 'Priority support', 'Yearly billing available'] },
+  { id: 'premium', name: 'Premium', price: '$7.99', period: '/month', features: ['Everything in Advanced', 'Unlimited free uploads', 'Featured placement', 'Premium creator badge', 'Yearly billing available'] },
 ]
 
 export default function AboutPage() {

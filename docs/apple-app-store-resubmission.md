@@ -18,12 +18,14 @@ Subscription group (e.g. `amt_membership`):
 
 | Product ID | Type | List price (match Stripe) |
 |------------|------|---------------------------|
-| `com.aimediatank.apple.membership.basic.month` | Auto-renewable | $2 / month |
-| `com.aimediatank.apple.membership.basic.year` | Auto-renewable | $20 / year |
-| `com.aimediatank.apple.membership.advanced.month` | Auto-renewable | $5 / month |
-| `com.aimediatank.apple.membership.advanced.year` | Auto-renewable | $50 / year |
-| `com.aimediatank.apple.membership.premium.month` | Auto-renewable | $8 / month |
-| `com.aimediatank.apple.membership.premium.year` | Auto-renewable | $80 / year |
+| `com.aimediatank.apple.membership.basic.month.v2` | Auto-renewable | $1.99 / month |
+| `com.aimediatank.apple.membership.basic.year.v2` | Auto-renewable | $19.99 / year |
+| `com.aimediatank.apple.membership.advanced.month.v2` | Auto-renewable | $4.99 / month |
+| `com.aimediatank.apple.membership.advanced.year.v2` | Auto-renewable | $49.99 / year |
+| `com.aimediatank.apple.membership.premium.month.v2` | Auto-renewable | $7.99 / month |
+| `com.aimediatank.apple.membership.premium.year.v2` | Auto-renewable | $79.99 / year |
+
+(Original IDs without `.v2` were deleted in ASC; Apple does not allow reuse, so the app uses `.v2`.)
 
 Consumable media unlock tiers (lowest tier ≥ media price; max $9.99 for now):
 

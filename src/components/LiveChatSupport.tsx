@@ -62,9 +62,9 @@ export default function LiveChatSupport({ isOpen, onClose, userName }: LiveChatS
       
       // Intelligent response based on user input
       if (userText.includes('upload') || userText.includes('video') || userText.includes('image') || userText.includes('music')) {
-        aiResponse = "I can help you with uploading content! 🎬 As a member, you get 5 free uploads. After that, upload fees apply based on your plan. Would you like me to explain the upload process or membership options?"
+        aiResponse = "I can help you with uploading content! 🎬 Free uploads depend on your membership plan; after the monthly limit, upgrade membership to continue posting. Would you like me to explain the upload process or membership options?"
       } else if (userText.includes('price') || userText.includes('cost') || userText.includes('plan') || userText.includes('membership') || userText.includes('subscribe')) {
-        aiResponse = "Great question about our plans! 💳 We offer:\n\n• **Viewer** - Free (5 uploads, no downloads)\n• **Basic** - $9.99/mo ($1/upload after free)\n• **Advanced** - $19.99/mo ($0.50/upload)\n• **Premium** - $29.99/mo (unlimited)\n\nWould you like help choosing the right plan?"
+        aiResponse = "Great question about our plans! 💳 We offer:\n\n• **Viewer** - Free (5 uploads/month)\n• **Basic** - $1.99/mo or $19.99/yr (10 uploads/month)\n• **Advanced** - $4.99/mo or $49.99/yr (20 uploads/month)\n• **Premium** - $7.99/mo or $79.99/yr (unlimited uploads)\n\nWould you like help choosing the right plan?"
       } else if (userText.includes('download')) {
         aiResponse = "For downloads, you'll need a paid membership (Basic, Advanced, or Premium). 📥 Each plan includes unlimited downloads. Would you like to know more about our membership tiers?"
       } else if (userText.includes('payment') || userText.includes('pay') || userText.includes('stripe') || userText.includes('card')) {

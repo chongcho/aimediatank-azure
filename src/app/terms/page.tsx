@@ -262,17 +262,17 @@ function TermsPageContent() {
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-2 px-3">Basic</td>
-                <td className="py-2 px-3">$2/month</td>
+                <td className="py-2 px-3">$1.99/month</td>
                 <td className="py-2 px-3">Monthly free uploads included — upgrade membership to continue after the limit; yearly billing available</td>
               </tr>
               <tr className="border-b border-tank-light/50">
                 <td className="py-2 px-3">Advanced</td>
-                <td className="py-2 px-3">$5/month</td>
+                <td className="py-2 px-3">$4.99/month</td>
                 <td className="py-2 px-3">Monthly free uploads included — upgrade membership to continue after the limit; priority support</td>
               </tr>
               <tr>
                 <td className="py-2 px-3">Premium</td>
-                <td className="py-2 px-3">$8/month</td>
+                <td className="py-2 px-3">$7.99/month</td>
                 <td className="py-2 px-3">Unlimited free uploads, featured placement, premium badge</td>
               </tr>
             </tbody>

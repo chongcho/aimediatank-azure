@@ -14,13 +14,14 @@ export type MembershipProduct = {
   listPriceUsd: number
 }
 
+/** ASC Product IDs are permanent — deleted IDs cannot be reused, so live IDs use `.v2`. */
 const MEMBERSHIP_PRODUCTS: MembershipProduct[] = [
-  { productId: 'com.aimediatank.apple.membership.basic.month', planId: 'basic', billingPeriod: 'month', listPriceUsd: 2 },
-  { productId: 'com.aimediatank.apple.membership.basic.year', planId: 'basic', billingPeriod: 'year', listPriceUsd: 20 },
-  { productId: 'com.aimediatank.apple.membership.advanced.month', planId: 'advanced', billingPeriod: 'month', listPriceUsd: 5 },
-  { productId: 'com.aimediatank.apple.membership.advanced.year', planId: 'advanced', billingPeriod: 'year', listPriceUsd: 50 },
-  { productId: 'com.aimediatank.apple.membership.premium.month', planId: 'premium', billingPeriod: 'month', listPriceUsd: 8 },
-  { productId: 'com.aimediatank.apple.membership.premium.year', planId: 'premium', billingPeriod: 'year', listPriceUsd: 80 },
+  { productId: 'com.aimediatank.apple.membership.basic.month.v2', planId: 'basic', billingPeriod: 'month', listPriceUsd: 1.99 },
+  { productId: 'com.aimediatank.apple.membership.basic.year.v2', planId: 'basic', billingPeriod: 'year', listPriceUsd: 19.99 },
+  { productId: 'com.aimediatank.apple.membership.advanced.month.v2', planId: 'advanced', billingPeriod: 'month', listPriceUsd: 4.99 },
+  { productId: 'com.aimediatank.apple.membership.advanced.year.v2', planId: 'advanced', billingPeriod: 'year', listPriceUsd: 49.99 },
+  { productId: 'com.aimediatank.apple.membership.premium.month.v2', planId: 'premium', billingPeriod: 'month', listPriceUsd: 7.99 },
+  { productId: 'com.aimediatank.apple.membership.premium.year.v2', planId: 'premium', billingPeriod: 'year', listPriceUsd: 79.99 },
 ]
 
 /** Consumable unlock tiers — charge the smallest tier that covers the media list price. */
@@ -54,7 +55,7 @@ export function membershipProductId(
   planId: AppleMembershipPlanId,
   billingPeriod: AppleBillingPeriod
 ): string {
-  return `com.aimediatank.apple.membership.${planId}.${billingPeriod}`
+  return `com.aimediatank.apple.membership.${planId}.${billingPeriod}.v2`
 }
 
 export function parseMembershipProductId(productId: string): MembershipProduct | null {

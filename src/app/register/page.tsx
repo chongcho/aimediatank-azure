@@ -109,9 +109,9 @@ const REGISTER_STRINGS = [
   'Passwords do not match',
   'Membership',
   'Free Viewer Plan',
-  'Basic Plan — $2/month',
-  'Advanced Plan — $5/month',
-  'Premium Plan — $8/month',
+  'Basic Plan — $1.99/month',
+  'Advanced Plan — $4.99/month',
+  'Premium Plan — $7.99/month',
   'Start free. Select a paid plan to subscribe.',
   'Choose monthly or yearly billing to continue to checkout.',
   'Membership plan (optional)',
@@ -162,9 +162,9 @@ const DEFAULT_MEMBERSHIP_PLANS: Record<
   string,
   { id: string; price: number; yearlyPrice: number; labelIndex: number }
 > = {
-  basic: { id: 'basic', price: 2, yearlyPrice: 20, labelIndex: 36 },
-  advanced: { id: 'advanced', price: 5, yearlyPrice: 50, labelIndex: 37 },
-  premium: { id: 'premium', price: 8, yearlyPrice: 80, labelIndex: 38 },
+  basic: { id: 'basic', price: 1.99, yearlyPrice: 19.99, labelIndex: 36 },
+  advanced: { id: 'advanced', price: 4.99, yearlyPrice: 49.99, labelIndex: 37 },
+  premium: { id: 'premium', price: 7.99, yearlyPrice: 79.99, labelIndex: 38 },
 }
 
 const R = {

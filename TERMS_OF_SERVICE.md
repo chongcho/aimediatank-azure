@@ -232,9 +232,9 @@ The Platform may offer optional paid membership tiers.
 | Plan | Price | Features |
 |------|-------|----------|
 | Viewer | Free | Browse, purchase, sell, 5 free uploads, community features |
-| Basic | $2/month | Monthly free uploads — upgrade membership to continue after the limit; yearly billing available |
-| Advanced | $5/month | Monthly free uploads — upgrade membership to continue after the limit; priority support |
-| Premium | $8/month | Unlimited free uploads, featured placement, premium badge |
+| Basic | $1.99/month | Monthly free uploads — upgrade membership to continue after the limit; yearly billing available |
+| Advanced | $4.99/month | Monthly free uploads — upgrade membership to continue after the limit; priority support |
+| Premium | $7.99/month | Unlimited free uploads, featured placement, premium badge |
 
 Membership fees are non-refundable except where required by law.
 

@@ -30,8 +30,8 @@ export const DEFAULT_MEMBERSHIP_PLANS: MembershipPlanPublic[] = [
   {
     planId: 'basic',
     name: 'Basic',
-    monthlyPrice: 2,
-    yearlyPrice: 20,
+    monthlyPrice: 1.99,
+    yearlyPrice: 19.99,
     freeUploads: 10,
     pricePerUpload: null,
     viewContents: true,
@@ -42,8 +42,8 @@ export const DEFAULT_MEMBERSHIP_PLANS: MembershipPlanPublic[] = [
   {
     planId: 'advanced',
     name: 'Advanced',
-    monthlyPrice: 5,
-    yearlyPrice: 50,
+    monthlyPrice: 4.99,
+    yearlyPrice: 49.99,
     freeUploads: 20,
     pricePerUpload: null,
     viewContents: true,
@@ -54,8 +54,8 @@ export const DEFAULT_MEMBERSHIP_PLANS: MembershipPlanPublic[] = [
   {
     planId: 'premium',
     name: 'Premium',
-    monthlyPrice: 8,
-    yearlyPrice: 80,
+    monthlyPrice: 7.99,
+    yearlyPrice: 79.99,
     freeUploads: 30,
     pricePerUpload: null,
     viewContents: true,
