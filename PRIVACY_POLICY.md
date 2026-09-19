@@ -48,7 +48,7 @@ When you register (create an account) via email or a supported social identity p
 - account preferences
 - identity tokens or profile claims provided by a social sign-in provider (subject to that provider’s settings and your consent)
 
-Providing a mobile number constitutes consent to receive SMS messages from AI Media Tank for verification and related transactional communications, as disclosed on the Register and Edit Profile screens. Message and data rates may apply. You may update or remove your phone number in your profile where available.
+Providing a mobile number constitutes consent to receive one-time SMS verification codes from AI Media Tank to verify your phone number, as disclosed on the Register and Edit Profile screens. Message and data rates may apply. Reply STOP to opt out. You may update or remove your phone number in your profile where available.
 
 ### 1.2 Transaction Information
 

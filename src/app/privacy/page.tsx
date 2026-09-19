@@ -76,7 +76,7 @@ function PrivacyPageContent() {
           <li>identity tokens or profile claims provided by a social sign-in provider (subject to that provider’s settings and your consent)</li>
         </ul>
         <p className="text-gray-300 mb-4">
-          Providing a mobile number constitutes consent to receive SMS messages from AI Media Tank for verification and related transactional communications, as disclosed on the Register and Edit Profile screens. Message and data rates may apply. You may update or remove your phone number in your profile where available.
+          Providing a mobile number constitutes consent to receive one-time SMS verification codes from AI Media Tank to verify your phone number, as disclosed on the Register and Edit Profile screens. Message and data rates may apply. Reply STOP to opt out. You may update or remove your phone number in your profile where available.
         </p>
 
         <h3 className="text-lg font-semibold mt-6 mb-3">1.2 Transaction Information</h3>

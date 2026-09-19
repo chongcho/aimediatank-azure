@@ -3,7 +3,7 @@
 import { useLanguageModeList } from '@/hooks/useLanguageModeText'
 
 const SMS_OPT_IN_STRINGS = [
-  'By providing your mobile number, you agree to receive SMS messages from AI Media Tank.',
+  'By providing your mobile number, you agree to receive one-time SMS verification codes from AI Media Tank to verify your phone number. Msg & data rates may apply. Reply STOP to opt out.',
 ] as const
 
 /** Carrier / Azure toll-free verification: explicit SMS consent at phone collection. */
