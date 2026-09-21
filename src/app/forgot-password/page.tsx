@@ -14,7 +14,6 @@ export default function ForgotPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [generatedCode, setGeneratedCode] = useState('') // Dev mode
 
   // Step 1: Send reset code to email
   const handleSendCode = async (e: React.FormEvent) => {
@@ -32,10 +31,6 @@ export default function ForgotPasswordPage() {
 
       if (res.ok) {
         setStep('code')
-        if (data.code) {
-          // Dev mode: show code
-          setGeneratedCode(data.code)
-        }
       } else {
         setError(data.error || 'Failed to send reset code')
       }
@@ -177,14 +172,6 @@ export default function ForgotPasswordPage() {
           {/* Step 2: Verify Code */}
           {step === 'code' && (
             <form onSubmit={handleVerifyCode} className="form-compact-stack space-y-3 sm:space-y-6">
-              {/* Dev mode: show code */}
-              {generatedCode && (
-                <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
-                  <p className="text-yellow-400 text-xs font-semibold mb-1">🔧 Dev Mode - Your code:</p>
-                  <p className="text-2xl font-mono font-bold text-center text-yellow-400">{generatedCode}</p>
-                </div>
-              )}
-
               {error && (
                 <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
                   {error}

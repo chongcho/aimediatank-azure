@@ -12,8 +12,7 @@ export const dynamic = 'force-dynamic'
 const SMS_MESSAGE = (code: string) =>
   `Your verification code is:\n${code}\nThis code expires in 10 minutes. If you didn't request it, secure your account.\nReply STOP to opt out.\nAI Media Tank`
 
-// Send 6-digit verification code to phone via Azure Communication Services (ACS) when configured.
-// Otherwise return code in response for testing (dev or no SMS provider).
+// Send 6-digit verification code via Azure ACS. Never return the code to the client.
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -34,55 +33,54 @@ export async function POST(request: Request) {
       )
     }
 
-    // Log so App Service Log stream shows the request (enable Application Logging in Azure)
     const last4 = normalized.slice(-4)
     console.error('[send-phone-code] Request received, phone ends ***' + last4 + ', Azure SMS configured:', isAzureSmsConfigured())
+
+    if (!isAzureSmsConfigured()) {
+      console.warn('[send-phone-code] Azure SMS not configured (AZURE_ACS_CONNECTION_STRING, AZURE_ACS_SMS_FROM).')
+      return NextResponse.json(
+        { error: 'SMS is not configured. Please contact support or try again later.' },
+        { status: 503 }
+      )
+    }
 
     const code = generateCode()
     await storePhoneCode(rawPhone, code, 10) // 10 minutes expiry
 
-    const useAzureSms = isAzureSmsConfigured()
-    let smsSent = false
-    if (useAzureSms) {
-      const SMS_TIMEOUT_MS = 15000
-      const sendPromise = sendAzureSms(normalized, SMS_MESSAGE(code))
-      const timeoutPromise = new Promise<false>((_, reject) =>
-        setTimeout(() => reject(new Error('SMS send timeout')), SMS_TIMEOUT_MS)
-      )
-      try {
-        smsSent = await Promise.race([sendPromise, timeoutPromise])
-      } catch (timeoutOrOther: unknown) {
-        const msg = timeoutOrOther instanceof Error ? timeoutOrOther.message : String(timeoutOrOther)
-        console.error('[send-phone-code] SMS send error or timeout:', msg)
-        smsSent = false
-      }
-      console.error('[send-phone-code] SMS send result:', smsSent ? 'ok' : 'failed (see [Azure SMS] or timeout above)')
-      if (!smsSent) {
-        // Log for debugging; return 502 so client shows error. In dev, include code so user can still verify.
-        console.error('[send-phone-code] Azure SMS send failed for', rawPhone, '- check server logs for [Azure SMS] details')
-        const isDev = process.env.NODE_ENV === 'development'
-        return NextResponse.json(
-          {
-            error: 'SMS could not be delivered. Check that AZURE_ACS_SMS_FROM is an SMS-capable number (toll-free may require verification). Try again or use a different number.',
-            ...(isDev ? { code } : {}),
-          },
-          { status: 502 }
-        )
-      }
-    } else {
-      console.warn('[send-phone-code] Azure SMS not configured (AZURE_ACS_CONNECTION_STRING, AZURE_ACS_SMS_FROM). Code stored but not sent.')
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[send-phone-code] Dev only — code for ***' + last4 + ':', code)
     }
 
-    const isDev = process.env.NODE_ENV === 'development'
-    if (isDev && !smsSent) {
-      console.log('[Phone verification] Code for', rawPhone, ':', code)
+    const SMS_TIMEOUT_MS = 15000
+    const sendPromise = sendAzureSms(normalized, SMS_MESSAGE(code))
+    const timeoutPromise = new Promise<false>((_, reject) =>
+      setTimeout(() => reject(new Error('SMS send timeout')), SMS_TIMEOUT_MS)
+    )
+
+    let smsSent = false
+    try {
+      smsSent = await Promise.race([sendPromise, timeoutPromise])
+    } catch (timeoutOrOther: unknown) {
+      const msg = timeoutOrOther instanceof Error ? timeoutOrOther.message : String(timeoutOrOther)
+      console.error('[send-phone-code] SMS send error or timeout:', msg)
+      smsSent = false
     }
-    const includeCodeInResponse = !smsSent
+    console.error('[send-phone-code] SMS send result:', smsSent ? 'ok' : 'failed (see [Azure SMS] or timeout above)')
+
+    if (!smsSent) {
+      console.error('[send-phone-code] Azure SMS send failed for ***' + last4)
+      return NextResponse.json(
+        {
+          error:
+            'SMS could not be delivered. Check that AZURE_ACS_SMS_FROM is an SMS-capable number (toll-free may require verification). Try again or use a different number.',
+        },
+        { status: 502 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
-      message: smsSent ? 'Verification code sent to your phone' : 'Verification code generated (SMS not configured; use code below)',
-      ...(includeCodeInResponse ? { code } : {}),
+      message: 'Verification code sent to your phone',
     })
   } catch (error) {
     console.error('Error sending phone verification code:', error)

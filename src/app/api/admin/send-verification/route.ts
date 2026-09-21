@@ -68,16 +68,23 @@ export async function POST(request: Request) {
       }
       const normalizedEmail = email.toLowerCase()
       await storeCode(normalizedEmail, code, 10)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[admin/send-verification] Dev only — email code for', normalizedEmail, ':', code)
+      }
       const emailSent = await sendEmail({
         to: normalizedEmail,
         subject: emailSubject,
         html: emailHtml(emailTitle, emailLead, code),
       })
-      const isDev = process.env.NODE_ENV === 'development'
+      if (!emailSent) {
+        return NextResponse.json(
+          { error: 'Unable to send verification email. Please try again later.' },
+          { status: 503 }
+        )
+      }
       return NextResponse.json({
         success: true,
         message: 'Verification code sent to your email',
-        ...(isDev || !emailSent ? { code } : {}),
       })
     }
 
@@ -90,19 +97,29 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
-    await storePhoneCode(phone!, code, 10)
-    let smsSent = false
-    if (isAzureSmsConfigured()) {
-      smsSent = await sendAzureSms(
-        normalized,
-        `Your AI Media Tank (AMT) ${smsPrefix} verification code is: ${code}. It expires in 10 minutes.`
+    if (!isAzureSmsConfigured()) {
+      return NextResponse.json(
+        { error: 'SMS is not configured. Use email verification or contact support.' },
+        { status: 503 }
       )
     }
-    const isDev = process.env.NODE_ENV === 'development'
+    await storePhoneCode(phone!, code, 10)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[admin/send-verification] Dev only — phone code for ***' + normalized.slice(-4) + ':', code)
+    }
+    const smsSent = await sendAzureSms(
+      normalized,
+      `Your AI Media Tank (AMT) ${smsPrefix} verification code is: ${code}. It expires in 10 minutes.`
+    )
+    if (!smsSent) {
+      return NextResponse.json(
+        { error: 'SMS could not be delivered. Try email verification or try again later.' },
+        { status: 502 }
+      )
+    }
     return NextResponse.json({
       success: true,
-      message: smsSent ? 'Verification code sent to your phone' : 'Code generated; SMS may not be configured.',
-      ...(isDev || !smsSent ? { code } : {}),
+      message: 'Verification code sent to your phone',
     })
   } catch (e) {
     console.error('Admin send-verification error:', e)

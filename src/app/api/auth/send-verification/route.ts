@@ -83,10 +83,12 @@ export async function POST(request: Request) {
     console.log('='.repeat(60))
     console.log(`To: ${user.email}`)
     console.log(`Email sent: ${emailSent}`)
-    console.log(`Verification URL: ${verificationUrl}`)
     console.log(`SMTP_HOST configured: ${!!process.env.SMTP_HOST}`)
     console.log(`SMTP_USER configured: ${!!process.env.SMTP_USER}`)
     console.log(`SMTP_PASS configured: ${!!process.env.SMTP_PASS}`)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Dev only — verification URL: ${verificationUrl}`)
+    }
     console.log('='.repeat(60))
 
     if (!emailSent) {

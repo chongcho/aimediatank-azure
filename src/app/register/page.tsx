@@ -215,7 +215,6 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [verificationUrl, setVerificationUrl] = useState('')
   
   // Avatar state for registration-time upload
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
@@ -264,7 +263,6 @@ export default function RegisterPage() {
     error: '',
   })
   const [showVerifyModal, setShowVerifyModal] = useState(false)
-  const [generatedCode, setGeneratedCode] = useState('')
   const [policyAgreed, setPolicyAgreed] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
   const [selectedMembership, setSelectedMembership] = useState('viewer')
@@ -584,10 +582,6 @@ export default function RegisterPage() {
           sending: false,
         }))
         setShowVerifyModal(true)
-        if (data.code) {
-          // Dev mode: show code
-          setGeneratedCode(data.code)
-        }
       } else {
         setVerificationState(prev => ({
           ...prev,
@@ -663,8 +657,6 @@ export default function RegisterPage() {
           codeSent: true,
           sending: false,
           error: '',
-          // When API returns code (e.g. dev or no SMS configured), pre-fill so user can verify
-          ...(data.code ? { code: String(data.code).slice(0, 6) } : {}),
         }))
       } else {
         setPhoneVerificationState(prev => ({
@@ -872,22 +864,6 @@ export default function RegisterPage() {
                 <li>{tr[58]}</li>
               </ul>
             </div>
-
-            {/* Dev mode: show verification link */}
-            {verificationUrl && (
-              <div className="p-3 sm:p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-left mb-3 sm:mb-6">
-                <p className="text-yellow-400 text-sm font-semibold mb-2">
-                  🔧 {tr[59]}
-                </p>
-                <p className="text-xs text-gray-400 mb-2">{tr[60]}</p>
-                <a 
-                  href={verificationUrl} 
-                  className="text-xs text-tank-accent break-all hover:underline"
-                >
-                  {verificationUrl}
-                </a>
-              </div>
-            )}
 
             <div className="form-compact-stack space-y-2 sm:space-y-3">
               <Link href="/login" className="btn-primary block">
@@ -1512,14 +1488,6 @@ export default function RegisterPage() {
                 <strong className="text-white">{formData.email}</strong>
               </p>
             </div>
-
-            {/* Dev mode: show code */}
-            {generatedCode && (
-              <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
-                <p className="text-yellow-400 text-xs font-semibold mb-1">🔧 {tr[65]}</p>
-                <p className="text-2xl font-mono font-bold text-center text-yellow-400">{generatedCode}</p>
-              </div>
-            )}
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-300 mb-2">

@@ -197,22 +197,11 @@ export async function POST(request: Request) {
       }
     }
 
-    // Log verification email in development
-    const verificationUrl = `${process.env.NEXTAUTH_URL}/verify-email?token=${verificationToken}`
-    
-    console.log('='.repeat(60))
-    console.log('NEW USER VERIFICATION EMAIL')
-    console.log('='.repeat(60))
-    console.log(`To: ${user.email}`)
-    console.log(`Subject: Welcome to AI Media Tank (AMT) - Verify your email`)
-    console.log(``)
-    console.log(`Hello ${user.name || user.username},`)
-    console.log(``)
-    console.log(`Welcome to AI Media Tank (AMT)! Please click the link below to verify your email:`)
-    console.log(verificationUrl)
-    console.log(``)
-    console.log(`This link will expire in 24 hours.`)
-    console.log('='.repeat(60))
+    // Log verification email in development only (do not log tokens in production)
+    if (process.env.NODE_ENV === 'development') {
+      const verificationUrl = `${process.env.NEXTAUTH_URL}/verify-email?token=${verificationToken}`
+      console.log('[register] Dev only — verification URL:', verificationUrl)
+    }
 
     return NextResponse.json({
       message: 'User created successfully!',

@@ -4,7 +4,7 @@ import { generateCode, storeCode } from '@/lib/verificationCodes'
 
 export const dynamic = 'force-dynamic'
 
-// Send verification code to email
+// Send verification code to email — never return the code to the client.
 export async function POST(request: Request) {
   try {
     const { email: rawEmail } = await request.json()
@@ -16,7 +16,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(rawEmail)) {
       return NextResponse.json(
@@ -25,14 +24,15 @@ export async function POST(request: Request) {
       )
     }
 
-    // Normalize email to lowercase
     const email = rawEmail.toLowerCase()
 
-    // Generate and store 6-digit code
     const code = generateCode()
     await storeCode(email, code, 10) // 10 minutes expiry
 
-    // Send email with code
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[send-code] Dev only — verification code for', email, ':', code)
+    }
+
     const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -79,13 +79,17 @@ export async function POST(request: Request) {
       html: emailHtml,
     })
 
-    // Return success (include code in dev mode for testing)
-    const isDev = process.env.NODE_ENV === 'development'
-    
+    if (!emailSent) {
+      console.error('[send-code] Failed to send verification email to', email)
+      return NextResponse.json(
+        { error: 'Unable to send verification email. Please try again later.' },
+        { status: 503 }
+      )
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Verification code sent',
-      ...(isDev || !emailSent ? { code } : {}), // Show code if email failed or in dev
     })
   } catch (error) {
     console.error('Error sending verification code:', error)

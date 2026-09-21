@@ -9,13 +9,11 @@ export default function ResendVerificationPage() {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState('')
-  const [devUrl, setDevUrl] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setStatus('loading')
     setMessage('')
-    setDevUrl('')
 
     try {
       const res = await fetch('/api/auth/send-verification', {
@@ -29,15 +27,11 @@ export default function ResendVerificationPage() {
       if (res.ok) {
         setStatus('success')
         setMessage(data.message)
-        // Show dev URL in development
-        if (data.devUrl) {
-          setDevUrl(data.devUrl)
-        }
       } else {
         setStatus('error')
         setMessage(data.error || 'Failed to send verification email')
       }
-    } catch (error) {
+    } catch {
       setStatus('error')
       setMessage('Something went wrong')
     }
@@ -66,22 +60,6 @@ export default function ResendVerificationPage() {
               <p className="text-sm text-gray-500 mb-3 sm:mb-4">
                 Check your inbox and spam folder for the verification link.
               </p>
-
-              {/* Dev mode: show verification link */}
-              {devUrl && (
-                <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-left">
-                  <p className="text-yellow-400 text-sm font-semibold mb-2">
-                    🔧 Development Mode
-                  </p>
-                  <p className="text-xs text-gray-400 mb-2">Verification link:</p>
-                  <a 
-                    href={devUrl} 
-                    className="text-xs text-tank-accent break-all hover:underline"
-                  >
-                    {devUrl}
-                  </a>
-                </div>
-              )}
 
               <Link href="/login" className="btn-primary inline-block mt-3 sm:mt-4">
                 Previous to Login
@@ -137,5 +115,3 @@ export default function ResendVerificationPage() {
     </div>
   )
 }
-
-

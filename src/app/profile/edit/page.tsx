@@ -271,14 +271,12 @@ export default function EditProfilePage() {
     error: '',
   })
   const [showVerifyModal, setShowVerifyModal] = useState(false)
-  const [generatedCode, setGeneratedCode] = useState('')
   // Phone verification when subscriber adds or changes phone (Azure ACS SMS)
   const [phoneVerificationState, setPhoneVerificationState] = useState<{
     codeSent: boolean
     sending: boolean
     code: string
     error: string
-    codeInMessage?: boolean
   }>({
     codeSent: false,
     sending: false,
@@ -605,24 +603,18 @@ export default function EditProfilePage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        const codeFromError = typeof data.code === 'string' ? data.code.trim().slice(0, 6) : ''
         setPhoneVerificationState((prev) => ({
           ...prev,
           sending: false,
           error: data.error || 'Failed to send code',
-          ...(codeFromError ? { codeSent: true, code: codeFromError, codeInMessage: true } : {}),
         }))
         return
       }
-      // If server returned a code (SMS not configured or fallback), show it so user can still verify
-      const codeFromServer = typeof data.code === 'string' ? data.code.trim().slice(0, 6) : ''
       setPhoneVerificationState((prev) => ({
         ...prev,
         codeSent: true,
         sending: false,
         error: '',
-        ...(codeFromServer ? { code: codeFromServer } : {}),
-        codeInMessage: data.message?.includes('use code below') || !!codeFromServer,
       }))
     } catch {
       setPhoneVerificationState((prev) => ({ ...prev, sending: false, error: 'Failed to send code' }))
@@ -712,9 +704,6 @@ export default function EditProfilePage() {
           sending: false,
         }))
         setShowVerifyModal(true)
-        if (data.code) {
-          setGeneratedCode(data.code)
-        }
       } else {
         setEmailVerificationState(prev => ({
           ...prev,
@@ -987,7 +976,7 @@ export default function EditProfilePage() {
           confirmPassword: '',
         }))
         setOriginalPhone(formData.phone)
-        setPhoneVerificationState({ codeSent: false, sending: false, code: '', error: '', codeInMessage: false })
+        setPhoneVerificationState({ codeSent: false, sending: false, code: '', error: '' })
 
         window.dispatchEvent(new Event('profileUpdated'))
 
@@ -1292,7 +1281,7 @@ export default function EditProfilePage() {
                 value={formData.phone}
                 onChange={(e) => {
                   setFormData({ ...formData, phone: e.target.value })
-                  setPhoneVerificationState((prev) => ({ ...prev, codeSent: false, code: '', error: '', codeInMessage: false }))
+                  setPhoneVerificationState((prev) => ({ ...prev, codeSent: false, code: '', error: '' }))
                 }}
                 placeholder={tr[17]}
                 className="w-full"
@@ -1312,9 +1301,6 @@ export default function EditProfilePage() {
                     </button>
                   ) : (
                     <div className="space-y-1">
-                      {phoneVerificationState.codeInMessage && (
-                        <p className="text-xs text-yellow-400">{tr[20]}</p>
-                      )}
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-gray-400">{tr[21]}</span>
                         <input
@@ -1802,14 +1788,6 @@ export default function EditProfilePage() {
                 <strong className="text-white">{formData.email}</strong>
               </p>
             </div>
-
-            {/* Dev mode: show code */}
-            {generatedCode && (
-              <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
-                <p className="text-yellow-400 text-xs font-semibold mb-1">{tr[50]}</p>
-                <p className="text-2xl font-mono font-bold text-center text-yellow-400">{generatedCode}</p>
-              </div>
-            )}
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-300 mb-2">

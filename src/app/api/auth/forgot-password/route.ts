@@ -5,7 +5,12 @@ import { generateCode, storeCode } from '@/lib/verificationCodes'
 
 export const dynamic = 'force-dynamic'
 
-// Send password reset code to email
+const GENERIC_SUCCESS = {
+  success: true,
+  message: 'If an account exists with this email, a reset code has been sent.',
+}
+
+// Send password reset code to email — never return the code to the client.
 export async function POST(request: Request) {
   try {
     const { email } = await request.json()
@@ -18,8 +23,7 @@ export async function POST(request: Request) {
     }
 
     const normalizedEmail = email.toLowerCase()
-    
-    // Check if user exists
+
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     })
@@ -27,21 +31,17 @@ export async function POST(request: Request) {
     console.log('Forgot password request for:', normalizedEmail, 'User found:', !!user)
 
     if (!user) {
-      // Don't reveal if email exists or not for security
-      // But still return success to prevent email enumeration
-      console.log('User not found for email:', normalizedEmail)
-      return NextResponse.json({
-        success: true,
-        message: 'If an account exists with this email, a reset code has been sent.',
-      })
+      // Do not reveal whether the email exists
+      return NextResponse.json(GENERIC_SUCCESS)
     }
 
-    // Generate and store 6-digit code
     const code = generateCode()
     await storeCode(normalizedEmail, code, 15) // 15 minutes expiry for password reset
-    // Do not log the code — it would expose password reset tokens in server logs
 
-    // Send email with code
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[forgot-password] Dev only — reset code for', normalizedEmail, ':', code)
+    }
+
     const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
 `
 
     console.log('Sending password reset email to:', normalizedEmail)
-    
+
     const emailSent = await sendEmail({
       to: normalizedEmail,
       subject: 'Reset Your AI Media Tank (AMT) Password',
@@ -96,12 +96,15 @@ export async function POST(request: Request) {
 
     console.log('Email send result:', emailSent)
 
-    // Return success (always include code for now until email is working)
-    return NextResponse.json({
-      success: true,
-      message: 'Password reset code sent',
-      code, // Always show code until email sending is confirmed working
-    })
+    if (!emailSent) {
+      console.error('[forgot-password] Failed to send reset email to', normalizedEmail)
+      return NextResponse.json(
+        { error: 'Unable to send reset email. Please try again later.' },
+        { status: 503 }
+      )
+    }
+
+    return NextResponse.json(GENERIC_SUCCESS)
   } catch (error) {
     console.error('Error sending password reset code:', error)
     return NextResponse.json(
@@ -110,4 +113,3 @@ export async function POST(request: Request) {
     )
   }
 }
-
