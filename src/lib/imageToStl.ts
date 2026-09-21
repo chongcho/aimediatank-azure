@@ -311,6 +311,183 @@ export function buildStlFromImage(
   return heightmapToStl(map)
 }
 
+export type PreviewMeshData = {
+  /** XYZ positions (mm), length = vertexCount * 3 */
+  positions: Float32Array
+  /** RGB 0–1 colors, length = vertexCount * 3 */
+  colors: Float32Array
+  /** Triangle indices */
+  indices: Uint32Array
+  vertexCount: number
+  triangleCount: number
+  widthMm: number
+  depthMm: number
+  heightMm: number
+}
+
+/**
+ * Build a renderable top-surface mesh (with optional image colors) for Three.js preview.
+ * Sides/bottom are included as neutral clay so the solid reads as a printable object.
+ */
+export function heightmapToPreviewMesh(
+  map: HeightmapResult,
+  imageColors?: Uint8ClampedArray | null
+): PreviewMeshData {
+  const { cols, rows, heights, widthMm, depthMm, maxZ } = map
+  const cellW = widthMm / (cols - 1)
+  const cellD = depthMm / (rows - 1)
+
+  // Top grid vertices + bottom grid + we index quads for all faces
+  const topCount = cols * rows
+  const bottomCount = cols * rows
+  const vertexCount = topCount + bottomCount
+  const positions = new Float32Array(vertexCount * 3)
+  const colors = new Float32Array(vertexCount * 3)
+
+  const clayR = 0.92
+  const clayG = 0.92
+  const clayB = 0.9
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const i = r * cols + c
+      const x = c * cellW - widthMm / 2
+      const y = (rows - 1 - r) * cellD - depthMm / 2
+      const z = heights[i]
+
+      positions[i * 3] = x
+      positions[i * 3 + 1] = z
+      positions[i * 3 + 2] = -y
+
+      if (imageColors && imageColors.length >= (i + 1) * 4) {
+        colors[i * 3] = imageColors[i * 4] / 255
+        colors[i * 3 + 1] = imageColors[i * 4 + 1] / 255
+        colors[i * 3 + 2] = imageColors[i * 4 + 2] / 255
+      } else {
+        colors[i * 3] = clayR
+        colors[i * 3 + 1] = clayG
+        colors[i * 3 + 2] = clayB
+      }
+
+      const bi = topCount + i
+      positions[bi * 3] = x
+      positions[bi * 3 + 1] = 0
+      positions[bi * 3 + 2] = -y
+      colors[bi * 3] = clayR * 0.75
+      colors[bi * 3 + 1] = clayG * 0.75
+      colors[bi * 3 + 2] = clayB * 0.75
+    }
+  }
+
+  const topQuads = (cols - 1) * (rows - 1)
+  const bottomQuads = topQuads
+  const wallQuads = 2 * ((cols - 1) + (rows - 1))
+  const indices = new Uint32Array((topQuads + bottomQuads + wallQuads) * 6)
+  let t = 0
+  const pushQuad = (a: number, b: number, c: number, d: number) => {
+    indices[t++] = a
+    indices[t++] = b
+    indices[t++] = c
+    indices[t++] = a
+    indices[t++] = c
+    indices[t++] = d
+  }
+
+  for (let r = 0; r < rows - 1; r++) {
+    for (let c = 0; c < cols - 1; c++) {
+      const i00 = r * cols + c
+      const i10 = r * cols + (c + 1)
+      const i01 = (r + 1) * cols + c
+      const i11 = (r + 1) * cols + (c + 1)
+      pushQuad(i00, i10, i11, i01)
+    }
+  }
+
+  for (let r = 0; r < rows - 1; r++) {
+    for (let c = 0; c < cols - 1; c++) {
+      const i00 = topCount + r * cols + c
+      const i10 = topCount + r * cols + (c + 1)
+      const i01 = topCount + (r + 1) * cols + c
+      const i11 = topCount + (r + 1) * cols + (c + 1)
+      pushQuad(i00, i01, i11, i10)
+    }
+  }
+
+  // Front (last image row)
+  for (let c = 0; c < cols - 1; c++) {
+    const r = rows - 1
+    const t0 = r * cols + c
+    const t1 = r * cols + (c + 1)
+    pushQuad(t0, t1, topCount + t1, topCount + t0)
+  }
+  // Back (first image row)
+  for (let c = 0; c < cols - 1; c++) {
+    const r = 0
+    const t0 = r * cols + c
+    const t1 = r * cols + (c + 1)
+    pushQuad(t0, topCount + t0, topCount + t1, t1)
+  }
+  // Left
+  for (let r = 0; r < rows - 1; r++) {
+    const c = 0
+    const t0 = r * cols + c
+    const t1 = (r + 1) * cols + c
+    pushQuad(t0, topCount + t0, topCount + t1, t1)
+  }
+  // Right
+  for (let r = 0; r < rows - 1; r++) {
+    const c = cols - 1
+    const t0 = r * cols + c
+    const t1 = (r + 1) * cols + c
+    pushQuad(t0, t1, topCount + t1, topCount + t0)
+  }
+
+  return {
+    positions,
+    colors,
+    indices,
+    vertexCount,
+    triangleCount: indices.length / 3,
+    widthMm,
+    depthMm,
+    heightMm: maxZ,
+  }
+}
+
+/** Sample image RGBA at the same resolution as the heightmap (for vertex colors). */
+export function sampleImageColors(
+  image: CanvasImageSource,
+  cols: number,
+  rows: number
+): Uint8ClampedArray {
+  const canvas = document.createElement('canvas')
+  canvas.width = cols
+  canvas.height = rows
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return new Uint8ClampedArray(cols * rows * 4)
+  ctx.drawImage(image, 0, 0, cols, rows)
+  return ctx.getImageData(0, 0, cols, rows).data
+}
+
+export type GenerateModelResult = StlBuildResult & {
+  mesh: PreviewMeshData
+  map: HeightmapResult
+}
+
+export function buildModelFromImage(
+  image: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+  options: Partial<ImageToStlOptions> = {},
+  textured = true
+): GenerateModelResult {
+  const map = imageToHeightmap(image, sourceWidth, sourceHeight, options)
+  const stl = heightmapToStl(map)
+  const colors = textured ? sampleImageColors(image, map.cols, map.rows) : null
+  const mesh = heightmapToPreviewMesh(map, colors)
+  return { ...stl, mesh, map }
+}
+
 /** Draw a grayscale height preview (taller = lighter) into a canvas. */
 export function drawHeightmapPreview(
   canvas: HTMLCanvasElement,
