@@ -151,7 +151,7 @@ interface ChatMessage {
   }
 }
 
-type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'authentication' | 'manageAccount' | 'navbar' | 'layout' | 'mediaDetail' | 'badges' | 'cropTool' | 'standaloneCropTool' | 'accessLogs' | 'blockedIps'
+type TabType = 'dashboard' | 'analytics' | 'users' | 'media' | 'chat' | 'membershipSales' | 'contentSales' | 'adSales' | 'membership' | 'promotions' | 'games' | 'authentication' | 'manageAccount' | 'navbar' | 'layout' | 'mediaDetail' | 'badges' | 'cropTool' | 'standaloneCropTool' | 'tools' | 'accessLogs' | 'blockedIps'
 
 interface CropToolSettings {
   id?: string
@@ -2312,6 +2312,7 @@ export default function AdminPage() {
           { id: 'badges', label: 'Media Badge Control' },
           { id: 'cropTool', label: 'Upload & Download' },
           { id: 'standaloneCropTool', label: 'Standalone Crop Tool' },
+          { id: 'tools', label: 'Tools' },
           { id: 'membershipSales', label: 'Membership Sales Reports' },
           { id: 'contentSales', label: 'Contents Sales Reports' },
           { id: 'adSales', label: 'Ad Sales Reports' },
@@ -4684,6 +4685,80 @@ export default function AdminPage() {
                     <span className="text-gray-400 ml-1">Hidden Badges</span>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tools hub — launch standalone admin tools */}
+          {activeTab === 'tools' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-white">Tools</h2>
+                <p className="text-sm text-gray-400 mt-1">
+                  Admin utilities that run as standalone pages. Open a tool to get started.
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Link
+                  href="/3d-print-tool"
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+                    e.preventDefault()
+                    window.location.assign('/3d-print-tool')
+                  }}
+                  className="card p-5 border border-tank-light/30 hover:border-tank-accent/60 transition-colors group"
+                >
+                  <div
+                    className="mb-3 h-10 w-10 rounded-lg border border-tank-light/40 bg-tank-dark flex items-center justify-center text-tank-accent"
+                    aria-hidden="true"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.75}
+                        d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zm0 0v18M4 7.5l8 4.5 8-4.5"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-white group-hover:text-tank-accent transition-colors">
+                    3D Print Tool
+                  </h3>
+                  <p className="text-sm text-gray-400 mt-2">
+                    Turn a 2D image into a printable STL heightmap (relief or lithophane) for your slicer.
+                  </p>
+                  <span className="inline-block mt-4 text-sm font-medium text-tank-accent">Open tool →</span>
+                </Link>
+                <Link
+                  href="/crop-tool"
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+                    e.preventDefault()
+                    window.location.assign('/crop-tool')
+                  }}
+                  className="card p-5 border border-tank-light/30 hover:border-tank-accent/60 transition-colors group"
+                >
+                  <div
+                    className="mb-3 h-10 w-10 rounded-lg border border-tank-light/40 bg-tank-dark flex items-center justify-center text-tank-accent"
+                    aria-hidden="true"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.75}
+                        d="M6 4h4l8 8-4 4-8-8V4zm8 12l4 4M4 14l6-6"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-white group-hover:text-tank-accent transition-colors">
+                    Crop Tool
+                  </h3>
+                  <p className="text-sm text-gray-400 mt-2">
+                    Crop and re-encode images or video with quality controls, privacy masks, and more.
+                  </p>
+                  <span className="inline-block mt-4 text-sm font-medium text-tank-accent">Open tool →</span>
+                </Link>
               </div>
             </div>
           )}
