@@ -26,6 +26,7 @@ import {
   isNativeAndroidCallApp,
   isNativeIosCallApp,
   isIosCallKitEnabled,
+  isIosVoiceTalkAllowed,
   isNativeVoiceCallApp,
   markNativeCallConnected,
   cacheNativeDeclineToken,
@@ -829,11 +830,9 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
         return
       }
       storePendingOffer(signal.payload)
-      // iOS CallKit: VoIP push + App bridge own lock-screen UI. China (no CallKit): in-app overlay.
+      // iOS CallKit owns lock-screen UI. China (Talk blocked): no in-app ring fallback.
       const needsNativeUiFallback =
-        !isNativeVoiceCallApp() ||
-        isNativeAndroidCallApp() ||
-        (isNativeIosCallApp() && !isIosCallKitEnabled())
+        !isNativeVoiceCallApp() || isNativeAndroidCallApp()
       if (needsNativeUiFallback) {
         const label = voiceCallNickname(caller) || 'AiMediaTank'
         const declineToken = getCachedNativeDeclineToken(signal.callId)
@@ -1230,6 +1229,10 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
       opts?: { video?: boolean },
     ) => {
       if (!currentUserId || callState !== 'idle') return
+      if (!isIosVoiceTalkAllowed()) {
+        reportError('Talk calling is not available in this region')
+        return
+      }
       markVoiceCallUserGesture()
       const wantVideo = Boolean(opts?.video)
       hangupRequestedRef.current = false
@@ -1534,8 +1537,11 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
           hasVideoRef.current = wantVideo
           setHasVideo(wantVideo)
           setIsCameraOff(false)
-          // iOS CallKit: never show in-app Accept/Decline. China / missed VoIP: poll + in-app UI.
-          if (isNativeIosCallApp() && isIosCallKitEnabled()) {
+          // iOS CallKit: never show in-app Accept/Decline. China: Talk blocked — ignore.
+          if (isNativeIosCallApp()) {
+            if (!isIosCallKitEnabled()) {
+              return
+            }
             const label = voiceCallNickname(incoming.caller) || 'AiMediaTank'
             const declineToken = incoming.declineToken?.trim() || undefined
             if (declineToken) {
@@ -1585,8 +1591,8 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
   const runPendingVoiceAction = useCallback(() => {
     const action = pendingVoiceActionRef.current
     if (!action || callStateRef.current !== 'incoming') return
-    // iOS CallKit: Accept/Decline only via system UI. China uses in-app controls.
-    if (isNativeIosCallApp() && isIosCallKitEnabled()) {
+    // iOS CallKit: Accept/Decline only via system UI. China: Talk blocked (no in-app).
+    if (isNativeIosCallApp()) {
       pendingVoiceActionRef.current = null
       return
     }
@@ -2185,7 +2191,7 @@ export function useVoiceCall({ currentUserId, enabled, onError }: UseVoiceCallOp
     const timer = window.setTimeout(() => {
       if (callStateRef.current === 'outgoing') void endCall()
       else if (callStateRef.current === 'incoming') {
-        // iOS CallKit owns incoming ring; China / other platforms use in-app timeout.
+        // iOS CallKit owns incoming ring; other platforms use in-app timeout.
         if (!isNativeIosCallApp() || !isIosCallKitEnabled()) void rejectCall()
       }
     }, VOICE_CALL_RING_TIMEOUT_MS)

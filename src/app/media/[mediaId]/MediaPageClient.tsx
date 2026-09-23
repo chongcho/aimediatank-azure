@@ -31,7 +31,7 @@ import {
   nativeFetch,
 } from '@/lib/iosAppStoreCompliance'
 import { purchaseAppleMediaUnlock } from '@/lib/appleIap'
-import { UgcCreatorSafetyMenu, UgcReportModal } from '@/components/UgcSafetyActions'
+import { UgcCreatorSafetyMenu } from '@/components/UgcSafetyActions'
 import {
   formatMediaViewsLabel,
   mediaPageInterpolate,
@@ -170,8 +170,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const backNavigatingRef = useRef(false)
   /** Optional Azure Translator output for title + description (same locale as navbar). */
   const [i18nMedia, setI18nMedia] = useState<{ title: string; description: string | null } | null>(null)
-  const [reportOpen, setReportOpen] = useState(false)
-  const [nativeIosApp, setNativeIosApp] = useState(false)
+  const [nativeIosApp, setNativeIosApp] = useState(() =>
+    typeof window !== 'undefined' ? isNativeIosApp() : false,
+  )
 
   useEffect(() => {
     setNativeIosApp(isNativeIosApp())
@@ -514,8 +515,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     if (!media || !media.price || media.price <= 0) return
 
     setBuyingMedia(true)
+    const onIos = isNativeIosApp()
     try {
-      if (nativeIosApp) {
+      if (onIos) {
         const userId = (session.user as { id?: string }).id
         if (!userId) {
           alert(tMedia('checkoutFailGeneric'))
@@ -549,7 +551,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       if (msg.includes('cancelled') || msg.includes('USER_CANCELLED')) {
         return
       }
-      alert(nativeIosApp ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : tMedia('checkoutFailGeneric'))
+      alert(onIos ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : tMedia('checkoutFailGeneric'))
     } finally {
       setBuyingMedia(false)
     }
@@ -1041,7 +1043,6 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   {session ? (
                     <UgcCreatorSafetyMenu
                       mediaId={media.id}
-                      onReport={() => setReportOpen(true)}
                       onBlocked={handleLeaveDetail}
                       onSave={() => void handleToggleSave()}
                       isSaved={isSaved}
@@ -1060,7 +1061,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 )}
               </div>
 
-              {/* Buy Now — under Created by / red-flag (paid content, non-owner) */}
+              {/* Buy Now — under Created by / Save · Block (paid content, non-owner) */}
               {media.price && media.price > 0 && !isOwner && (
                 <button
                   type="button"
@@ -1476,15 +1477,6 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             </div>
           </div>
       </AppModalOverlay>
-
-      <UgcReportModal
-        open={reportOpen}
-        onClose={() => setReportOpen(false)}
-        reportType="MEDIA"
-        mediaId={media.id}
-        reportedUserId={media.user?.id}
-        subjectLabel={stripHashtags(displayTitleSource)}
-      />
 
     </div>
   )

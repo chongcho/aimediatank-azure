@@ -79,8 +79,8 @@ The app therefore runs social sign-in in an **external user agent**, as required
 for Native Apps policy (RFC 8252) and recommended by Apple:
 
 - **Android** — Chrome Custom Tabs (`@capacitor/browser`).
-- **iOS** — `ASWebAuthenticationSession` (`ios/App/App/NativeAuthSessionPlugin.swift`), which shares
-  Safari's cookies so returning users get account selection instead of a password prompt.
+- **iOS** — `ASWebAuthenticationSession` (`ios/App/App/NativeAuthSessionPlugin.swift`) with
+  **ephemeral** browsing so a prior Safari Google session cannot open when the user taps Apple.
 
 Because the OAuth session cookie lands in the system browser rather than the WebView, the session is
 handed back with a **single-use code**:
@@ -114,4 +114,6 @@ After changing plugins or native config, run `npx cap sync` before building eith
 
 - **Auth config**: `src/lib/auth.ts` — adds the Entra/B2C provider and find-or-create user logic in the JWT callback.
 - **UI**: `src/components/SocialSignIn.tsx` — “Or continue with” + one button per provider (Google, Facebook, Apple, Microsoft); used on `src/app/login/page.tsx` and `src/app/register/page.tsx`.
-- **Provider ids** when using Option A: `entra-external-id-google`, `entra-external-id-facebook`, `entra-external-id-apple`, `entra-external-id-microsoft` (each passes `domain_hint` to Entra). When using Option B: single `azure-ad-b2c` (one “Microsoft” button).
+- **Provider ids** when using Option A: `entra-external-id-google`, `entra-external-id-facebook`, `entra-external-id-apple`, `entra-external-id-microsoft`. Each passes **lowercase** `domain_hint` (`google` / `facebook` / `apple` / `microsoft`) plus `prompt=login` so Entra opens that IdP directly (capitalized hints like `Apple` are ignored and can fall through to Google SSO — App Review Guideline 2.1). When using Option B: single `azure-ad-b2c` (one “Microsoft” button).
+- **iOS ASWebAuthenticationSession** uses an ephemeral session so a prior Safari Google login cannot hijack “Continue with Apple”.
+- Confirm Apple is enabled on the Entra **user flow** (External Identities → User flows → Identity providers → Apple). Without that, `domain_hint=apple` still fails.

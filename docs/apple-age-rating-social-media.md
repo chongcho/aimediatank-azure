@@ -20,10 +20,36 @@ Apple’s definition (summary):
 | Declared Age Range API | iOS Capacitor plugin `DeclaredAgeRange` (`ios/App/App/DeclaredAgeRangePlugin.swift`) + entitlement `com.apple.developer.declared-age-range`. Client calls gates **13** and **18** via `src/lib/declaredAgeRange.ts` after login (`SocialAgeAccessProvider`). Decline / error → social stays off. |
 | Age-appropriate UGC | Existing content inspection / age rating paths (`inspectMediaForAgeRating`) plus platform registration age (Admin → Authentication → 9+ / 13+ / 16+ / 18+). |
 
+## App Store Connect — Age Assurance (Guideline 2.3.6)
+
+Apple’s questionnaire **forces** Age Assurance = **Yes** when you select **Social Media Disabled for Users Under 13**. You cannot set Age Assurance to None and keep that social-under-13 answer.
+
+### Required Step 1 answers (to pass ASC validation)
+
+| Item | Answer |
+|------|--------|
+| Social Media | **Yes** |
+| Social Media Disabled for Users Under 13 | **Yes** |
+| User-Generated Content | **Yes** |
+| Age Assurance | **Yes** |
+
+Then on Step 7, Save should succeed (Calculated Rating typically **13+**). Leave Age Categories override **Not Applicable** unless you intentionally raise the rating.
+
+### If App Review says they cannot find Age Assurance
+
+Do **not** flip Age Assurance back to None (ASC will block Save again). Reply with how to locate it (template in `docs/apple-app-store-resubmission.md`):
+
+1. Sign in on a physical iPhone (iOS 26+ / Declared Age Range available).  
+2. Tap **Talk** or **Chat** — the system Declared Age Range sheet may appear (first time / when required).  
+3. Under 13 (or declined sharing): Talk / Chat / Post stay unavailable.  
+4. Registration also requires a birthday that meets the platform minimum (≥13 for social).
+
 ## App Store Connect answers (suggested)
 
 - **Does the app include social media?** Yes (feed interactions, chat, sharing UGC).
 - **Social media disabled for users under 13?** Yes — select that capability option.
+- **User-Generated Content?** Yes.
+- **Age Assurance?** Yes (required by ASC when social is disabled under 13; implemented via Declared Age Range API + account birthday).
 - Confirm Declared Age Range capability is enabled on the App ID in Apple Developer / Xcode before shipping the iOS build that includes the plugin.
 
 ## Admin note

@@ -7,8 +7,8 @@ import UIKit
  * Social sign-in bridge using ASWebAuthenticationSession.
  *
  * Google rejects OAuth inside embedded WebViews, so the app runs the flow in the system
- * authentication session instead. It shares Safari's cookies (users usually stay signed in) and
- * returns the callback URL directly, so no deep-link listener is needed on iOS.
+ * authentication session instead. Uses an ephemeral session so a prior Safari Google (or other)
+ * SSO cookie cannot hijack “Continue with Apple” / other IdP buttons.
  */
 @objc(NativeAuthSessionPlugin)
 public class NativeAuthSessionPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -60,8 +60,9 @@ public class NativeAuthSessionPlugin: CAPPlugin, CAPBridgedPlugin {
             let provider = PresentationContextProvider(viewController: self.bridge?.viewController)
             self.contextProvider = provider
             session.presentationContextProvider = provider
-            // Keep Safari's cookies so returning users get account selection instead of a login form.
-            session.prefersEphemeralWebBrowserSession = false
+            // Ephemeral avoids Safari SSO from another IdP (e.g. Google) hijacking
+            // Continue with Apple when domain_hint is missing or ignored.
+            session.prefersEphemeralWebBrowserSession = true
             self.session = session
 
             if !session.start() {

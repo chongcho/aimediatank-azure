@@ -12,6 +12,7 @@ import {
 } from '@/lib/adminFreshStep2'
 import {
   isNativeIosApp,
+  nativeFetch,
   nativeShellLinkClick,
 } from '@/lib/iosAppStoreCompliance'
 
@@ -118,7 +119,7 @@ function LoginContent() {
         window.location.replace('/pricing?success=true&plan=' + encodeURIComponent(planParam))
         return true
       }
-      const res = await fetch('/api/stripe/membership', {
+      const res = await nativeFetch('/api/stripe/membership', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId: planParam, billingPeriod: billingParam }),

@@ -94,6 +94,7 @@ const PRICING_STRINGS = [
   'You have {count} upload credit',
   'You have {count} upload credits',
   '({freeCount} free + {creditCount} credits)',
+  'Memberships and paid media are purchased with Apple In-App Purchase (App Store).',
 ] as const
 
 const S = {
@@ -178,6 +179,7 @@ const S = {
   uploadCreditsSingular: 78,
   uploadCreditsPlural: 79,
   uploadCreditsBreakdown: 80,
+  faqPaymentAIos: 81,
 } as const
 
 function fillPricingTemplate(template: string, vars: Record<string, string | number>): string {
@@ -302,7 +304,9 @@ function PricingPageContent() {
   const [policyAgreed, setPolicyAgreed] = useState(false)
   const [purchasedPlanId, setPurchasedPlanId] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null)
-  const [nativeIosApp, setNativeIosApp] = useState(false)
+  const [nativeIosApp, setNativeIosApp] = useState(() =>
+    typeof window !== 'undefined' ? isNativeIosApp() : false,
+  )
 
   useEffect(() => {
     setNativeIosApp(isNativeIosApp())
@@ -430,9 +434,10 @@ function PricingPageContent() {
 
     setShowBillingModal(false)
     setLoading(selectedPlan.id)
+    const onIos = isNativeIosApp()
 
     try {
-      if (nativeIosApp) {
+      if (onIos) {
         const userId = (session?.user as { id?: string } | undefined)?.id
         if (!userId) {
           alert('Please log in again')
@@ -473,7 +478,7 @@ function PricingPageContent() {
       if (msg.includes('cancelled') || msg.includes('USER_CANCELLED')) {
         return
       }
-      alert(nativeIosApp ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : 'Failed to start checkout')
+      alert(onIos ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : 'Failed to start checkout')
     } finally {
       setLoading(null)
       setSelectedPlan(null)
@@ -496,8 +501,10 @@ function PricingPageContent() {
   }
 
   const handleManageSubscription = async () => {
-    if (nativeIosApp) {
-      setShowManageModal(true)
+    if (isNativeIosApp()) {
+      alert(
+        'To manage or cancel an Apple subscription, open Settings → [Your Name] → Subscriptions on this device.',
+      )
       return
     }
     setCancelLoading(true)
@@ -607,7 +614,7 @@ function PricingPageContent() {
 
       {nativeIosApp ? (
         <div className="mb-6 rounded-xl border border-tank-accent/30 bg-tank-accent/10 px-4 py-3 text-sm text-gray-200">
-          On iOS, memberships use Apple In-App Purchase. Web and Android continue to use Stripe.
+          Memberships and paid media use Apple In-App Purchase.
           {session ? (
             <button
               type="button"
@@ -912,7 +919,7 @@ function PricingPageContent() {
           <div className="bg-tank-gray rounded-xl p-6">
             <h3 className="font-semibold mb-2">{tr[S.faqPaymentQ]}</h3>
             <p className="text-gray-400 text-sm">
-              {tr[S.faqPaymentA]}
+              {nativeIosApp ? tr[S.faqPaymentAIos] : tr[S.faqPaymentA]}
             </p>
           </div>
           <div className="bg-tank-gray rounded-xl p-6">

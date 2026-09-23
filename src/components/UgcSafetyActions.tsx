@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { nativeFetch } from '@/lib/iosAppStoreCompliance'
 
 export type UgcReportType = 'MEDIA' | 'USER' | 'CHAT_MESSAGE'
@@ -261,55 +261,32 @@ async function blockContentForViewer(opts: {
   return { ok: true }
 }
 
-/** Red flag next to creator; Save / Report / Block content (this media only). */
+/** Inline Save / Block next to creator (no flag menu; Report is TalkChat-only). */
 type UgcCreatorSafetyMenuProps = {
   mediaId: string
-  onReport: () => void
   onBlocked?: () => void
   onSave?: () => void
   isSaved?: boolean
   saving?: boolean
   saveLabel?: string
   savedLabel?: string
+  blockLabel?: string
   /** When false, only Save is shown (e.g. own content). Default true. */
   showSafetyActions?: boolean
 }
 
 export function UgcCreatorSafetyMenu({
   mediaId,
-  onReport,
   onBlocked,
   onSave,
   isSaved = false,
   saving = false,
   saveLabel = 'Save to My Contents',
   savedLabel = 'Saved to My Contents',
+  blockLabel = 'Block content',
   showSafetyActions = true,
 }: UgcCreatorSafetyMenuProps) {
-  const [open, setOpen] = useState(false)
   const [blocking, setBlocking] = useState(false)
-  const rootRef = useRef<HTMLSpanElement>(null)
-  const menuId = useId()
-
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node | null
-      if (target && rootRef.current?.contains(target)) return
-      setOpen(false)
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('touchstart', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('touchstart', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
 
   const handleBlock = async () => {
     setBlocking(true)
@@ -319,75 +296,38 @@ export function UgcCreatorSafetyMenu({
         if (result.error) window.alert(result.error)
         return
       }
-      setOpen(false)
       onBlocked?.()
     } finally {
       setBlocking(false)
     }
   }
 
-  return (
-    <span ref={rootRef} className="relative inline-flex items-center align-middle">
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className="ml-1.5 inline-flex h-6 w-6 items-center justify-center rounded text-red-500 hover:bg-red-950/50 hover:text-red-400 transition-colors"
-        aria-label="More actions"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        title="More actions"
-      >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <path d="M4 3h2v18H4V3zm3 1h9.2c.7 0 1.1.8.7 1.4L15.5 9l1.4 3.6c.4.6 0 1.4-.7 1.4H7V4z" />
-        </svg>
-      </button>
+  if (!onSave && !showSafetyActions) return null
 
-      {open ? (
-        <div
-          id={menuId}
-          role="menu"
-          className="absolute left-0 top-full z-40 mt-1 min-w-[12rem] overflow-hidden rounded-lg border border-tank-light bg-tank-dark shadow-xl"
+  return (
+    <span className="inline-flex items-center gap-2 flex-wrap align-middle">
+      {onSave ? (
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => onSave()}
+          className="text-sm text-tank-accent hover:underline disabled:opacity-50"
         >
-          {onSave ? (
-            <button
-              type="button"
-              role="menuitem"
-              disabled={saving}
-              className="block w-full px-3 py-2.5 text-left text-sm text-gray-200 hover:bg-tank-light/40 disabled:opacity-50"
-              onClick={() => {
-                setOpen(false)
-                onSave()
-              }}
-            >
-              {saving ? 'Saving…' : isSaved ? savedLabel : saveLabel}
-            </button>
-          ) : null}
-          {showSafetyActions ? (
-            <>
-              <button
-                type="button"
-                role="menuitem"
-                className="block w-full px-3 py-2.5 text-left text-sm text-gray-200 hover:bg-tank-light/40"
-                onClick={() => {
-                  setOpen(false)
-                  onReport()
-                }}
-              >
-                Report content
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={blocking}
-                className="block w-full px-3 py-2.5 text-left text-sm text-red-300 hover:bg-red-950/40 disabled:opacity-50"
-                onClick={() => void handleBlock()}
-              >
-                {blocking ? 'Blocking…' : 'Block content'}
-              </button>
-            </>
-          ) : null}
-        </div>
+          {saving ? 'Saving…' : isSaved ? savedLabel : saveLabel}
+        </button>
+      ) : null}
+      {showSafetyActions ? (
+        <>
+          {onSave ? <span className="text-gray-600" aria-hidden>•</span> : null}
+          <button
+            type="button"
+            disabled={blocking}
+            onClick={() => void handleBlock()}
+            className="text-sm text-red-400 hover:text-red-300 hover:underline disabled:opacity-50"
+          >
+            {blocking ? 'Blocking…' : blockLabel}
+          </button>
+        </>
       ) : null}
     </span>
   )

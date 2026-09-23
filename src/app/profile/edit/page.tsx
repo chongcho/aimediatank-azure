@@ -308,7 +308,9 @@ export default function EditProfilePage() {
     (typeof DEFAULT_MEMBERSHIP_PLANS)[string] | null
   >(null)
   const [membershipCheckoutLoading, setMembershipCheckoutLoading] = useState<string | null>(null)
-  const [nativeIosApp, setNativeIosApp] = useState(false)
+  const [nativeIosApp, setNativeIosApp] = useState(() =>
+    typeof window !== 'undefined' ? isNativeIosApp() : false,
+  )
 
   useEffect(() => {
     setNativeIosApp(isNativeIosApp())
@@ -363,8 +365,9 @@ export default function EditProfilePage() {
     if (!pendingMembershipPlan) return
     setShowMembershipBillingModal(false)
     setMembershipCheckoutLoading(pendingMembershipPlan.id)
+    const onIos = isNativeIosApp()
     try {
-      if (nativeIosApp) {
+      if (onIos) {
         const userId = session?.user?.id
         if (!userId) {
           setError('Please log in again')
@@ -399,7 +402,7 @@ export default function EditProfilePage() {
         setSelectedMembership(originalMembership)
         return
       }
-      setError(nativeIosApp ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : 'Failed to start checkout')
+      setError(onIos ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : 'Failed to start checkout')
       setSelectedMembership(originalMembership)
     } finally {
       setMembershipCheckoutLoading(null)

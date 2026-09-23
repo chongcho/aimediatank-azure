@@ -13,13 +13,19 @@ import WebRTC
 final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProviderDelegate, AVSpeechSynthesizerDelegate {
     static let shared = AiMediaTankVoipPushBridge()
 
-    /// MIIT / China App Store: CallKit lock-screen UI must be off for China storefront / CN region.
-    /// VoIP continues via in-app Accept/Decline when this returns false.
+    /// MIIT / China App Store (Guideline 5): CallKit must not be active for China.
+    /// When false, Talk (voice/video calling) is unavailable — same CallKit stack elsewhere;
+    /// no alternate in-app Accept/Decline path for China.
     static func isCallKitAllowed() -> Bool {
         if isChinaAppStoreStorefront() || isChinaDeviceRegion() {
             return false
         }
         return true
+    }
+
+    /// Talk button / VoIP calling — only when CallKit is allowed (non-China).
+    static func isVoiceTalkAllowed() -> Bool {
+        isCallKitAllowed()
     }
 
     /// App Store Connect storefront (ISO 3166-1 alpha-3). China Mainland = CHN.
@@ -617,6 +623,13 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     }
 
     func ensureStarted() {
+        // China: do not register PushKit / use CallKit — Talk is unavailable (Guideline 5).
+        // Single CallKit stack remains for all other regions.
+        guard Self.isCallKitAllowed() else {
+            print("[AiMediaTankVoipPushBridge] China — PushKit/CallKit/Talk not started")
+            return
+        }
+
         let firstPushKitStart = pushRegistry == nil
         if firstPushKitStart {
             // Clear ghost CallKit sessions before PushKit delivers the next incoming push.
@@ -822,6 +835,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
 
     /// TestFlight / App Store updates keep UserDefaults — refresh PushKit + re-upload token when build changes.
     func migratePushKitAfterAppUpdateIfNeeded() {
+        guard Self.isCallKitAllowed() else { return }
         let buildLabel = Self.currentAppBuildLabel()
         let previous = UserDefaults.standard.string(forKey: Self.lastMigratedAppBuildKey)
         guard previous != buildLabel else { return }
@@ -1591,24 +1605,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
         Self.noteCallHasVideo(normalizedCallId, hasVideo: video)
 
         if !Self.isCallKitAllowed() {
-            print("[AiMediaTankVoipPushBridge] JS incoming — CallKit disabled (CN), in-app only \(normalizedCallId)")
-            Self.noteIncomingCallReported(callIdString)
-            let announcement = userInfo["announcement"] as? String
-            let lang = userInfo["lang"] as? String
-            startInAppRingAnnouncement(
-                text: announcement?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-                    ? announcement!
-                    : displayName,
-                lang: lang
-            )
+            // China: Talk blocked — ignore JS fallback ring (no CallKit, no in-app Accept).
+            print("[AiMediaTankVoipPushBridge] JS incoming — Talk blocked (CN), ignore \(normalizedCallId)")
             if let token = userInfo["declineToken"] as? String, !token.isEmpty {
-                startCallStatusWatch(callId: normalizedCallId, token: token)
+                UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: normalizedCallId))
+                syncCallEndToServer(callId: normalizedCallId)
             }
-            NotificationCenter.default.post(
-                name: Notification.Name("AiMediaTankNoteIncomingCall"),
-                object: nil,
-                userInfo: ["callId": normalizedCallId]
-            )
             return
         }
 
@@ -1945,20 +1947,12 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
                 return
             }
             if !Self.isCallKitAllowed() {
-                print("[AiMediaTankVoipPushBridge] duplicate incoming VoIP push for in-app ring \(normalizedCallId)")
-                postVoiceTrace(callId: normalizedCallId, event: "grace_skip_active_ring")
-                if let token = declineToken(from: payloadDict) {
-                    UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: normalizedCallId))
+                // China: Talk unavailable — fulfill PushKit without ringing.
+                print("[AiMediaTankVoipPushBridge] duplicate incoming VoIP push — Talk blocked (CN) \(normalizedCallId)")
+                postVoiceTrace(callId: normalizedCallId, event: "grace_skip_cn_talk_blocked")
+                reportIncomingThenEndHistorically(uuid: callId) {
+                    completeOnce()
                 }
-                var info = userInfo(from: payloadDict)
-                info["reportedToCallKit"] = false
-                NotificationCenter.default.post(
-                    name: Self.incomingPushNotification,
-                    object: nil,
-                    userInfo: info
-                )
-                NotificationCenter.default.post(name: Self.incomingPushDoneNotification, object: nil)
-                completeOnce()
                 return
             }
             print("[AiMediaTankVoipPushBridge] grace period stale — re-reporting CallKit for \(normalizedCallId)")
@@ -2003,39 +1997,19 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             )
         }
 
-        // China App Store: satisfy PushKit without CallKit UI — in-app incoming overlay handles Accept/Decline.
+        // China App Store: CallKit not active; Talk blocked — fulfill PushKit only, no ring UI.
         if !Self.isCallKitAllowed() {
-            print("[AiMediaTankVoipPushBridge] VoIP push — CallKit disabled (CN), in-app incoming \(normalizedCallId)")
-
+            print("[AiMediaTankVoipPushBridge] VoIP push — Talk blocked (CN), no CallKit/in-app ring \(normalizedCallId)")
+            if let token = declineToken(from: payloadDict) {
+                UserDefaults.standard.set(token, forKey: Self.declineTokenKey(for: normalizedCallId))
+            }
             reportIncomingThenEndHistorically(uuid: callId) { [weak self] in
                 guard let self else {
                     completeOnce()
                     return
                 }
-                if Self.isCallCancelled(normalizedCallId) {
-                    completeOnce()
-                    return
-                }
-                self.postVoiceTrace(callId: normalizedCallId, event: "in_app_incoming")
-                let announcement = self.payloadString(payloadDict, key: "announcement")
-                let lang = self.payloadString(payloadDict, key: "lang")
-                self.startCallKitRingAnnouncement(
-                    displayName: displayName,
-                    announcement: announcement,
-                    lang: lang
-                )
-                if let token = self.declineToken(from: payloadDict) ??
-                    UserDefaults.standard.string(forKey: Self.declineTokenKey(for: normalizedCallId)),
-                   !token.isEmpty
-                {
-                    NativeVoiceCallEngine.shared.prefetchBootstrapWhileRinging(
-                        callId: normalizedCallId,
-                        token: token,
-                        baseURL: self.voiceApiBaseURL()
-                    )
-                }
-                Self.noteIncomingCallReported(callIdString)
-                forwardToPlugin(reportedToCallKit: false)
+                self.postVoiceTrace(callId: normalizedCallId, event: "cn_talk_blocked")
+                self.syncCallEndToServer(callId: normalizedCallId)
                 completeOnce()
             }
             return

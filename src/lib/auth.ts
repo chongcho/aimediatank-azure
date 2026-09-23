@@ -23,26 +23,47 @@ import {
 
 // Build Entra External ID / Azure AD B2C provider(s) when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
+/**
+ * Entra External ID `domain_hint` must be lowercase IdP keys (see Microsoft Learn:
+ * domain_hint=google|facebook|apple). Capitalized values (e.g. "Apple") are ignored —
+ * the authorize page then falls through to another IdP / Safari SSO (often Google),
+ * which App Review reported as “Sign in with Apple launched to Google login”.
+ */
 const ENTRA_DOMAIN_HINTS: Record<(typeof ENTRA_SOCIAL_IDS)[number], string> = {
+  google: 'google',
+  facebook: 'facebook',
+  apple: 'apple',
+  microsoft: 'microsoft',
+}
+
+/** Display name on the NextAuth provider (button labels come from SocialSignIn). */
+const ENTRA_PROVIDER_NAMES: Record<(typeof ENTRA_SOCIAL_IDS)[number], string> = {
   google: 'Google',
   facebook: 'Facebook',
   apple: 'Apple',
   microsoft: 'Microsoft',
 }
 
-function buildEntraProvider(idSuffix: string, domainHint: string) {
+function buildEntraProvider(idSuffix: (typeof ENTRA_SOCIAL_IDS)[number], domainHint: string) {
   const issuer = process.env.ENTRA_ISSUER
   const clientId = process.env.ENTRA_CLIENT_ID ?? process.env.AZURE_AD_B2C_CLIENT_ID
   const clientSecret = process.env.ENTRA_CLIENT_SECRET ?? process.env.AZURE_AD_B2C_CLIENT_SECRET
   if (!issuer || !clientId || !clientSecret) return null
   const id = `entra-external-id-${idSuffix}`
-  const name = domainHint
+  const name = ENTRA_PROVIDER_NAMES[idSuffix]
   return {
     id,
     name,
     type: 'oauth' as const,
     wellKnown: `${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`,
-    authorization: { params: { scope: 'openid email profile', domain_hint: domainHint } },
+    authorization: {
+      params: {
+        scope: 'openid email profile',
+        domain_hint: domainHint,
+        // Force interactive IdP selection for this hint — avoid Safari SSO resuming a different network.
+        prompt: 'login',
+      },
+    },
     idToken: true,
     clientId,
     clientSecret,

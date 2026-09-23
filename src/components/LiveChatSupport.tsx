@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { isNativeIosApp } from '@/lib/iosAppStoreCompliance'
 
 interface Message {
   id: string
@@ -67,8 +68,10 @@ export default function LiveChatSupport({ isOpen, onClose, userName }: LiveChatS
         aiResponse = "Great question about our plans! 💳 We offer:\n\n• **Viewer** - Free (5 uploads/month)\n• **Basic** - $1.99/mo or $19.99/yr (10 uploads/month)\n• **Advanced** - $4.99/mo or $49.99/yr (20 uploads/month)\n• **Premium** - $7.99/mo or $79.99/yr (unlimited uploads)\n\nWould you like help choosing the right plan?"
       } else if (userText.includes('download')) {
         aiResponse = "For downloads, you'll need a paid membership (Basic, Advanced, or Premium). 📥 Each plan includes unlimited downloads. Would you like to know more about our membership tiers?"
-      } else if (userText.includes('payment') || userText.includes('pay') || userText.includes('stripe') || userText.includes('card')) {
-        aiResponse = "We use Stripe for secure payments. 🔒 All transactions are encrypted and we never store your full card details. If you're having payment issues, please try refreshing the page or contact support@aimediatank.com"
+      } else if (userText.includes('payment') || userText.includes('pay') || userText.includes('stripe') || userText.includes('card') || userText.includes('iap')) {
+        aiResponse = isNativeIosApp()
+          ? "In the iOS app, memberships and paid media use Apple In-App Purchase (App Store). 🔒 For payment issues, contact support@aimediatank.com"
+          : "We use Stripe for secure payments on the website and Android. 🔒 All transactions are encrypted and we never store your full card details. If you're having payment issues, please try refreshing the page or contact support@aimediatank.com"
       } else if (userText.includes('account') || userText.includes('profile') || userText.includes('password')) {
         aiResponse = "For account-related matters, you can update your profile from the Profile page. 👤 If you're having trouble with your password or account access, please email support@aimediatank.com for assistance."
       } else if (userText.includes('hello') || userText.includes('hi') || userText.includes('hey')) {

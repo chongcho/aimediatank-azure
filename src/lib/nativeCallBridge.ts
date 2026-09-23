@@ -5,12 +5,13 @@ import { detectNativeShell, getNativePlatform } from '@/lib/nativeShellBoot'
 import { normalizeVoiceCallId } from '@/lib/voiceCallId'
 
 type CallKitCompliancePlugin = {
-  isCallKitEnabled(): Promise<{ enabled: boolean }>
+  isCallKitEnabled(): Promise<{ enabled: boolean; voiceTalkAllowed?: boolean }>
+  isVoiceTalkAllowed(): Promise<{ allowed: boolean }>
 }
 
 const NativeCallKitCompliance = registerPlugin<CallKitCompliancePlugin>('CallKitCompliance')
 
-/** Resolved at bootstrap from device region (CallKit disabled when region is CN). */
+/** Resolved at bootstrap: false on China App Store / CN region (CallKit + Talk blocked). */
 let iosCallKitEnabled: boolean | null = null
 
 export interface NativeIncomingCallPayload {
@@ -313,10 +314,20 @@ export function isNativeIosCallApp(): boolean {
   return isNativeCallApp() && getNativePlatform() === 'ios'
 }
 
-/** False on China App Store devices (region CN) where MIIT prohibits CallKit UI. */
+/** False on China App Store devices — CallKit not active; Talk button blocked (Guideline 5). */
 export function isIosCallKitEnabled(): boolean {
   if (!isNativeIosCallApp()) return false
   return iosCallKitEnabled ?? true
+}
+
+/**
+ * Voice/video Talk allowed on this device.
+ * Native iOS China (storefront CHN / region CN|CHN): false — Talk button hidden.
+ * Web / Android / non-China iOS: true.
+ */
+export function isIosVoiceTalkAllowed(): boolean {
+  if (!isNativeIosCallApp()) return true
+  return isIosCallKitEnabled()
 }
 
 export async function resolveIosCallKitEnabled(): Promise<boolean> {
@@ -328,7 +339,9 @@ export async function resolveIosCallKitEnabled(): Promise<boolean> {
   try {
     const { enabled } = await NativeCallKitCompliance.isCallKitEnabled()
     iosCallKitEnabled = enabled
-    console.info(`[NativeCall] iOS CallKit enabled=${enabled}`)
+    console.info(
+      `[NativeCall] iOS CallKit/Talk enabled=${enabled} (China blocks Talk + CallKit)`,
+    )
     return enabled
   } catch {
     iosCallKitEnabled = false
@@ -491,9 +504,13 @@ export async function bootstrapNativePush(): Promise<boolean> {
     await ensurePushPermissions(CapacitorPushCalls)
 
     if (isNativeIosCallApp()) {
-      await CapacitorPushCalls.registerVoipNotifications()
-      await resolveIosCallKitEnabled()
-      console.info('[NativePush] PushKit registration started')
+      const callKitOk = await resolveIosCallKitEnabled()
+      if (callKitOk) {
+        await CapacitorPushCalls.registerVoipNotifications()
+        console.info('[NativePush] PushKit registration started')
+      } else {
+        console.info('[NativePush] China — skipping PushKit (Talk/CallKit blocked)')
+      }
     } else if (isNativeAndroidCallApp()) {
       await CapacitorPushCalls.register()
       console.info('[NativePush] FCM registration started')

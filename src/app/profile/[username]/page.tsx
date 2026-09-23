@@ -8,6 +8,7 @@ import MediaCard from '@/components/MediaCard'
 import { formatViewCount } from '@/lib/formatViewCount'
 import { useLanguageModeList } from '@/hooks/useLanguageModeText'
 import { useMediaGridColumns } from '@/hooks/useMediaGridColumns'
+import { isNativeIosApp, nativeFetch } from '@/lib/iosAppStoreCompliance'
 
 const PROFILE_STRINGS = [
   'Close',
@@ -332,34 +333,41 @@ export default function ProfilePage() {
   
   const handleCheckoutSelected = async () => {
     if (selectedSaved.size === 0) return
-    
+
     // Get selected items that have a price
     const itemsToCheckout = savedMedia.filter(
       item => selectedSaved.has(item.media.id) && item.media.price && item.media.price > 0
     )
-    
+
     if (itemsToCheckout.length === 0) {
       alert(tr[38])
       return
     }
 
+    if (isNativeIosApp()) {
+      alert(
+        'On iOS, buy each item from its media page with Apple In-App Purchase. Batch checkout is not available in the app.',
+      )
+      return
+    }
+
     setCheckingOut(true)
-    
+
     try {
       const mediaIds = itemsToCheckout.map(item => item.media.id)
-      
-      const response = await fetch('/api/stripe/checkout-batch', {
+
+      const response = await nativeFetch('/api/stripe/checkout-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mediaIds }),
       })
-      
+
       const data = await response.json()
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to create checkout')
       }
-      
+
       // Redirect to Stripe checkout
       if (data.url) {
         window.location.href = data.url

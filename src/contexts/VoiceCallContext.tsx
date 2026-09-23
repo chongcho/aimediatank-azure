@@ -149,7 +149,7 @@ export function VoiceCallOverlayPanel({
 
   const isActiveCall = ctx.callState !== 'idle' && ctx.callState !== 'ended'
 
-  // iOS CallKit: system UI owns incoming Accept/Decline. China uses in-app overlay.
+  // iOS CallKit: system UI owns incoming Accept/Decline. China: Talk blocked (no overlay).
   const iosCallKitIncoming =
     isNativeIosCallApp() && isIosCallKitEnabled() && ctx.callState === 'incoming'
 
@@ -314,7 +314,7 @@ export function VoiceCallProvider({
       return
     }
 
-    // iOS CallKit owns incoming spoken ring; China / outgoing use web/native ring paths.
+    // iOS CallKit owns incoming spoken ring; China has Talk blocked (no web ring path).
     if (isNativeIosCallApp() && isIosCallKitEnabled()) {
       return
     }
@@ -348,7 +348,7 @@ export function VoiceCallProvider({
       if (document.hidden) return
       primeVoiceCallAfterNotificationOpen()
       const state = callStateRef.current
-      // iOS CallKit incoming on lock screen uses system UI; retry outgoing (and China incoming).
+      // iOS CallKit incoming on lock screen uses system UI; retry outgoing only.
       if (isNativeIosCallApp() && isIosCallKitEnabled() && state === 'incoming') return
       if (state === 'incoming' || state === 'outgoing') {
         retryVoiceCallRingtone()

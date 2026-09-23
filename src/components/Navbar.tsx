@@ -47,6 +47,11 @@ import {
   type SocialSubscriptionPromptDetail,
 } from '@/lib/socialSubscriptionGate'
 import SocialSubscriptionPrompt from '@/components/SocialSubscriptionPrompt'
+import {
+  isIosVoiceTalkAllowed,
+  isNativeIosCallApp,
+  resolveIosCallKitEnabled,
+} from '@/lib/nativeCallBridge'
 
 /** Version panel — follows language mode (Local) like Membership/Pricing. */
 const VERSION_PANEL_STRINGS = [
@@ -136,6 +141,8 @@ function NavbarContent() {
   const [voicePanelOpen, setVoicePanelOpen] = useState(
     () => readInitialTalkChatDesktopPanelState().voicePanelOpen,
   )
+  /** Native iOS China: Talk blocked (Guideline 5). Web/Android/other iOS: true. */
+  const [voiceTalkAllowed, setVoiceTalkAllowed] = useState(() => isIosVoiceTalkAllowed())
   /** Which TalkChat panel is on top when both are open. */
   const [frontPanel, setFrontPanel] = useState<'chat' | 'voice' | null>(
     () => readInitialTalkChatDesktopPanelState().frontPanel,
@@ -340,7 +347,7 @@ function NavbarContent() {
     if (!isNavbarItemEnabled('chat')) {
       setChatPanelOpen(false)
     }
-    if (!isNavbarItemEnabled('phone')) {
+    if (!isNavbarItemEnabled('phone') || !voiceTalkAllowed) {
       setVoicePanelOpen(false)
     }
     if (!isNavbarItemEnabled('notification')) {
@@ -349,7 +356,22 @@ function NavbarContent() {
       setIsSelectMode(false)
       setSelectedIds(new Set())
     }
-  }, [isNavbarItemEnabled])
+  }, [isNavbarItemEnabled, voiceTalkAllowed])
+
+  // Native iOS China: resolve CallKit/Talk gate and hide Talk button.
+  useEffect(() => {
+    if (!isNativeIosCallApp()) {
+      setVoiceTalkAllowed(true)
+      return
+    }
+    let cancelled = false
+    void resolveIosCallKitEnabled().then((enabled) => {
+      if (!cancelled) setVoiceTalkAllowed(enabled)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Keep front panel valid when only one TalkChat panel remains open.
   useEffect(() => {
@@ -428,6 +450,7 @@ function NavbarContent() {
   // When a voice call is active, open the Talk panel so in-call UI is not stuck behind a closed shell.
   useEffect(() => {
     const openVoice = () => {
+      if (!voiceTalkAllowed) return
       if (!isSubscriber) return
       if (typeof window !== 'undefined' && window.innerWidth < 768) {
         setChatPanelOpen(false)
@@ -439,7 +462,7 @@ function NavbarContent() {
     }
     window.addEventListener(OPEN_VOICE_TALK_EVENT, openVoice)
     return () => window.removeEventListener(OPEN_VOICE_TALK_EVENT, openVoice)
-  }, [isSubscriber])
+  }, [isSubscriber, voiceTalkAllowed])
 
   // MediaCard / other callers: open the same subscription prompt (anchored under Talk/Chat on PC).
   useEffect(() => {
@@ -452,6 +475,7 @@ function NavbarContent() {
   }, [showSocialSubscriptionPrompt])
 
   const handleToggleTalk = useCallback(() => {
+    if (!voiceTalkAllowed) return
     if (!isSubscriber) {
       showSocialSubscriptionPrompt('talk')
       return
@@ -476,7 +500,7 @@ function NavbarContent() {
     prepareTalkChatPanelOpenFull('voice')
     setVoicePanelOpen(true)
     setFrontPanel('voice')
-  }, [isSubscriber, voicePanelOpen, chatPanelOpen, showSocialSubscriptionPrompt])
+  }, [isSubscriber, voicePanelOpen, chatPanelOpen, showSocialSubscriptionPrompt, voiceTalkAllowed])
 
   const handleToggleChat = useCallback(() => {
     if (!isSubscriber) {
@@ -1063,7 +1087,7 @@ function NavbarContent() {
 
           {/* Right Side */}
           <div className="navbar-actions flex items-center gap-2 flex-shrink-0">
-            {isNavbarItemEnabled('phone') && (
+            {isNavbarItemEnabled('phone') && voiceTalkAllowed && (
               <button
                 ref={talkButtonRef}
                 type="button"

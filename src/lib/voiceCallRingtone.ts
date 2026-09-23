@@ -633,7 +633,7 @@ async function startRing(kind: RingKind, announcement?: string, lang?: string) {
       await unlockVoiceCallAudio()
       return
     }
-    // iOS CallKit: native bridge owns spoken ring. China uses web/TTS path below.
+    // iOS CallKit: native bridge owns spoken ring. China: Talk blocked.
     if (isNativeIosCallApp() && isIosCallKitEnabled()) {
       return
     }
