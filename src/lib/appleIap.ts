@@ -24,6 +24,8 @@ type AppleIAPPlugin = {
   }>
 }
 
+const PLUGIN_TIMEOUT_MS = 120_000
+
 async function getPlugin(): Promise<AppleIAPPlugin | null> {
   if (!isNativeIosApp()) return null
   try {
@@ -32,6 +34,45 @@ async function getPlugin(): Promise<AppleIAPPlugin | null> {
   } catch {
     return null
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(
+        new Error(
+          `${label} timed out after ${Math.round(ms / 1000)}s. If no Apple pay sheet appeared, rebuild the iOS app with the AppleIAP plugin and confirm IAP products are Ready to Submit in App Store Connect.`
+        )
+      )
+    }, ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      }
+    )
+  })
+}
+
+function rethrowPluginError(error: unknown, fallback: string): never {
+  const e = error as { message?: string; code?: string; errorMessage?: string } | null
+  const msg =
+    (e && typeof e === 'object' && (e.message || e.errorMessage)) ||
+    (error instanceof Error ? error.message : null) ||
+    fallback
+  const code = e && typeof e === 'object' ? e.code : undefined
+  const next = new Error(String(msg)) as Error & { code?: string }
+  if (code === 'USER_CANCELLED' || /cancel/i.test(String(msg))) {
+    next.code = 'USER_CANCELLED'
+    next.message = 'Purchase cancelled'
+  } else if (code) {
+    next.code = code
+  }
+  throw next
 }
 
 export async function purchaseAppleMembership(params: {
@@ -44,10 +85,19 @@ export async function purchaseAppleMembership(params: {
     throw new Error('Apple IAP is only available in the iOS app')
   }
   const productId = membershipProductId(params.planId, params.billingPeriod)
-  const purchase = await plugin.purchase({
-    productId,
-    appAccountToken: params.userId,
-  })
+  let purchase: { signedTransaction: string; transactionId: string; productId: string }
+  try {
+    purchase = await withTimeout(
+      plugin.purchase({
+        productId,
+        appAccountToken: params.userId,
+      }),
+      PLUGIN_TIMEOUT_MS,
+      'Apple membership purchase'
+    )
+  } catch (error) {
+    rethrowPluginError(error, 'Membership purchase failed')
+  }
   const res = await nativeFetch('/api/iap/membership/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -72,19 +122,37 @@ export async function purchaseAppleMediaUnlock(params: {
   if (!plugin) {
     throw new Error('Apple IAP is only available in the iOS app')
   }
-  const catalogRes = await nativeFetch(
-    `/api/iap/products?mediaPrice=${encodeURIComponent(String(params.priceUsd))}`
+  const catalogRes = await withTimeout(
+    nativeFetch(`/api/iap/products?mediaPrice=${encodeURIComponent(String(params.priceUsd))}`),
+    20_000,
+    'IAP product catalog'
   )
   const catalog = await catalogRes.json()
+  if (!catalogRes.ok) {
+    throw new Error(
+      typeof catalog.error === 'string' ? catalog.error : 'Could not load In-App Purchase products'
+    )
+  }
   const productId =
     typeof catalog.mediaUnlockProductId === 'string' ? catalog.mediaUnlockProductId : null
   if (!productId) {
-    throw new Error('This media price is not available for In-App Purchase')
+    throw new Error(
+      'This media price is not available for In-App Purchase (max $9.99 via Apple unlock tiers).'
+    )
   }
-  const purchase = await plugin.purchase({
-    productId,
-    appAccountToken: params.userId,
-  })
+  let purchase: { signedTransaction: string; transactionId: string; productId: string }
+  try {
+    purchase = await withTimeout(
+      plugin.purchase({
+        productId,
+        appAccountToken: params.userId,
+      }),
+      PLUGIN_TIMEOUT_MS,
+      'Apple media unlock'
+    )
+  } catch (error) {
+    rethrowPluginError(error, 'Media unlock purchase failed')
+  }
   const res = await nativeFetch('/api/iap/media/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -102,7 +170,7 @@ export async function purchaseAppleMediaUnlock(params: {
 export async function restoreAppleMemberships(): Promise<number> {
   const plugin = await getPlugin()
   if (!plugin) return 0
-  const { transactions } = await plugin.restore()
+  const { transactions } = await withTimeout(plugin.restore(), PLUGIN_TIMEOUT_MS, 'Apple restore')
   let applied = 0
   for (const txn of transactions) {
     if (!txn.productId.includes('.membership.')) continue

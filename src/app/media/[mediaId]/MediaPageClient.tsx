@@ -548,7 +548,8 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     } catch (error) {
       console.error('Error starting checkout:', error)
       const msg = error instanceof Error ? error.message : ''
-      if (msg.includes('cancelled') || msg.includes('USER_CANCELLED')) {
+      const code = (error as { code?: string } | null)?.code
+      if (code === 'USER_CANCELLED' || /cancel/i.test(msg)) {
         return
       }
       alert(onIos ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : tMedia('checkoutFailGeneric'))
