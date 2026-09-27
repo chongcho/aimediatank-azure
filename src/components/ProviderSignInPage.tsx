@@ -81,7 +81,17 @@ export function ProviderSignInPage({ providerId, callbackUrl }: Props) {
       style={{ fontFamily: '"Segoe UI", system-ui, sans-serif' }}
     >
       <div className="mx-auto w-full max-w-[440px] px-6 pb-16 pt-10">
-        <p className="text-[13px] font-semibold tracking-[0.04em] text-[#323130]">AIMEDIATANK</p>
+        <button
+          type="button"
+          onClick={startProvider}
+          disabled={starting !== null}
+          className="flex w-full items-center gap-3 bg-transparent px-0 py-3 text-left text-[15px] text-[#323130] disabled:opacity-60"
+        >
+          <ProviderMark label={provider.label} />
+          <span>{starting === 'provider' ? 'Opening…' : `Sign in with ${provider.label}`}</span>
+        </button>
+
+        <p className="mt-8 text-[13px] font-semibold text-[#323130]">AiMediaTank</p>
         <h1 className="mt-6 text-[28px] font-semibold leading-tight text-[#1b1b1b]">Sign in</h1>
         <p className="mt-4 text-[15px] text-[#1b1b1b]">Sign in to access aimediatank</p>
 
@@ -135,16 +145,6 @@ export function ProviderSignInPage({ providerId, callbackUrl }: Props) {
             </button>
           </div>
         </form>
-
-        <button
-          type="button"
-          onClick={startProvider}
-          disabled={starting !== null}
-          className="mt-14 flex w-full items-center gap-3 border border-[#8a8886] bg-white px-4 py-3 text-left text-[15px] text-[#0067b8] disabled:opacity-60"
-        >
-          <ProviderMark label={provider.label} />
-          <span>{starting === 'provider' ? 'Opening…' : `Sign in with ${provider.label}`}</span>
-        </button>
       </div>
     </div>
   )
