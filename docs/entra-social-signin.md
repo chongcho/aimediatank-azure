@@ -5,7 +5,7 @@ The app supports **Log in** and **Join** via **Microsoft Entra External ID** (or
 ## Behaviour
 
 - **Login** (`/login`) and **Register** (`/register`) show an “Or continue with” section with separate buttons: **Continue with Google**, **Continue with Facebook**, **Continue with Apple**, **Continue with Microsoft** (each only appears if that provider is configured in Entra).
-- Clicking **Continue with Google / Facebook / Apple / Microsoft** starts that provider immediately (`domain_hint` `Google` / `facebook` / `apple` / `microsoft`). It does not open the email-and-password form. On first sign-in we create a user; on later sign-ins we match by email.
+- Clicking **Continue with Google / Facebook / Apple / Microsoft** opens a sign-in page with only **Sign in with** that network (Google, Facebook, Apple, or Microsoft). Tapping that button continues to the provider (`domain_hint` `Google` / `facebook` / `apple` / `microsoft`). Email **Next** stays on Entra and does not open the app password form. On first sign-in we create a user; on later sign-ins we match by email.
 - On first sign-in we **create a user** in our database (email, username from email, name, `emailVerified: true`, `role: SUBSCRIBER`). On later sign-ins we match by email and reuse the same user.
 - **Credentials** (email + password) continue to work as before.
 
@@ -66,7 +66,7 @@ You can set **either** Option A **or** Option B. If both are set, Option A (`ENT
 - Add **both** www and non-www redirect URIs in Entra if users can reach the site at both (e.g. `https://aimediatank.com/...` and `https://www.aimediatank.com/...`).
 - If **email sign-in still fails** after setting AUTH_TRUST_HOST: **restart** the App Service after any env change. Confirm **DATABASE_URL** (same DB as staging if you expect the same users) and **NEXTAUTH_SECRET** in production.
 - NextAuth redirects to `/login?error=...` on failure; the login page shows friendly messages for codes like `OAuthCallback`, `CredentialsSignin`, etc.
-- **Social buttons opening the email-and-password form**: Continue with Google / Facebook / Apple / Microsoft must call `signIn` for that provider. Do not send those buttons to `/login`. Google’s hint must stay `domain_hint=Google`. Lowercase `google` is rejected with `AADSTS90023`.
+- **Social buttons opening the email-and-password form**: Continue with Google / Facebook / Apple / Microsoft opens `/auth/social` for that provider. Do not send those buttons to `/login`. Google’s hint must stay `domain_hint=Google`. Lowercase `google` is rejected with `AADSTS90023`.
 - **Cookie warning “Mark cross-site cookies as Secure”**: The cookie `esctx-*` on `.aimediatank.ciamlogin.com` is set by **Microsoft Entra** (CIAM), not by your app. Ensure the app and redirects use **HTTPS**. If the warning persists, it is on Microsoft’s side; sign-in may still work in many browsers.
 
 ## Native apps (Android Play / iOS TestFlight)
@@ -115,6 +115,6 @@ After changing plugins or native config, run `npx cap sync` before building eith
 
 - **Auth config**: `src/lib/auth.ts` — adds the Entra/B2C provider and find-or-create user logic in the JWT callback.
 - **UI**: `src/components/SocialSignIn.tsx` — “Or continue with” + one button per provider (Google, Facebook, Apple, Microsoft); used on `src/app/login/page.tsx` and `src/app/register/page.tsx`.
-- **Provider ids** when using Option A: `entra-external-id-google`, `entra-external-id-facebook`, `entra-external-id-apple`, `entra-external-id-microsoft`. Each button passes `domain_hint` `Google` / `facebook` / `apple` / `microsoft` plus `prompt=login`. When using Option B: single `azure-ad-b2c` (one “Microsoft” button).
+- **Provider ids** when using Option A: `entra-external-id-google`, `entra-external-id-facebook`, `entra-external-id-apple`, `entra-external-id-microsoft`. `/auth/social` shows one **Sign in with** button for that network, then sends `domain_hint` `Google` / `facebook` / `apple` / `microsoft` plus `prompt=login` when it is tapped. When using Option B: single `azure-ad-b2c` (one “Microsoft” button).
 - **iOS ASWebAuthenticationSession** uses an ephemeral session so a prior Safari Google login cannot hijack “Continue with Apple”.
-- Facebook, Apple, and Microsoft must be enabled on the Entra user flow. If they are not, tapping those buttons falls through to Entra’s page, which only lists Google.
+- Leave Google unchecked on the Entra user flow so the hosted page does not add a second **Sign in with Google**. Facebook, Apple, and Microsoft still need to be added under **Manage identity providers** before those buttons can open those networks.
