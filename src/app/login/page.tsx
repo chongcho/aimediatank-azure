@@ -47,6 +47,12 @@ function LoginContent() {
     if (errorCode) {
       setError(ERROR_MESSAGES[errorCode] ?? ERROR_MESSAGES.default)
       window.history.replaceState({}, '', '/login')
+      return
+    }
+    const prefill = searchParams.get('email')
+    if (prefill) {
+      setEmail(prefill)
+      setShowEmailForm(true)
     }
   }, [searchParams])
 

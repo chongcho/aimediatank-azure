@@ -24,11 +24,10 @@ import {
 // Build Entra External ID / Azure AD B2C provider(s) when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
 /**
- * Do not send `domain_hint`. Continue with Google was opening accounts.google.com,
- * while Microsoft, Facebook, and Apple stayed on the Entra page (email form, then
- * "Sign in with Google" underneath). Omitting the hint sends every button to that
- * same aimediatank.ciamlogin.com screen. `prompt=login` keeps a saved Google
- * session from skipping the screen.
+ * Do not put `domain_hint` on the provider itself. Continue with Google / Facebook /
+ * Apple / Microsoft opens `/auth/social`, which shows only that network's button.
+ * The hint is added when the user taps it (`Google` for Google — lowercase `google`
+ * is rejected with AADSTS90023). `prompt=login` avoids resuming a saved session.
  */
 
 /** Display name on the NextAuth provider (button labels come from SocialSignIn). */
