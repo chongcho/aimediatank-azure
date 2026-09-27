@@ -5,7 +5,7 @@ The app supports **Log in** and **Join** via **Microsoft Entra External ID** (or
 ## Behaviour
 
 - **Login** (`/login`) and **Register** (`/register`) show an “Or continue with” section with separate buttons: **Continue with Google**, **Continue with Facebook**, **Continue with Apple**, **Continue with Microsoft** (each only appears if that provider is configured in Entra).
-- Clicking a button redirects users to Azure (and, when supported, directly to that provider via `domain_hint`). On first sign-in we create a user; on later sign-ins we match by email.
+- Clicking any social button opens the same Entra sign-in page (`*.ciamlogin.com`): **Sign in with Google**, then the email form. The app does not send `domain_hint`, so Continue with Google stays on that page instead of jumping to `accounts.google.com`. On first sign-in we create a user; on later sign-ins we match by email.
 - On first sign-in we **create a user** in our database (email, username from email, name, `emailVerified: true`, `role: SUBSCRIBER`). On later sign-ins we match by email and reuse the same user.
 - **Credentials** (email + password) continue to work as before.
 
@@ -66,7 +66,7 @@ You can set **either** Option A **or** Option B. If both are set, Option A (`ENT
 - Add **both** www and non-www redirect URIs in Entra if users can reach the site at both (e.g. `https://aimediatank.com/...` and `https://www.aimediatank.com/...`).
 - If **email sign-in still fails** after setting AUTH_TRUST_HOST: **restart** the App Service after any env change. Confirm **DATABASE_URL** (same DB as staging if you expect the same users) and **NEXTAUTH_SECRET** in production.
 - NextAuth redirects to `/login?error=...` on failure; the login page shows friendly messages for codes like `OAuthCallback`, `CredentialsSignin`, etc.
-- **AADSTS90023 `'google' '' pair is not an external identity provider`**: Continue with Google must send `domain_hint=Google` (capital G). The lowercase value `google` is rejected in browsers and in iOS `ASWebAuthenticationSession`, even though Google is configured. That lowercase hint was introduced on 23 Sep 2026 while fixing Apple sign-in; the capitalized hint is what worked before.
+- **Inconsistent social sign-in screens**: Do not send `domain_hint`. `domain_hint=Google` opens `accounts.google.com`, while the other buttons stay on the Entra page. `domain_hint=google` (lowercase) is rejected in browsers with `AADSTS90023: 'google' '' pair is not an external identity provider.`
 - **Cookie warning “Mark cross-site cookies as Secure”**: The cookie `esctx-*` on `.aimediatank.ciamlogin.com` is set by **Microsoft Entra** (CIAM), not by your app. Ensure the app and redirects use **HTTPS**. If the warning persists, it is on Microsoft’s side; sign-in may still work in many browsers.
 
 ## Native apps (Android Play / iOS TestFlight)
@@ -115,6 +115,6 @@ After changing plugins or native config, run `npx cap sync` before building eith
 
 - **Auth config**: `src/lib/auth.ts` — adds the Entra/B2C provider and find-or-create user logic in the JWT callback.
 - **UI**: `src/components/SocialSignIn.tsx` — “Or continue with” + one button per provider (Google, Facebook, Apple, Microsoft); used on `src/app/login/page.tsx` and `src/app/register/page.tsx`.
-- **Provider ids** when using Option A: `entra-external-id-google`, `entra-external-id-facebook`, `entra-external-id-apple`, `entra-external-id-microsoft`. Each passes `domain_hint` plus `prompt=login` so Entra opens that IdP directly. Facebook, Apple, and Microsoft use **lowercase** hints (`facebook` / `apple` / `microsoft`). Capitalized hints such as `Apple` are ignored and can fall through to Google SSO (App Review Guideline 2.1). **Google uses `Google`**, not `google`. The lowercase value is rejected in browsers with `AADSTS90023: 'google' '' pair is not an external identity provider.` When using Option B: single `azure-ad-b2c` (one “Microsoft” button).
+- **Provider ids** when using Option A: `entra-external-id-google`, `entra-external-id-facebook`, `entra-external-id-apple`, `entra-external-id-microsoft`. Each uses `prompt=login` and does **not** send `domain_hint`, so every button opens the same Entra page. When using Option B: single `azure-ad-b2c` (one “Microsoft” button).
 - **iOS ASWebAuthenticationSession** uses an ephemeral session so a prior Safari Google login cannot hijack “Continue with Apple”.
-- Confirm Apple is enabled on the Entra **user flow** (External Identities → User flows → Identity providers → Apple). Without that, `domain_hint=apple` still fails.
+- The Entra page renders the email card first and **Sign in with Google** in `#tileList` underneath. That order is Microsoft’s hosted layout. Company branding on this tenant is not applying custom CSS (`staticTenantBranding` is empty and the sign-in config sets `fRemoveCustomCss`).

@@ -24,23 +24,12 @@ import {
 // Build Entra External ID / Azure AD B2C provider(s) when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
 /**
- * Entra External ID `domain_hint` for Facebook, Apple, and Microsoft must be lowercase.
- * Capitalized values (e.g. "Apple") are ignored — the authorize page then falls through
- * to another IdP / Safari SSO (often Google), which App Review reported as
- * “Sign in with Apple launched to Google login”.
- *
- * Google is the exception: this tenant accepts `domain_hint=Google` and rejects the
- * documented lowercase `google` in browsers (desktop, mobile Safari, iOS
- * ASWebAuthenticationSession) with AADSTS90023: 'google' '' pair is not an external
- * identity provider. `Google` is the value that signed users in from Feb 2026 until
- * the 23 Sep 2026 App Store change lowercased every hint.
+ * Do not send `domain_hint`. Continue with Google was opening accounts.google.com,
+ * while Microsoft, Facebook, and Apple stayed on the Entra page (email form, then
+ * "Sign in with Google" underneath). Omitting the hint sends every button to that
+ * same aimediatank.ciamlogin.com screen. `prompt=login` keeps a saved Google
+ * session from skipping the screen.
  */
-const ENTRA_DOMAIN_HINTS: Record<(typeof ENTRA_SOCIAL_IDS)[number], string> = {
-  google: 'Google',
-  facebook: 'facebook',
-  apple: 'apple',
-  microsoft: 'microsoft',
-}
 
 /** Display name on the NextAuth provider (button labels come from SocialSignIn). */
 const ENTRA_PROVIDER_NAMES: Record<(typeof ENTRA_SOCIAL_IDS)[number], string> = {
@@ -50,7 +39,7 @@ const ENTRA_PROVIDER_NAMES: Record<(typeof ENTRA_SOCIAL_IDS)[number], string> = 
   microsoft: 'Microsoft',
 }
 
-function buildEntraProvider(idSuffix: (typeof ENTRA_SOCIAL_IDS)[number], domainHint: string) {
+function buildEntraProvider(idSuffix: (typeof ENTRA_SOCIAL_IDS)[number]) {
   const issuer = process.env.ENTRA_ISSUER
   const clientId = process.env.ENTRA_CLIENT_ID ?? process.env.AZURE_AD_B2C_CLIENT_ID
   const clientSecret = process.env.ENTRA_CLIENT_SECRET ?? process.env.AZURE_AD_B2C_CLIENT_SECRET
@@ -65,8 +54,6 @@ function buildEntraProvider(idSuffix: (typeof ENTRA_SOCIAL_IDS)[number], domainH
     authorization: {
       params: {
         scope: 'openid email profile',
-        domain_hint: domainHint,
-        // Force interactive IdP selection for this hint — avoid Safari SSO resuming a different network.
         prompt: 'login',
       },
     },
@@ -104,7 +91,7 @@ function getEntraProviders(): any[] {
   const userFlow = process.env.AZURE_AD_B2C_PRIMARY_USER_FLOW
 
   if (issuer && clientId && clientSecret) {
-    return ENTRA_SOCIAL_IDS.map((key) => buildEntraProvider(key, ENTRA_DOMAIN_HINTS[key])).filter(
+    return ENTRA_SOCIAL_IDS.map((key) => buildEntraProvider(key)).filter(
       (p): p is NonNullable<typeof p> => p !== null
     ) as any[]
   }
