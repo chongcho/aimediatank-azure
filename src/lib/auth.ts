@@ -24,13 +24,19 @@ import {
 // Build Entra External ID / Azure AD B2C provider(s) when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
 /**
- * Entra External ID `domain_hint` must be lowercase IdP keys (see Microsoft Learn:
- * domain_hint=google|facebook|apple). Capitalized values (e.g. "Apple") are ignored —
- * the authorize page then falls through to another IdP / Safari SSO (often Google),
- * which App Review reported as “Sign in with Apple launched to Google login”.
+ * Entra External ID `domain_hint` for Facebook, Apple, and Microsoft must be lowercase.
+ * Capitalized values (e.g. "Apple") are ignored — the authorize page then falls through
+ * to another IdP / Safari SSO (often Google), which App Review reported as
+ * “Sign in with Apple launched to Google login”.
+ *
+ * Google is the exception: this tenant accepts `domain_hint=Google` and rejects the
+ * documented lowercase `google` in browsers (desktop, mobile Safari, iOS
+ * ASWebAuthenticationSession) with AADSTS90023: 'google' '' pair is not an external
+ * identity provider. `Google` is the value that signed users in from Feb 2026 until
+ * the 23 Sep 2026 App Store change lowercased every hint.
  */
 const ENTRA_DOMAIN_HINTS: Record<(typeof ENTRA_SOCIAL_IDS)[number], string> = {
-  google: 'google',
+  google: 'Google',
   facebook: 'facebook',
   apple: 'apple',
   microsoft: 'microsoft',
