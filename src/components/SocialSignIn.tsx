@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getProviders } from 'next-auth/react'
+import { signIn, getProviders } from 'next-auth/react'
+import { socialProviderSignIn } from '@/lib/socialProviderSignIn'
 import { ADMIN_FORCE_STEP2_STORAGE_KEY } from '@/lib/adminFreshStep2'
 import { shouldUseNativeSocialAuth, startNativeSocialSignIn } from '@/lib/nativeSocialAuth'
 
@@ -104,8 +105,8 @@ export function SocialSignIn({
       return
     }
 
-    const q = new URLSearchParams({ provider: providerId, next: dest })
-    window.location.assign(`/auth/social?${q}`)
+    const hint = socialProviderSignIn(providerId)?.hint
+    void signIn(providerId, { callbackUrl: dest }, hint ? { domain_hint: hint } : undefined)
   }
 
   const hasSocialButtons = SOCIAL_BUTTONS.some((b) => availableIds.has(b.id))
