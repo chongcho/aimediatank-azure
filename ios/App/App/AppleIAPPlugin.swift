@@ -1,6 +1,7 @@
 import Capacitor
 import Foundation
 import StoreKit
+import UIKit
 
 /**
  * StoreKit 2 bridge for Apple In-App Purchase (memberships + media unlock tiers).
@@ -89,7 +90,9 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin {
                     options.insert(.appAccountToken(uuid))
                 }
 
-                let result = try await product.purchase(options: options)
+                // Without the foreground window, StoreKit never presents the sheet and this
+                // call does not return, so the Buy button stays on Processing.
+                let result = try await Self.purchase(product, options: options)
                 switch result {
                 case .success(let verification):
                     let transaction = try Self.checkVerified(verification)
@@ -157,6 +160,23 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin {
             group.cancelAll()
             return products
         }
+    }
+
+    @MainActor
+    private static func purchase(
+        _ product: Product,
+        options: Set<Product.PurchaseOption>
+    ) async throws -> Product.PurchaseResult {
+        if #available(iOS 18.0, *), let scene = foregroundScene() {
+            return try await product.purchase(confirmIn: scene, options: options)
+        }
+        return try await product.purchase(options: options)
+    }
+
+    @MainActor
+    private static func foregroundScene() -> UIWindowScene? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
     }
 
     private static func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
