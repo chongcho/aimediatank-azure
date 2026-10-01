@@ -1,3 +1,4 @@
+import { registerPlugin } from '@capacitor/core'
 import { isNativeIosApp, nativeFetch } from '@/lib/iosAppStoreCompliance'
 import {
   membershipProductId,
@@ -26,14 +27,9 @@ type AppleIAPPlugin = {
 
 const PLUGIN_TIMEOUT_MS = 120_000
 
-async function getPlugin(): Promise<AppleIAPPlugin | null> {
+function getPlugin(): AppleIAPPlugin | null {
   if (!isNativeIosApp()) return null
-  try {
-    const { registerPlugin } = await import('@capacitor/core')
-    return registerPlugin<AppleIAPPlugin>('AppleIAP')
-  } catch {
-    return null
-  }
+  return registerPlugin<AppleIAPPlugin>('AppleIAP')
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -80,7 +76,7 @@ export async function purchaseAppleMembership(params: {
   billingPeriod: AppleBillingPeriod
   userId: string
 }): Promise<{ membershipType: string; membershipExpiresAt?: string }> {
-  const plugin = await getPlugin()
+  const plugin = getPlugin()
   if (!plugin) {
     throw new Error('Apple IAP is only available in the iOS app')
   }
@@ -120,7 +116,7 @@ export async function purchaseAppleMediaUnlock(params: {
   onStep?: (step: string) => void
 }): Promise<void> {
   params.onStep?.('plugin')
-  const plugin = await getPlugin()
+  const plugin = getPlugin()
   if (!plugin) {
     throw new Error('Apple IAP is only available in the iOS app')
   }
@@ -173,7 +169,7 @@ export async function purchaseAppleMediaUnlock(params: {
 }
 
 export async function restoreAppleMemberships(): Promise<number> {
-  const plugin = await getPlugin()
+  const plugin = getPlugin()
   if (!plugin) return 0
   const { transactions } = await withTimeout(plugin.restore(), PLUGIN_TIMEOUT_MS, 'Apple restore')
   let applied = 0
