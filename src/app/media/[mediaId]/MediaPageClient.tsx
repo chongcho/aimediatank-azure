@@ -140,6 +140,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
   const [isSaved, setIsSaved] = useState(false)
   const [savingMedia, setSavingMedia] = useState(false)
   const [buyingMedia, setBuyingMedia] = useState(false)
+  const [buyError, setBuyError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle')
   const [showShareModal, setShowShareModal] = useState(false)
@@ -514,13 +515,26 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
     if (!media || !media.price || media.price <= 0) return
 
+    setBuyError(null)
     setBuyingMedia(true)
+    let finished = false
+    const stop = (message?: string) => {
+      if (finished) return
+      finished = true
+      window.clearTimeout(timer)
+      setBuyingMedia(false)
+      if (message) setBuyError(message)
+    }
+    // A hidden alert() in the iOS web view blocks the page, so Processing never ends.
+    const timer = window.setTimeout(() => {
+      stop('Apple sign-in did not open.')
+    }, 20_000)
     const onIos = isNativeIosApp()
     try {
       if (onIos) {
         const userId = (session.user as { id?: string }).id
         if (!userId) {
-          alert(tMedia('checkoutFailGeneric'))
+          stop(tMedia('checkoutFailGeneric'))
           return
         }
         await purchaseAppleMediaUnlock({
@@ -528,6 +542,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           priceUsd: media.price,
           userId,
         })
+        stop()
         window.location.reload()
         return
       }
@@ -541,20 +556,20 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       const data = await res.json()
 
       if (res.ok && data.url) {
+        stop()
         window.location.href = data.url
       } else {
-        alert(data.error || tMedia('checkoutFail'))
+        stop(data.error || tMedia('checkoutFail'))
       }
     } catch (error) {
       console.error('Error starting checkout:', error)
       const msg = error instanceof Error ? error.message : ''
       const code = (error as { code?: string } | null)?.code
       if (code === 'USER_CANCELLED' || /cancel/i.test(msg)) {
+        stop()
         return
       }
-      alert(onIos ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : tMedia('checkoutFailGeneric'))
-    } finally {
-      setBuyingMedia(false)
+      stop(onIos ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : tMedia('checkoutFailGeneric'))
     }
   }
 
@@ -1087,6 +1102,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     : mediaPageInterpolate(tMedia('buyNowWithPrice'), { price: `$${media.price.toFixed(2)}` })}
                 </button>
               )}
+              {buyError ? (
+                <p className="mb-4 text-sm text-red-400" role="alert">
+                  {buyError}
+                </p>
+              ) : null}
 
               {media.price && media.price > 0 && isOwner && (
                 <div className="mb-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold bg-tank-gray border border-tank-light text-gray-400">
