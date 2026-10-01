@@ -1,5 +1,5 @@
 import { registerPlugin } from '@capacitor/core'
-import { isNativeIosApp, nativeFetch } from '@/lib/iosAppStoreCompliance'
+import { IOS_IAP_UNAVAILABLE_MESSAGE, isNativeIosApp, nativeFetch } from '@/lib/iosAppStoreCompliance'
 import {
   membershipProductId,
   type AppleBillingPeriod,
@@ -32,14 +32,10 @@ function getPlugin(): AppleIAPPlugin | null {
   return registerPlugin<AppleIAPPlugin>('AppleIAP')
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(
-        new Error(
-          `${label} timed out after ${Math.round(ms / 1000)}s. If no Apple pay sheet appeared, rebuild the iOS app with the AppleIAP plugin and confirm IAP products are Ready to Submit in App Store Connect.`
-        )
-      )
+      reject(new Error(IOS_IAP_UNAVAILABLE_MESSAGE))
     }, ms)
     promise.then(
       (value) => {
@@ -88,8 +84,7 @@ export async function purchaseAppleMembership(params: {
         productId,
         appAccountToken: params.userId,
       }),
-      PLUGIN_TIMEOUT_MS,
-      'Apple membership purchase'
+      PLUGIN_TIMEOUT_MS
     )
   } catch (error) {
     rethrowPluginError(error, 'Membership purchase failed')
@@ -113,18 +108,14 @@ export async function purchaseAppleMediaUnlock(params: {
   mediaId: string
   priceUsd: number
   userId: string
-  onStep?: (step: string) => void
 }): Promise<void> {
-  params.onStep?.('plugin')
   const plugin = getPlugin()
   if (!plugin) {
     throw new Error('Apple IAP is only available in the iOS app')
   }
-  params.onStep?.('catalog')
   const catalogRes = await withTimeout(
     nativeFetch(`/api/iap/products?mediaPrice=${encodeURIComponent(String(params.priceUsd))}`),
-    20_000,
-    'IAP product catalog'
+    20_000
   )
   const catalog = await catalogRes.json()
   if (!catalogRes.ok) {
@@ -139,7 +130,6 @@ export async function purchaseAppleMediaUnlock(params: {
       'This media price is not available for In-App Purchase (max $9.99 via Apple unlock tiers).'
     )
   }
-  params.onStep?.('purchase')
   let purchase: { signedTransaction: string; transactionId: string; productId: string }
   try {
     purchase = await withTimeout(
@@ -147,13 +137,11 @@ export async function purchaseAppleMediaUnlock(params: {
         productId,
         appAccountToken: params.userId,
       }),
-      PLUGIN_TIMEOUT_MS,
-      'Apple media unlock'
+      PLUGIN_TIMEOUT_MS
     )
   } catch (error) {
     rethrowPluginError(error, 'Media unlock purchase failed')
   }
-  params.onStep?.('verify')
   const res = await nativeFetch('/api/iap/media/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -171,7 +159,7 @@ export async function purchaseAppleMediaUnlock(params: {
 export async function restoreAppleMemberships(): Promise<number> {
   const plugin = getPlugin()
   if (!plugin) return 0
-  const { transactions } = await withTimeout(plugin.restore(), PLUGIN_TIMEOUT_MS, 'Apple restore')
+  const { transactions } = await withTimeout(plugin.restore(), PLUGIN_TIMEOUT_MS)
   let applied = 0
   for (const txn of transactions) {
     if (!txn.productId.includes('.membership.')) continue

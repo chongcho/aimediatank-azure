@@ -517,38 +517,19 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
     setBuyError(null)
     setBuyingMedia(true)
-    let finished = false
-    let step = 'start'
-    const stop = (message?: string) => {
-      window.clearTimeout(timer)
-      setBuyingMedia(false)
-      if (message) setBuyError(message)
-      finished = true
-    }
-    // A hidden alert() in the iOS web view blocks the page, so Processing never ends.
-    const timer = window.setTimeout(() => {
-      if (finished) return
-      finished = true
-      setBuyingMedia(false)
-      setBuyError(`Apple sign-in did not open (${step}).`)
-    }, 20_000)
     const onIos = isNativeIosApp()
     try {
       if (onIos) {
         const userId = (session.user as { id?: string }).id
         if (!userId) {
-          stop(tMedia('checkoutFailGeneric'))
+          setBuyError(tMedia('checkoutFailGeneric'))
           return
         }
         await purchaseAppleMediaUnlock({
           mediaId: media.id,
           priceUsd: media.price,
           userId,
-          onStep: (next) => {
-            step = next
-          },
         })
-        stop()
         window.location.reload()
         return
       }
@@ -562,20 +543,20 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
       const data = await res.json()
 
       if (res.ok && data.url) {
-        stop()
         window.location.href = data.url
       } else {
-        stop(data.error || tMedia('checkoutFail'))
+        setBuyError(data.error || tMedia('checkoutFail'))
       }
     } catch (error) {
       console.error('Error starting checkout:', error)
       const msg = error instanceof Error ? error.message : ''
       const code = (error as { code?: string } | null)?.code
       if (code === 'USER_CANCELLED' || /cancel/i.test(msg)) {
-        stop()
         return
       }
-      stop(onIos ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : tMedia('checkoutFailGeneric'))
+      setBuyError(onIos ? msg || IOS_IAP_UNAVAILABLE_MESSAGE : tMedia('checkoutFailGeneric'))
+    } finally {
+      setBuyingMedia(false)
     }
   }
 

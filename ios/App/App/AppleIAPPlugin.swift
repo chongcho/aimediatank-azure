@@ -1,7 +1,6 @@
 import Capacitor
 import Foundation
 import StoreKit
-import UIKit
 
 /**
  * StoreKit bridge for Apple In-App Purchase (memberships + media unlock tiers).
@@ -201,7 +200,7 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
             self.productsRequest?.cancel()
             self.productsRequest = nil
             self.failPurchase(
-                message: "App Store did not return \(pending.productId). In App Store Connect, set it Cleared for Sale and Ready to Submit.",
+                message: "In-App Purchase is temporarily unavailable. Please try again later.",
                 code: "PRODUCT_TIMEOUT"
             )
         }
@@ -209,13 +208,11 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
 
     public func productsRequest(_ request: SKProductsRequest, didReceive response: SKProductsResponse) {
         let products = response.products
-        let invalid = response.invalidProductIdentifiers
         Task { @MainActor in
             guard let pending = self.inflight, !pending.settled, !pending.enqueued else { return }
             guard let product = products.first(where: { $0.productIdentifier == pending.productId }) else {
-                let listed = invalid.isEmpty ? pending.productId : invalid.joined(separator: ", ")
                 self.failPurchase(
-                    message: "App Store does not sell \(listed). In App Store Connect, set that product Cleared for Sale and Ready to Submit.",
+                    message: "In-App Purchase is temporarily unavailable. Please try again later.",
                     code: "PRODUCT_NOT_FOUND"
                 )
                 return
@@ -227,7 +224,7 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
     public func request(_ request: SKRequest, didFailWithError error: Error) {
         Task { @MainActor in
             self.failPurchase(
-                message: "App Store product request failed: \(error.localizedDescription)",
+                message: "In-App Purchase is temporarily unavailable. Please try again later.",
                 code: "PRODUCT_REQUEST_FAILED"
             )
         }
@@ -316,19 +313,6 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
         self.productsRequest = nil
         call.keepAlive = false
         call.reject(message, code)
-        presentNotice(message)
-    }
-
-    @MainActor
-    private func presentNotice(_ message: String) {
-        guard let root = bridge?.viewController else { return }
-        let alert = UIAlertController(title: "In-App Purchase", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        var top = root
-        while let presented = top.presentedViewController, !presented.isBeingDismissed {
-            top = presented
-        }
-        top.present(alert, animated: true)
     }
 
     private static func loadProducts(ids: Set<String>) async throws -> [Product] {
