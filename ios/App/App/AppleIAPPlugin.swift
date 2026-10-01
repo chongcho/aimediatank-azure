@@ -1,16 +1,17 @@
 import Capacitor
 import Foundation
 import StoreKit
+import UIKit
 
 /**
  * StoreKit bridge for Apple In-App Purchase (memberships + media unlock tiers).
  *
- * `Product.purchase` never presents a sheet from this Capacitor shell and never returns,
- * which leaves Buy on "Processing…". The payment queue presents the sheet itself.
+ * Adding a payment by product id alone never presents the Sandbox sign-in.
+ * Ask the App Store for the SKProduct first, then add SKPayment(product:).
  * StoreKit 2 still supplies the signed transaction for server verification.
  */
 @objc(AppleIAPPlugin)
-public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionObserver {
+public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionObserver, SKProductsRequestDelegate {
     public let identifier = "AppleIAPPlugin"
     public let jsName = "AppleIAP"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -23,11 +24,13 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
         let call: CAPPluginCall
         let productId: String
         let startedAt: Date
+        let appAccountToken: String?
         var settled = false
         var enqueued = false
-        init(call: CAPPluginCall, productId: String) {
+        init(call: CAPPluginCall, productId: String, appAccountToken: String?) {
             self.call = call
             self.productId = productId
+            self.appAccountToken = appAccountToken
             self.startedAt = Date()
         }
     }
@@ -35,6 +38,7 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
     private var updatesTask: Task<Void, Never>?
     private var observerAdded = false
     private var inflight: Inflight?
+    private var productsRequest: SKProductsRequest?
 
     override public func load() {
         super.load()
@@ -111,9 +115,9 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
                     call.reject("A purchase is already in progress", "IN_PROGRESS")
                     return
                 }
-                let pending = Inflight(call: call, productId: productId)
+                let pending = Inflight(call: call, productId: productId, appAccountToken: appAccountToken)
                 self.inflight = pending
-                self.enqueue(pending, appAccountToken: appAccountToken)
+                self.requestProduct(pending)
             }
         }
     }
@@ -180,19 +184,63 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
     }
 
     @MainActor
-    private func enqueue(_ pending: Inflight, appAccountToken: String?) {
-        guard !pending.enqueued, !pending.settled else { return }
+    private func requestProduct(_ pending: Inflight) {
         guard SKPaymentQueue.canMakePayments() else {
             failPurchase(message: "In-App Purchases are turned off in Settings.", code: "PAYMENTS_DISABLED")
             return
         }
         ensureObserver()
         finishIdlePayments()
+        let request = SKProductsRequest(productIdentifiers: [pending.productId])
+        request.delegate = self
+        productsRequest = request
+        request.start()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 20_000_000_000)
+            guard let inflight = self.inflight, inflight === pending, !inflight.enqueued, !inflight.settled else { return }
+            self.productsRequest?.cancel()
+            self.productsRequest = nil
+            self.failPurchase(
+                message: "App Store did not return \(pending.productId). In App Store Connect, set it Cleared for Sale and Ready to Submit.",
+                code: "PRODUCT_TIMEOUT"
+            )
+        }
+    }
+
+    public func productsRequest(_ request: SKProductsRequest, didReceive response: SKProductsResponse) {
+        let products = response.products
+        let invalid = response.invalidProductIdentifiers
+        Task { @MainActor in
+            guard let pending = self.inflight, !pending.settled, !pending.enqueued else { return }
+            guard let product = products.first(where: { $0.productIdentifier == pending.productId }) else {
+                let listed = invalid.isEmpty ? pending.productId : invalid.joined(separator: ", ")
+                self.failPurchase(
+                    message: "App Store does not sell \(listed). In App Store Connect, set that product Cleared for Sale and Ready to Submit.",
+                    code: "PRODUCT_NOT_FOUND"
+                )
+                return
+            }
+            self.enqueue(pending, product: product)
+        }
+    }
+
+    public func request(_ request: SKRequest, didFailWithError error: Error) {
+        Task { @MainActor in
+            self.failPurchase(
+                message: "App Store product request failed: \(error.localizedDescription)",
+                code: "PRODUCT_REQUEST_FAILED"
+            )
+        }
+    }
+
+    @MainActor
+    private func enqueue(_ pending: Inflight, product: SKProduct) {
+        guard !pending.enqueued, !pending.settled else { return }
+        ensureObserver()
         pending.enqueued = true
-        let payment = SKMutablePayment()
-        payment.productIdentifier = pending.productId
+        let payment = SKMutablePayment(product: product)
         payment.quantity = 1
-        if let appAccountToken, let uuid = UUID(uuidString: appAccountToken) {
+        if let token = pending.appAccountToken, let uuid = UUID(uuidString: token) {
             payment.applicationUsername = uuid.uuidString
         }
         SKPaymentQueue.default().add(payment)
@@ -265,8 +313,22 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
         inflight.settled = true
         let call = inflight.call
         self.inflight = nil
+        self.productsRequest = nil
         call.keepAlive = false
         call.reject(message, code)
+        presentNotice(message)
+    }
+
+    @MainActor
+    private func presentNotice(_ message: String) {
+        guard let root = bridge?.viewController else { return }
+        let alert = UIAlertController(title: "In-App Purchase", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        var top = root
+        while let presented = top.presentedViewController, !presented.isBeingDismissed {
+            top = presented
+        }
+        top.present(alert, animated: true)
     }
 
     private static func loadProducts(ids: Set<String>) async throws -> [Product] {
