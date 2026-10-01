@@ -117,11 +117,14 @@ export async function purchaseAppleMediaUnlock(params: {
   mediaId: string
   priceUsd: number
   userId: string
+  onStep?: (step: string) => void
 }): Promise<void> {
+  params.onStep?.('plugin')
   const plugin = await getPlugin()
   if (!plugin) {
     throw new Error('Apple IAP is only available in the iOS app')
   }
+  params.onStep?.('catalog')
   const catalogRes = await withTimeout(
     nativeFetch(`/api/iap/products?mediaPrice=${encodeURIComponent(String(params.priceUsd))}`),
     20_000,
@@ -140,6 +143,7 @@ export async function purchaseAppleMediaUnlock(params: {
       'This media price is not available for In-App Purchase (max $9.99 via Apple unlock tiers).'
     )
   }
+  params.onStep?.('purchase')
   let purchase: { signedTransaction: string; transactionId: string; productId: string }
   try {
     purchase = await withTimeout(
@@ -153,6 +157,7 @@ export async function purchaseAppleMediaUnlock(params: {
   } catch (error) {
     rethrowPluginError(error, 'Media unlock purchase failed')
   }
+  params.onStep?.('verify')
   const res = await nativeFetch('/api/iap/media/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

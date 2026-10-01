@@ -518,16 +518,19 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     setBuyError(null)
     setBuyingMedia(true)
     let finished = false
+    let step = 'start'
     const stop = (message?: string) => {
-      if (finished) return
-      finished = true
       window.clearTimeout(timer)
       setBuyingMedia(false)
       if (message) setBuyError(message)
+      finished = true
     }
     // A hidden alert() in the iOS web view blocks the page, so Processing never ends.
     const timer = window.setTimeout(() => {
-      stop('Apple sign-in did not open.')
+      if (finished) return
+      finished = true
+      setBuyingMedia(false)
+      setBuyError(`Apple sign-in did not open (${step}).`)
     }, 20_000)
     const onIos = isNativeIosApp()
     try {
@@ -541,6 +544,9 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
           mediaId: media.id,
           priceUsd: media.price,
           userId,
+          onStep: (next) => {
+            step = next
+          },
         })
         stop()
         window.location.reload()
