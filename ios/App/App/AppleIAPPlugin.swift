@@ -1,16 +1,16 @@
 import Capacitor
 import Foundation
 import StoreKit
-import UIKit
 
 /**
- * StoreKit 2 bridge for Apple In-App Purchase (memberships + media unlock tiers).
+ * StoreKit bridge for Apple In-App Purchase (memberships + media unlock tiers).
  *
- * Purchase UI must run on the main actor; otherwise the sheet never appears and JS stays
- * stuck on "Processing…". Transaction.updates finishes orphans so later buys are not blocked.
+ * `Product.purchase` never presents a sheet from this Capacitor shell and never returns,
+ * which leaves Buy on "Processing…". The payment queue presents the sheet itself.
+ * StoreKit 2 still supplies the signed transaction for server verification.
  */
 @objc(AppleIAPPlugin)
-public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin {
+public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionObserver {
     public let identifier = "AppleIAPPlugin"
     public let jsName = "AppleIAP"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -19,16 +19,40 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "restore", returnType: CAPPluginReturnPromise),
     ]
 
+    private final class Inflight {
+        let call: CAPPluginCall
+        let productId: String
+        let startedAt: Date
+        var settled = false
+        var enqueued = false
+        init(call: CAPPluginCall, productId: String) {
+            self.call = call
+            self.productId = productId
+            self.startedAt = Date()
+        }
+    }
+
     private var updatesTask: Task<Void, Never>?
+    private var observerAdded = false
+    private var inflight: Inflight?
 
     override public func load() {
         super.load()
-        updatesTask = Task {
+        ensureObserver()
+        finishIdlePayments()
+        updatesTask = Task { [weak self] in
             for await result in Transaction.updates {
+                guard let self else { continue }
                 do {
                     let transaction = try Self.checkVerified(result)
+                    let jws = result.jwsRepresentation
+                    await self.deliver(
+                        productId: transaction.productID,
+                        jws: jws,
+                        transactionId: String(transaction.id),
+                        purchaseDate: transaction.purchaseDate
+                    )
                     await transaction.finish()
-                    print("[AppleIAP] finished Transaction.updates \(transaction.id)")
                 } catch {
                     print("[AppleIAP] Transaction.updates unverified: \(error.localizedDescription)")
                 }
@@ -38,6 +62,9 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin {
 
     deinit {
         updatesTask?.cancel()
+        if observerAdded {
+            SKPaymentQueue.default().remove(self)
+        }
     }
 
     @objc func getProducts(_ call: CAPPluginCall) {
@@ -45,7 +72,7 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("productIds required")
             return
         }
-        Task { @MainActor in
+        Task {
             do {
                 let products = try await Self.loadProducts(ids: Set(ids))
                 let payload: [[String: Any]] = products.map { p in
@@ -69,11 +96,9 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("productId required")
             return
         }
-        let appAccountToken = call.getString("appAccountToken")
-        // StoreKit sheet can take a long time while the user decides.
         call.keepAlive = true
+        let appAccountToken = call.getString("appAccountToken")
 
-        // Present on the next turn so StoreKit is not inside the Capacitor bridge call.
         DispatchQueue.main.async { [weak self] in
             guard let self else {
                 call.keepAlive = false
@@ -81,58 +106,15 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
             Task { @MainActor in
-                await self.performPurchase(call, productId: productId, appAccountToken: appAccountToken)
+                if self.inflight != nil {
+                    call.keepAlive = false
+                    call.reject("A purchase is already in progress", "IN_PROGRESS")
+                    return
+                }
+                let pending = Inflight(call: call, productId: productId)
+                self.inflight = pending
+                self.enqueue(pending, appAccountToken: appAccountToken)
             }
-        }
-    }
-
-    @MainActor
-    private func performPurchase(_ call: CAPPluginCall, productId: String, appAccountToken: String?) async {
-        defer { call.keepAlive = false }
-        do {
-            await Self.finishUnfinishedTransactions()
-            let products = try await Self.loadProducts(ids: [productId])
-            guard let product = products.first else {
-                call.reject(
-                    "Product not found: \(productId). Confirm the IAP exists in App Store Connect and this Apple ID can buy in Sandbox/TestFlight.",
-                    "PRODUCT_NOT_FOUND"
-                )
-                return
-            }
-
-            var options: Set<Product.PurchaseOption> = []
-            if let token = appAccountToken, let uuid = UUID(uuidString: token) {
-                options.insert(.appAccountToken(uuid))
-            }
-
-            guard let controller = purchaseController() else {
-                call.reject(
-                    "Apple payment sheet could not open. Leave AiMediaTank in the foreground and try Buy again.",
-                    "NO_WINDOW"
-                )
-                return
-            }
-
-            let result = try await buy(product, confirmIn: controller, options: options)
-            switch result {
-            case .success(let verification):
-                let transaction = try Self.checkVerified(verification)
-                let jws = verification.jwsRepresentation
-                await transaction.finish()
-                call.resolve([
-                    "signedTransaction": jws,
-                    "transactionId": String(transaction.id),
-                    "productId": transaction.productID,
-                ])
-            case .userCancelled:
-                call.reject("Purchase cancelled", "USER_CANCELLED")
-            case .pending:
-                call.reject("Purchase pending (Ask to Buy or parental approval)", "PENDING")
-            @unknown default:
-                call.reject("Unknown purchase result")
-            }
-        } catch {
-            call.reject("Purchase failed: \(error.localizedDescription)")
         }
     }
 
@@ -162,21 +144,129 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// StoreKit blocks the next purchase while an old transaction is unfinished.
-    private static func finishUnfinishedTransactions() async {
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask {
-                for await result in Transaction.unfinished {
-                    guard case .verified(let transaction) = result else { continue }
+    public func paymentQueue(_ queue: SKPaymentQueue, updatedTransactions transactions: [SKPaymentTransaction]) {
+        for transaction in transactions {
+            let productId = transaction.payment.productIdentifier
+            switch transaction.transactionState {
+            case .purchasing:
+                break
+            case .purchased, .restored:
+                queue.finishTransaction(transaction)
+                Task {
+                    await self.collectJws(productId: productId)
+                }
+            case .failed:
+                queue.finishTransaction(transaction)
+                let cancelled = (transaction.error as? SKError)?.code == .paymentCancelled
+                let message = cancelled
+                    ? "Purchase cancelled"
+                    : (transaction.error?.localizedDescription ?? "Purchase failed")
+                Task { @MainActor in
+                    guard self.inflight?.productId == productId else { return }
+                    self.failPurchase(message: message, code: cancelled ? "USER_CANCELLED" : "FAILED")
+                }
+            case .deferred:
+                Task { @MainActor in
+                    guard self.inflight?.productId == productId else { return }
+                    self.failPurchase(
+                        message: "Purchase pending (Ask to Buy or parental approval)",
+                        code: "PENDING"
+                    )
+                }
+            @unknown default:
+                break
+            }
+        }
+    }
+
+    @MainActor
+    private func enqueue(_ pending: Inflight, appAccountToken: String?) {
+        guard !pending.enqueued, !pending.settled else { return }
+        guard SKPaymentQueue.canMakePayments() else {
+            failPurchase(message: "In-App Purchases are turned off in Settings.", code: "PAYMENTS_DISABLED")
+            return
+        }
+        ensureObserver()
+        finishIdlePayments()
+        pending.enqueued = true
+        let payment = SKMutablePayment()
+        payment.productIdentifier = pending.productId
+        payment.quantity = 1
+        if let appAccountToken, let uuid = UUID(uuidString: appAccountToken) {
+            payment.applicationUsername = uuid.uuidString
+        }
+        SKPaymentQueue.default().add(payment)
+    }
+
+    private func ensureObserver() {
+        if observerAdded { return }
+        SKPaymentQueue.default().add(self)
+        observerAdded = true
+    }
+
+    private func finishIdlePayments() {
+        let queue = SKPaymentQueue.default()
+        for transaction in queue.transactions {
+            if transaction.transactionState != .purchasing {
+                queue.finishTransaction(transaction)
+            }
+        }
+    }
+
+    private func collectJws(productId: String) async {
+        for _ in 0..<20 {
+            let waiting = await MainActor.run { self.inflight?.productId == productId && self.inflight?.settled == false }
+            if !waiting { return }
+            if let result = await Transaction.latest(for: productId) {
+                do {
+                    let transaction = try Self.checkVerified(result)
+                    await self.deliver(
+                        productId: transaction.productID,
+                        jws: result.jwsRepresentation,
+                        transactionId: String(transaction.id),
+                        purchaseDate: transaction.purchaseDate
+                    )
                     await transaction.finish()
+                    let done = await MainActor.run { self.inflight == nil }
+                    if done { return }
+                } catch {
+                    print("[AppleIAP] latest transaction unverified: \(error.localizedDescription)")
                 }
             }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: 5_000_000_000)
-            }
-            await group.next()
-            group.cancelAll()
+            try? await Task.sleep(nanoseconds: 500_000_000)
         }
+        await MainActor.run {
+            guard self.inflight?.productId == productId else { return }
+            self.failPurchase(
+                message: "Apple completed the payment but the receipt was not ready. Tap Buy again.",
+                code: "RECEIPT"
+            )
+        }
+    }
+
+    @MainActor
+    private func deliver(productId: String, jws: String, transactionId: String, purchaseDate: Date) {
+        guard let inflight, inflight.productId == productId, !inflight.settled else { return }
+        guard purchaseDate >= inflight.startedAt.addingTimeInterval(-30) else { return }
+        inflight.settled = true
+        let call = inflight.call
+        self.inflight = nil
+        call.keepAlive = false
+        call.resolve([
+            "signedTransaction": jws,
+            "transactionId": transactionId,
+            "productId": productId,
+        ])
+    }
+
+    @MainActor
+    private func failPurchase(message: String, code: String) {
+        guard let inflight, !inflight.settled else { return }
+        inflight.settled = true
+        let call = inflight.call
+        self.inflight = nil
+        call.keepAlive = false
+        call.reject(message, code)
     }
 
     private static func loadProducts(ids: Set<String>) async throws -> [Product] {
@@ -185,7 +275,7 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin {
                 try await Product.products(for: ids)
             }
             group.addTask {
-                try await Task.sleep(nanoseconds: 25_000_000_000) // 25s
+                try await Task.sleep(nanoseconds: 25_000_000_000)
                 throw NSError(
                     domain: "AppleIAP",
                     code: -1,
@@ -196,48 +286,6 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin {
             group.cancelAll()
             return products
         }
-    }
-
-    /// `purchase(confirmIn: UIWindowScene)` never presents from this Capacitor shell.
-    /// iOS 18.2+ must be given the visible view controller or the call does not return.
-    @MainActor
-    private func buy(
-        _ product: Product,
-        confirmIn controller: UIViewController,
-        options: Set<Product.PurchaseOption>
-    ) async throws -> Product.PurchaseResult {
-        if #available(iOS 18.2, *) {
-            return try await product.purchase(confirmIn: controller, options: options)
-        }
-        if #available(iOS 18.0, *), let scene = controller.view.window?.windowScene ?? Self.foregroundScene() {
-            return try await product.purchase(confirmIn: scene, options: options)
-        }
-        return try await product.purchase(options: options)
-    }
-
-    @MainActor
-    private func purchaseController() -> UIViewController? {
-        let root = bridge?.viewController ?? Self.keyWindowRoot()
-        guard let root else { return nil }
-        var controller = root
-        while let presented = controller.presentedViewController, !presented.isBeingDismissed {
-            controller = presented
-        }
-        guard controller.viewIfLoaded?.window != nil || controller.view.window != nil else { return nil }
-        return controller
-    }
-
-    @MainActor
-    private static func keyWindowRoot() -> UIViewController? {
-        let scene = foregroundScene()
-        let window = scene?.windows.first(where: \.isKeyWindow) ?? scene?.windows.first
-        return window?.rootViewController
-    }
-
-    @MainActor
-    private static func foregroundScene() -> UIWindowScene? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        return scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
     }
 
     private static func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
