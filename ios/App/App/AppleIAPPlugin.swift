@@ -42,20 +42,31 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
     override public func load() {
         super.load()
         ensureObserver()
-        finishIdlePayments()
+        finishFailedPayments()
         updatesTask = Task { [weak self] in
             for await result in Transaction.updates {
                 guard let self else { continue }
                 do {
                     let transaction = try Self.checkVerified(result)
-                    let jws = result.jwsRepresentation
-                    await self.deliver(
+                    let delivered = await self.deliver(
                         productId: transaction.productID,
-                        jws: jws,
+                        jws: result.jwsRepresentation,
                         transactionId: String(transaction.id),
-                        purchaseDate: transaction.purchaseDate
+                        purchaseDate: transaction.purchaseDate,
+                        acceptExisting: false
                     )
-                    await transaction.finish()
+                    if delivered {
+                        await transaction.finish()
+                    } else {
+                        let hold = await MainActor.run {
+                            self.inflight?.productId == transaction.productID
+                                && self.inflight?.settled == false
+                                && self.inflight?.enqueued == true
+                        }
+                        if !hold {
+                            await transaction.finish()
+                        }
+                    }
                 } catch {
                     print("[AppleIAP] Transaction.updates unverified: \(error.localizedDescription)")
                 }
@@ -154,9 +165,9 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
             case .purchasing:
                 break
             case .purchased, .restored:
-                queue.finishTransaction(transaction)
                 Task {
-                    await self.collectJws(productId: productId)
+                    _ = await self.collectJws(productId: productId)
+                    queue.finishTransaction(transaction)
                 }
             case .failed:
                 queue.finishTransaction(transaction)
@@ -189,7 +200,7 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
             return
         }
         ensureObserver()
-        finishIdlePayments()
+        finishFailedPayments()
         let request = SKProductsRequest(productIdentifiers: [pending.productId])
         request.delegate = self
         productsRequest = request
@@ -223,6 +234,7 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
 
     public func request(_ request: SKRequest, didFailWithError error: Error) {
         Task { @MainActor in
+            guard self.inflight?.enqueued != true else { return }
             self.failPurchase(
                 message: "In-App Purchase is temporarily unavailable. Please try again later.",
                 code: "PRODUCT_REQUEST_FAILED"
@@ -249,31 +261,42 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
         observerAdded = true
     }
 
-    private func finishIdlePayments() {
+    private func finishFailedPayments() {
         let queue = SKPaymentQueue.default()
         for transaction in queue.transactions {
-            if transaction.transactionState != .purchasing {
+            if transaction.transactionState == .failed {
                 queue.finishTransaction(transaction)
             }
         }
     }
 
-    private func collectJws(productId: String) async {
-        for _ in 0..<20 {
-            let waiting = await MainActor.run { self.inflight?.productId == productId && self.inflight?.settled == false }
-            if !waiting { return }
+    /// After the payment queue says this product was purchased, take its signed
+    /// transaction. A receipt from the previous Buy is used once a newer one
+    /// does not appear, so that payment is still recorded.
+    private func collectJws(productId: String) async -> Bool {
+        for attempt in 0..<40 {
+            let state = await MainActor.run { () -> String in
+                guard let inflight = self.inflight else { return "done" }
+                if inflight.settled { return "done" }
+                if inflight.productId != productId { return "other" }
+                return "wait"
+            }
+            if state == "done" { return true }
+            if state == "other" { return false }
             if let result = await Transaction.latest(for: productId) {
                 do {
                     let transaction = try Self.checkVerified(result)
-                    await self.deliver(
+                    let delivered = await self.deliver(
                         productId: transaction.productID,
                         jws: result.jwsRepresentation,
                         transactionId: String(transaction.id),
-                        purchaseDate: transaction.purchaseDate
+                        purchaseDate: transaction.purchaseDate,
+                        acceptExisting: attempt >= 8
                     )
-                    await transaction.finish()
-                    let done = await MainActor.run { self.inflight == nil }
-                    if done { return }
+                    if delivered {
+                        await transaction.finish()
+                        return true
+                    }
                 } catch {
                     print("[AppleIAP] latest transaction unverified: \(error.localizedDescription)")
                 }
@@ -281,18 +304,28 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
             try? await Task.sleep(nanoseconds: 500_000_000)
         }
         await MainActor.run {
-            guard self.inflight?.productId == productId else { return }
+            guard self.inflight?.productId == productId, self.inflight?.settled == false else { return }
             self.failPurchase(
                 message: "Apple completed the payment but the receipt was not ready. Tap Buy again.",
                 code: "RECEIPT"
             )
         }
+        return false
     }
 
     @MainActor
-    private func deliver(productId: String, jws: String, transactionId: String, purchaseDate: Date) {
-        guard let inflight, inflight.productId == productId, !inflight.settled else { return }
-        guard purchaseDate >= inflight.startedAt.addingTimeInterval(-30) else { return }
+    @discardableResult
+    private func deliver(
+        productId: String,
+        jws: String,
+        transactionId: String,
+        purchaseDate: Date,
+        acceptExisting: Bool
+    ) -> Bool {
+        guard let inflight, inflight.productId == productId, !inflight.settled else { return false }
+        if !acceptExisting && purchaseDate < inflight.startedAt.addingTimeInterval(-30) {
+            return false
+        }
         inflight.settled = true
         let call = inflight.call
         self.inflight = nil
@@ -302,6 +335,7 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
             "transactionId": transactionId,
             "productId": productId,
         ])
+        return true
     }
 
     @MainActor
