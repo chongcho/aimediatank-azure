@@ -79,13 +79,10 @@ export async function purchaseAppleMembership(params: {
   const productId = membershipProductId(params.planId, params.billingPeriod)
   let purchase: { signedTransaction: string; transactionId: string; productId: string }
   try {
-    purchase = await withTimeout(
-      plugin.purchase({
-        productId,
-        appAccountToken: params.userId,
-      }),
-      PLUGIN_TIMEOUT_MS
-    )
+    purchase = await plugin.purchase({
+      productId,
+      appAccountToken: params.userId,
+    })
   } catch (error) {
     rethrowPluginError(error, 'Membership purchase failed')
   }
@@ -132,13 +129,10 @@ export async function purchaseAppleMediaUnlock(params: {
   }
   let purchase: { signedTransaction: string; transactionId: string; productId: string }
   try {
-    purchase = await withTimeout(
-      plugin.purchase({
-        productId,
-        appAccountToken: params.userId,
-      }),
-      PLUGIN_TIMEOUT_MS
-    )
+    purchase = await plugin.purchase({
+      productId,
+      appAccountToken: params.userId,
+    })
   } catch (error) {
     rethrowPluginError(error, 'Media unlock purchase failed')
   }
