@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { getProviders } from 'next-auth/react'
 import { ADMIN_FORCE_STEP2_STORAGE_KEY } from '@/lib/adminFreshStep2'
 import { shouldUseNativeSocialAuth, startNativeSocialSignIn } from '@/lib/nativeSocialAuth'
+import { rememberSocialSignInReturn, takeSocialSignInReturn } from '@/lib/socialProviderSignIn'
 
 const SOCIAL_BUTTONS: { id: string; label: string; icon: 'google' | 'facebook' | 'apple' | 'microsoft' }[] = [
   { id: 'entra-external-id-google', label: 'Google', icon: 'google' },
@@ -81,6 +82,27 @@ export function SocialSignIn({
     })
   }, [])
 
+  // Desktop Back restores this page from memory, including the spinning button.
+  // Mobile usually reloads, so the spinner is already gone there.
+  useEffect(() => {
+    const stopSpinnerAndReturn = () => {
+      setLoadingId(null)
+      const ret = takeSocialSignInReturn()
+      if (!ret) return
+      const here = window.location.pathname + window.location.search
+      if (ret !== here) window.location.replace(ret)
+    }
+
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+    if (nav?.type === 'back_forward') stopSpinnerAndReturn()
+
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) stopSpinnerAndReturn()
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [])
+
   const handleSocialSignIn = async (providerId: string) => {
     setLoadingId(providerId)
     setError(null)
@@ -105,6 +127,7 @@ export function SocialSignIn({
     }
 
     const q = new URLSearchParams({ provider: providerId, next: dest })
+    rememberSocialSignInReturn()
     window.location.assign(`/auth/social?${q}`)
   }
 

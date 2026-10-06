@@ -11,3 +11,42 @@ export const SOCIAL_PROVIDER_SIGN_IN: Record<string, { label: string; hint?: str
 export function socialProviderSignIn(providerId: string) {
   return SOCIAL_PROVIDER_SIGN_IN[providerId] ?? null
 }
+
+const SOCIAL_RETURN_KEY = 'amt-social-return'
+const SOCIAL_RETURN_MS = 60_000
+
+/** Remember the screen that opened /auth/social so browser Back can return there. */
+export function rememberSocialSignInReturn() {
+  try {
+    const path = window.location.pathname + window.location.search
+    if (!path.startsWith('/') || path.startsWith('//')) return
+    sessionStorage.setItem(SOCIAL_RETURN_KEY, JSON.stringify({ path, at: Date.now() }))
+  } catch {
+    /* private mode */
+  }
+}
+
+/** Drop the remembered screen once the user continues to the identity provider. */
+export function clearSocialSignInReturn() {
+  try {
+    sessionStorage.removeItem(SOCIAL_RETURN_KEY)
+  } catch {
+    /* private mode */
+  }
+}
+
+/** Read and remove a recent return path. Null when missing, stale, or unsafe. */
+export function takeSocialSignInReturn(): string | null {
+  try {
+    const raw = sessionStorage.getItem(SOCIAL_RETURN_KEY)
+    sessionStorage.removeItem(SOCIAL_RETURN_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { path?: string; at?: number }
+    if (!parsed.path || typeof parsed.at !== 'number') return null
+    if (Date.now() - parsed.at > SOCIAL_RETURN_MS) return null
+    if (!parsed.path.startsWith('/') || parsed.path.startsWith('//') || parsed.path.includes('\\')) return null
+    return parsed.path
+  } catch {
+    return null
+  }
+}

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { socialProviderSignIn } from '@/lib/socialProviderSignIn'
+import { clearSocialSignInReturn, socialProviderSignIn } from '@/lib/socialProviderSignIn'
 
 type Props = {
   providerId: string
@@ -54,6 +54,14 @@ export function ProviderSignInPage({ providerId, callbackUrl }: Props) {
   const [email, setEmail] = useState('')
   const [starting, setStarting] = useState<'provider' | 'email' | null>(null)
 
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setStarting(null)
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [])
+
   if (!provider) {
     return (
       <div className="fixed inset-0 z-[100020] flex items-center justify-center bg-white px-6 text-center text-neutral-800">
@@ -63,12 +71,14 @@ export function ProviderSignInPage({ providerId, callbackUrl }: Props) {
   }
 
   const startProvider = () => {
+    clearSocialSignInReturn()
     setStarting('provider')
     const authorizationParams = provider.hint ? { domain_hint: provider.hint } : undefined
     void signIn(providerId, { callbackUrl }, authorizationParams)
   }
 
   const startEmail = (address: string) => {
+    clearSocialSignInReturn()
     setStarting('email')
     const trimmed = address.trim()
     const authorizationParams = trimmed ? { login_hint: trimmed } : undefined
