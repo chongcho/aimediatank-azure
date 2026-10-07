@@ -53,7 +53,7 @@ function spreadIdsByPostDate(rows: { id: string; createdAt: Date }[], seed: stri
     if (list) list.push(row.id)
     else buckets.set(day, [row.id])
   }
-  const days = seededShuffle([...buckets.keys()], rng)
+  const days = seededShuffle(Array.from(buckets.keys()), rng)
   for (const day of days) seededShuffle(buckets.get(day)!, rng)
   const ordered: string[] = []
   let progressed = true
