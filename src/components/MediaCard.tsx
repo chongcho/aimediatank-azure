@@ -883,7 +883,7 @@ export default function MediaCard({
         })
       )
     }
-    router.push(`/media/${media.id}`)
+    router.push(`/media/${media.id}`, { scroll: false })
   }, [media.id, router])
 
   const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {

@@ -143,7 +143,7 @@ function HomeContent() {
   // Keep current filters in a ref so load-more (effect with [page]) always uses latest sort/type/search
   const filtersRef = useRef({ sort: 'random', type: null as string | null, search: '' })
   filtersRef.current = { sort, type, search }
-  const randomSeedRef = useRef('')
+  const returnRebuildRef = useRef(false)
 
   registerHomeFeedNav({
     exitSearchMode: () => {
@@ -421,11 +421,17 @@ function HomeContent() {
     const rawState = sessionStorage.getItem('homeScrollState')
     if (rawState) {
       setDeferPreplayUntilScroll(true)
+      isRestoringRef.current = true
       try {
         const parsed = JSON.parse(rawState) as HomeScrollState
         restoreStateRef.current = parsed
+        if (parsed.seed) {
+          randomSeedRef.current = parsed.seed
+          writeHomeRandomSeed(parsed.seed)
+        }
       } catch {
         restoreStateRef.current = null
+        isRestoringRef.current = false
       }
       sessionStorage.removeItem('homeScrollState')
     } else {
@@ -461,10 +467,97 @@ function HomeContent() {
     if (pathname !== '/') return
     const typeParam = searchParams.get('type')
     const searchParam = searchParams.get('search')
-    if (typeParam) setType(typeParam)
-    else setType(null)
-    if (searchParam) setSearch(searchParam)
+    const nextType = typeParam || null
+    const nextSearch = searchParam || ''
+    setType((prev) => (prev === nextType ? prev : nextType))
+    setSearch((prev) => (prev === nextSearch ? prev : nextSearch))
   }, [pathname, searchParams])
+
+  // Home stays mounted under the media page. Closing that page must scroll back to
+  // the opened post instead of rebuilding Random from the top.
+  useEffect(() => {
+    if (pathname !== '/') {
+      returnRebuildRef.current = false
+      return
+    }
+    const raw = sessionStorage.getItem('homeScrollState')
+    if (!raw) return
+    let parsed: HomeScrollState
+    try {
+      parsed = JSON.parse(raw) as HomeScrollState
+    } catch {
+      return
+    }
+    if (parsed.sort !== sort || parsed.type !== type || parsed.search !== search) {
+      try { sessionStorage.removeItem('homeScrollState') } catch { /* ignore */ }
+      return
+    }
+    if (parsed.seed) {
+      randomSeedRef.current = parsed.seed
+      writeHomeRandomSeed(parsed.seed)
+    }
+    let attempts = 0
+    let timer = 0
+    const scrollToOpened = () => {
+      attempts += 1
+      const selector = `[data-media-id="${CSS.escape(parsed.targetId)}"]`
+      const el = (gridSectionRef.current?.querySelector(selector) ??
+        document.querySelector(selector)) as HTMLElement | null
+      if (!el) {
+        if (attempts < 20) {
+          timer = window.setTimeout(scrollToOpened, 50)
+          return
+        }
+        if (returnRebuildRef.current) return
+        returnRebuildRef.current = true
+        isRestoringRef.current = true
+        const seed = parsed.seed || readHomeRandomSeed()
+        if (seed) {
+          randomSeedRef.current = seed
+          writeHomeRandomSeed(seed)
+        }
+        const pageCount = Math.max(1, parsed.page || 1)
+        void (async () => {
+          try {
+            const results = await Promise.all(
+              Array.from({ length: pageCount }, (_, index) => {
+                const params = new URLSearchParams({
+                  sort: parsed.sort,
+                  page: String(index + 1),
+                  limit: '20',
+                })
+                if (parsed.type) params.set('type', parsed.type)
+                if (parsed.sort === 'random' && randomSeedRef.current) params.set('seed', randomSeedRef.current)
+                if (parsed.search?.startsWith('@')) params.set('user', parsed.search.slice(1))
+                else if (parsed.search) params.set('search', parsed.search)
+                return fetch(`/api/media?${params}`, { cache: 'no-store' }).then((res) => res.json())
+              })
+            )
+            const merged = results.flatMap((data, index) =>
+              ((data?.media || []) as Media[]).map((item) => ({ ...item, _page: index + 1 }))
+            )
+            mediaFiltersRef.current = { sort: parsed.sort, type: parsed.type, search: parsed.search }
+            setMedia(merged)
+            setPage(pageCount)
+            const totalPages = results[pageCount - 1]?.pagination?.totalPages ?? pageCount
+            setHasMore(pageCount < totalPages)
+            setLoading(false)
+          } finally {
+            isRestoringRef.current = false
+          }
+        })()
+        return
+      }
+      const top = document.body.scrollTop + el.getBoundingClientRect().top - 80
+      document.body.scrollTo({ top, behavior: 'auto' })
+      if (attempts < 15) timer = window.setTimeout(scrollToOpened, 200)
+      else {
+        try { sessionStorage.removeItem('homeScrollState') } catch { /* ignore */ }
+      }
+    }
+    scrollToOpened()
+    return () => window.clearTimeout(timer)
+  }, [pathname, sort, type, search, media])
 
   // Reset and fetch when filters change (only after sort is initialized)
   useEffect(() => {
@@ -733,8 +826,10 @@ function HomeContent() {
     return () => ac.abort()
   }, [sort, type, search, sortInitialized])
 
-  // Infinite scroll observer
+  // Infinite scroll observer. Pause it while a media page is open so closing
+  // that page cannot append a different Random page onto the list.
   useEffect(() => {
+    if (pathname !== '/') return
     const observer = new IntersectionObserver(
       (entries) => {
         if (isRestoringRef.current) return
@@ -750,14 +845,15 @@ function HomeContent() {
     }
 
     return () => observer.disconnect()
-  }, [hasMore, loading, loadingMore])
+  }, [pathname, hasMore, loading, loadingMore])
 
   // Load more when page increases
   useEffect(() => {
-    if (page > 1 && !isRestoringRef.current) {
+    if (pathname !== '/') return
+    if (page > 1 && !isRestoringRef.current && !sessionStorage.getItem('homeScrollState')) {
       fetchMedia(page, false)
     }
-  }, [page])
+  }, [pathname, page])
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -882,8 +978,9 @@ function HomeContent() {
         limit: '20',
       })
       if (currentType) params.set('type', currentType)
-      if (currentSort === 'random' && randomSeedRef.current) {
-        params.set('seed', randomSeedRef.current)
+      if (currentSort === 'random') {
+        if (!randomSeedRef.current) randomSeedRef.current = readHomeRandomSeed()
+        if (randomSeedRef.current) params.set('seed', randomSeedRef.current)
       }
 
       // Handle @username search - filter by user
@@ -956,6 +1053,7 @@ function HomeContent() {
   // Auto-refresh the first page periodically so newly preview-ready videos (e.g. 360p) appear without manual refresh.
   useEffect(() => {
     // Run on main feed (any sort) when no search/type filter so uploader sees their video once 360p is ready.
+    if (pathname !== '/') return
     if (search || type) return
     const ac = new AbortController()
     let backgroundRefreshing = false
@@ -976,7 +1074,7 @@ function HomeContent() {
       clearInterval(interval)
       ac.abort()
     }
-  }, [sort, type, search, loading, loadingMore])
+  }, [pathname, sort, type, search, loading, loadingMore])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
