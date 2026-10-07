@@ -143,6 +143,7 @@ function HomeContent() {
   // Keep current filters in a ref so load-more (effect with [page]) always uses latest sort/type/search
   const filtersRef = useRef({ sort: 'random', type: null as string | null, search: '' })
   filtersRef.current = { sort, type, search }
+  const randomSeedRef = useRef('')
   const returnRebuildRef = useRef(false)
 
   registerHomeFeedNav({
