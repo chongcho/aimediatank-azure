@@ -114,7 +114,7 @@ function HomeContent() {
   const [media, setMedia] = useState<Media[]>(cachedInit?.media ?? [])
   const [loading, setLoading] = useState(!cachedInit)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [sort, setSort] = useState('popular')
+  const [sort, setSort] = useState('random')
   const [sortInitialized, setSortInitialized] = useState(false)
   const [type, setType] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -133,8 +133,9 @@ function HomeContent() {
   const restoreRunIdRef = useRef(0)
   const activeRestoreRunIdRef = useRef<number | null>(null)
   // Keep current filters in a ref so load-more (effect with [page]) always uses latest sort/type/search
-  const filtersRef = useRef({ sort: 'popular', type: null as string | null, search: '' })
+  const filtersRef = useRef({ sort: 'random', type: null as string | null, search: '' })
   filtersRef.current = { sort, type, search }
+  const randomSeedRef = useRef('')
 
   registerHomeFeedNav({
     exitSearchMode: () => {
@@ -212,7 +213,7 @@ function HomeContent() {
       .then((res) => res.json())
       .then((data) => {
         const layout = data.layout
-        const defaultSort = data.defaultSort === 'recent' || data.defaultSort === 'random' ? data.defaultSort : 'popular'
+        const defaultSort = data.defaultSort === 'popular' || data.defaultSort === 'recent' ? data.defaultSort : 'random'
         setHomeLayout(
           layout === 'grid_top' || layout === 'grid_center' ? layout : layout === 'grid' ? 'grid_center' : 'masonry'
         )
@@ -690,6 +691,9 @@ function HomeContent() {
 
     isRestoringRef.current = false
     activeRestoreRunIdRef.current = null
+    if (sort === 'random') {
+      randomSeedRef.current = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+    }
     setMedia([])
     setPage(1)
     setHasMore(true)
@@ -847,6 +851,9 @@ function HomeContent() {
         limit: '20',
       })
       if (currentType) params.set('type', currentType)
+      if (currentSort === 'random' && randomSeedRef.current) {
+        params.set('seed', randomSeedRef.current)
+      }
 
       // Handle @username search - filter by user
       if (currentSearch && currentSearch.startsWith('@')) {

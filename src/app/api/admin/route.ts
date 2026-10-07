@@ -957,12 +957,12 @@ export async function GET(request: Request) {
         const defaultSort =
           (row as { defaultSort?: string | null }).defaultSort && ['popular', 'recent', 'random'].includes((row as { defaultSort?: string | null }).defaultSort as string)
             ? ((row as { defaultSort?: string | null }).defaultSort as string)
-            : 'popular'
+            : 'random'
         const autoTranslation = row.autoTranslation !== false
         return NextResponse.json({ layout, preplay, homePreplaySound, defaultSort, autoTranslation })
       } catch (error) {
         console.error('Home layout settings unavailable:', error)
-        return NextResponse.json({ layout: 'masonry', preplay: true, homePreplaySound: true, defaultSort: 'popular', autoTranslation: true })
+        return NextResponse.json({ layout: 'masonry', preplay: true, homePreplaySound: true, defaultSort: 'random', autoTranslation: true })
       }
     }
 
@@ -2603,7 +2603,7 @@ export async function POST(request: Request) {
           layout: layoutVal,
           preplay: row.preplay,
           homePreplaySound: row.homePreplaySound,
-          defaultSort: (row as { defaultSort?: string | null }).defaultSort ?? 'popular',
+          defaultSort: (row as { defaultSort?: string | null }).defaultSort ?? 'random',
           autoTranslation: row.autoTranslation,
         })
         return NextResponse.json({
@@ -2614,7 +2614,7 @@ export async function POST(request: Request) {
           defaultSort:
             (row as { defaultSort?: string | null }).defaultSort && ['popular', 'recent', 'random'].includes((row as { defaultSort?: string | null }).defaultSort as string)
               ? ((row as { defaultSort?: string | null }).defaultSort as string)
-              : 'popular',
+              : 'random',
           autoTranslation: row.autoTranslation !== false,
         })
       }

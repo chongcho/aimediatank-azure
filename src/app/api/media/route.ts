@@ -10,6 +10,65 @@ import { selectVideoStreams } from '@/lib/videoStreamRenditions'
 // Force dynamic rendering since we use request.url
 export const dynamic = 'force-dynamic'
 
+function hashSeed(seed: string): number {
+  let h = 2166136261
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+function mulberry32(seed: number): () => number {
+  let s = seed >>> 0
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0
+    let t = Math.imul(s ^ (s >>> 15), 1 | s)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function seededShuffle<T>(items: T[], rng: () => number): T[] {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    const swap = items[i]
+    items[i] = items[j]
+    items[j] = swap
+  }
+  return items
+}
+
+/**
+ * Mix posts so neighboring items come from different post dates.
+ * Days are shuffled, then one post is taken from each day in turn.
+ */
+function spreadIdsByPostDate(rows: { id: string; createdAt: Date }[], seed: string): string[] {
+  if (rows.length <= 1) return rows.map((row) => row.id)
+  const rng = mulberry32(hashSeed(seed))
+  const buckets = new Map<string, string[]>()
+  for (const row of rows) {
+    const day = row.createdAt.toISOString().slice(0, 10)
+    const list = buckets.get(day)
+    if (list) list.push(row.id)
+    else buckets.set(day, [row.id])
+  }
+  const days = seededShuffle([...buckets.keys()], rng)
+  for (const day of days) seededShuffle(buckets.get(day)!, rng)
+  const ordered: string[] = []
+  let progressed = true
+  while (progressed) {
+    progressed = false
+    for (const day of days) {
+      const id = buckets.get(day)!.pop()
+      if (!id) continue
+      ordered.push(id)
+      progressed = true
+    }
+  }
+  return ordered
+}
+
 // GET - Fetch all media with filtering
 export async function GET(request: Request) {
   try {
@@ -105,50 +164,77 @@ export async function GET(request: Request) {
     const cropSettings = await prisma.cropToolSetting.findFirst() as { freeStreamMaxHeight?: number } | null
     const freeStreamMaxHeight = cropSettings?.freeStreamMaxHeight ?? 720
 
-    const [media, total] = await Promise.all([
-      prisma.media.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              name: true,
-              avatar: true,
-            },
-          },
-          ratings: {
-            select: {
-              score: true,
-            },
-          },
-          versions: {
-            orderBy: { height: 'asc' },
-            select: { height: true, url: true },
-          },
-          comments: {
-            orderBy: { createdAt: 'desc' },
-            take: 3,
-            select: {
-              id: true,
-              content: true,
-              userId: true,
-              user: { select: { username: true } },
-            },
-          },
-          _count: {
-            select: {
-              comments: true,
-              ratings: true,
-            },
-          },
+    const mediaInclude = {
+      user: {
+        select: {
+          id: true,
+          username: true,
+          name: true,
+          avatar: true,
         },
-      }),
-      prisma.media.count({ where }),
-    ])
+      },
+      ratings: {
+        select: {
+          score: true,
+        },
+      },
+      versions: {
+        orderBy: { height: 'asc' as const },
+        select: { height: true, url: true },
+      },
+      comments: {
+        orderBy: { createdAt: 'desc' as const },
+        take: 3,
+        select: {
+          id: true,
+          content: true,
+          userId: true,
+          user: { select: { username: true } },
+        },
+      },
+      _count: {
+        select: {
+          comments: true,
+          ratings: true,
+        },
+      },
+    }
+
+    let media: any[]
+    let total: number
+    if (sort === 'random') {
+      const rawSeed = searchParams.get('seed') || ''
+      const seed = /^[a-zA-Z0-9_-]{1,64}$/.test(rawSeed)
+        ? rawSeed
+        : new Date().toISOString().slice(0, 13)
+      const rows = await prisma.media.findMany({
+        where,
+        select: { id: true, createdAt: true },
+      })
+      total = rows.length
+      const pageIds = spreadIdsByPostDate(rows, seed).slice(skip, skip + limit)
+      const found = pageIds.length
+        ? await prisma.media.findMany({
+            where: { id: { in: pageIds } },
+            include: mediaInclude,
+          })
+        : []
+      const byId = new Map(found.map((item) => [item.id, item]))
+      media = pageIds.map((id) => byId.get(id)).filter(Boolean)
+    } else {
+      const [pageMedia, count] = await Promise.all([
+        prisma.media.findMany({
+          where,
+          orderBy,
+          skip,
+          take: limit,
+          include: mediaInclude,
+        }),
+        prisma.media.count({ where }),
+      ])
+      media = pageMedia
+      total = count
+    }
 
     // Fetch anonymous ratings for all media items in one query
     const mediaIds = media.map((m: any) => m.id)
@@ -261,13 +347,6 @@ export async function GET(request: Request) {
         }
       }
     })
-
-    if (sort === 'random') {
-      for (let i = mediaWithRating.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[mediaWithRating[i], mediaWithRating[j]] = [mediaWithRating[j], mediaWithRating[i]]
-      }
-    }
 
     return NextResponse.json({
       media: mediaWithRating,

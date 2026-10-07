@@ -17,7 +17,7 @@ function normalizeLayout(raw: string): HomeLayoutType {
 
 function normalizeDefaultSort(raw: string | null | undefined): HomeDefaultSortType {
   if (raw && DEFAULT_SORTS.includes(raw as HomeDefaultSortType)) return raw as HomeDefaultSortType
-  return 'popular'
+  return 'random'
 }
 
 async function getOrCreateSetting(): Promise<{
@@ -56,7 +56,7 @@ export async function GET() {
   } catch (error) {
     console.error('Home layout settings unavailable:', error)
     return NextResponse.json(
-      { layout: 'masonry', preplay: true, homePreplaySound: true, defaultSort: 'popular', autoTranslation: true },
+      { layout: 'masonry', preplay: true, homePreplaySound: true, defaultSort: 'random', autoTranslation: true },
       { headers: NO_STORE_HEADERS }
     )
   }

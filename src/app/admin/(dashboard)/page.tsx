@@ -444,7 +444,7 @@ export default function AdminPage() {
   const [navbarLoading, setNavbarLoading] = useState(false)
   const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid_top' | 'grid_center'>('masonry')
   const [homePreplay, setHomePreplay] = useState(true)
-  const [homeDefaultSort, setHomeDefaultSort] = useState<'popular' | 'recent' | 'random'>('popular')
+  const [homeDefaultSort, setHomeDefaultSort] = useState<'popular' | 'recent' | 'random'>('random')
   /** Homepage volume chip visibility (Media Badge Control); stored on HomeLayoutSetting */
   const [homePreplaySound, setHomePreplaySound] = useState(true)
   const [homePreplaySoundSaving, setHomePreplaySoundSaving] = useState(false)
@@ -1156,7 +1156,7 @@ export default function AdminPage() {
           )
           setHomePreplay(data.preplay !== false)
           setHomeDefaultSort(
-            data.defaultSort === 'recent' || data.defaultSort === 'random' ? data.defaultSort : 'popular'
+            data.defaultSort === 'popular' || data.defaultSort === 'recent' ? data.defaultSort : 'random'
           )
           setHomePreplaySound(data.homePreplaySound !== false)
           setAutoTranslation(data.autoTranslation !== false)
@@ -1670,8 +1670,11 @@ export default function AdminPage() {
       }
       if (data.layout) setHomeLayout(data.layout)
       if (typeof data.preplay === 'boolean') setHomePreplay(data.preplay)
-      if (data.defaultSort === 'recent' || data.defaultSort === 'random') setHomeDefaultSort(data.defaultSort)
-      else setHomeDefaultSort('popular')
+      if (data.defaultSort === 'popular' || data.defaultSort === 'recent' || data.defaultSort === 'random') {
+        setHomeDefaultSort(data.defaultSort)
+      } else {
+        setHomeDefaultSort('random')
+      }
       if (typeof data.homePreplaySound === 'boolean') setHomePreplaySound(data.homePreplaySound)
       if (typeof data.autoTranslation === 'boolean') setAutoTranslation(data.autoTranslation)
       if (typeof window !== 'undefined') {
