@@ -45,9 +45,12 @@ function seededShuffle<T>(items: T[], rng: () => number): T[] {
  */
 function spreadIdsByPostDate(rows: { id: string; createdAt: Date }[], seed: string): string[] {
   if (rows.length <= 1) return rows.map((row) => row.id)
+  // Same seed must always yield the same pages. Postgres does not guarantee
+  // findMany order, and a later page would otherwise be a different mix.
+  const stable = [...rows].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   const rng = mulberry32(hashSeed(seed))
   const buckets = new Map<string, string[]>()
-  for (const row of rows) {
+  for (const row of stable) {
     const day = row.createdAt.toISOString().slice(0, 10)
     const list = buckets.get(day)
     if (list) list.push(row.id)
@@ -67,6 +70,49 @@ function spreadIdsByPostDate(rows: { id: string; createdAt: Date }[], seed: stri
     }
   }
   return ordered
+}
+
+const randomOrderCache = new Map<string, { ids: string[]; expires: number }>()
+
+function randomOrderCacheKey(parts: {
+  seed: string
+  viewerId: string
+  type: string
+  search: string
+  user: string
+  blockedUserIds: string[]
+  blockedMediaIds: string[]
+}): string {
+  return JSON.stringify({
+    ...parts,
+    blockedUserIds: [...parts.blockedUserIds].sort(),
+    blockedMediaIds: [...parts.blockedMediaIds].sort(),
+  })
+}
+
+function readRandomOrder(key: string): string[] | null {
+  const hit = randomOrderCache.get(key)
+  if (!hit) return null
+  if (hit.expires <= Date.now()) {
+    randomOrderCache.delete(key)
+    return null
+  }
+  return hit.ids
+}
+
+function storeRandomOrder(key: string, ids: string[]) {
+  const now = Date.now()
+  if (randomOrderCache.size > 100) {
+    for (const entryKey of Array.from(randomOrderCache.keys())) {
+      const entry = randomOrderCache.get(entryKey)
+      if (entry && entry.expires <= now) randomOrderCache.delete(entryKey)
+    }
+  }
+  if (randomOrderCache.size > 100) {
+    const oldest = randomOrderCache.keys().next().value
+    if (oldest) randomOrderCache.delete(oldest)
+  }
+  randomOrderCache.set(key, { ids, expires: now + 30 * 60 * 1000 })
 }
 
 // GET - Fetch all media with filtering
@@ -207,12 +253,27 @@ export async function GET(request: Request) {
       const seed = /^[a-zA-Z0-9_-]{1,64}$/.test(rawSeed)
         ? rawSeed
         : new Date().toISOString().slice(0, 13)
-      const rows = await prisma.media.findMany({
-        where,
-        select: { id: true, createdAt: true },
+      const orderKey = randomOrderCacheKey({
+        seed,
+        viewerId: session?.user?.id || '',
+        type: type || '',
+        search: search || '',
+        user: user || '',
+        blockedUserIds,
+        blockedMediaIds,
       })
-      total = rows.length
-      const pageIds = spreadIdsByPostDate(rows, seed).slice(skip, skip + limit)
+      let ordered = readRandomOrder(orderKey)
+      if (!ordered) {
+        const rows = await prisma.media.findMany({
+          where,
+          select: { id: true, createdAt: true },
+          orderBy: { id: 'asc' },
+        })
+        ordered = spreadIdsByPostDate(rows, seed)
+        storeRandomOrder(orderKey, ordered)
+      }
+      total = ordered.length
+      const pageIds = ordered.slice(skip, skip + limit)
       const found = pageIds.length
         ? await prisma.media.findMany({
             where: { id: { in: pageIds } },

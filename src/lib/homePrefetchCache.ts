@@ -19,9 +19,15 @@ export function readHomeRandomSeed(): string {
 }
 
 export function writeHomeRandomSeed(seed: string): void {
+  if (!seed) return
   try {
-    if (seed) sessionStorage.setItem(RANDOM_SEED_KEY, seed)
-  } catch { /* private mode */ }
+    sessionStorage.setItem(RANDOM_SEED_KEY, seed)
+  } catch {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY)
+      sessionStorage.setItem(RANDOM_SEED_KEY, seed)
+    } catch { /* private mode */ }
+  }
 }
 
 export interface HomeFeedParams {
@@ -39,9 +45,19 @@ interface Snapshot {
 
 export function saveHomeFeed(params: HomeFeedParams, media: unknown[], totalPages: number): void {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ params, media, totalPages }))
+    const json = JSON.stringify({ params, media, totalPages })
+    // A deep scroll must not fill the quota; scroll restore and the Random seed are tiny keys.
+    if (json.length > 1_500_000) {
+      sessionStorage.removeItem(STORAGE_KEY)
+      if (typeof window !== 'undefined') (window as any).__homeFeedCacheValid = false
+      return
+    }
+    sessionStorage.setItem(STORAGE_KEY, json)
     if (typeof window !== 'undefined') (window as any).__homeFeedCacheValid = true
-  } catch { /* quota exceeded or private mode */ }
+  } catch {
+    try { sessionStorage.removeItem(STORAGE_KEY) } catch { /* private mode */ }
+    if (typeof window !== 'undefined') (window as any).__homeFeedCacheValid = false
+  }
 }
 
 export function getHomeFeed(params: HomeFeedParams): Snapshot | null {

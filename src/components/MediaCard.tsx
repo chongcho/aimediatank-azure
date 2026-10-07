@@ -871,17 +871,23 @@ export default function MediaCard({
   const navigateToMedia = useCallback(() => {
     const h = homeScrollContextRef.current
     if (h) {
-      sessionStorage.setItem(
-        'homeScrollState',
-        JSON.stringify({
-          targetId: media.id,
-          page: h.page,
-          sort: h.sort,
-          type: h.type,
-          search: h.search,
-          seed: h.sort === 'random' ? readHomeRandomSeed() : '',
-        })
-      )
+      const payload = JSON.stringify({
+        targetId: media.id,
+        page: h.page,
+        sort: h.sort,
+        type: h.type,
+        search: h.search,
+        seed: h.sort === 'random' ? readHomeRandomSeed() : '',
+        scrollTop: document.body.scrollTop,
+      })
+      try {
+        sessionStorage.setItem('homeScrollState', payload)
+      } catch {
+        try {
+          sessionStorage.removeItem('homeFeedSnapshot')
+          sessionStorage.setItem('homeScrollState', payload)
+        } catch { /* private mode */ }
+      }
     }
     router.push(`/media/${media.id}`, { scroll: false })
   }, [media.id, router])

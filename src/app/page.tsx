@@ -75,6 +75,13 @@ interface HomeScrollState {
   type: string | null
   search: string
   seed?: string
+  scrollTop?: number
+}
+
+function applySavedBodyScroll(scrollTop: number | undefined) {
+  if (typeof scrollTop !== 'number' || !Number.isFinite(scrollTop)) return false
+  document.body.scrollTop = scrollTop
+  return true
 }
 
 function mintHomeRandomSeed(): string {
@@ -145,6 +152,8 @@ function HomeContent() {
   filtersRef.current = { sort, type, search }
   const randomSeedRef = useRef('')
   const returnRebuildRef = useRef(false)
+  const mediaIdsRef = useRef<Set<string>>(new Set())
+  mediaIdsRef.current = new Set(media.map((item) => item.id))
 
   registerHomeFeedNav({
     exitSearchMode: () => {
@@ -501,64 +510,71 @@ function HomeContent() {
     let timer = 0
     const scrollToOpened = () => {
       attempts += 1
-      const selector = `[data-media-id="${CSS.escape(parsed.targetId)}"]`
-      const el = (gridSectionRef.current?.querySelector(selector) ??
-        document.querySelector(selector)) as HTMLElement | null
-      if (!el) {
-        if (attempts < 20) {
-          timer = window.setTimeout(scrollToOpened, 50)
-          return
-        }
-        if (returnRebuildRef.current) return
-        returnRebuildRef.current = true
-        isRestoringRef.current = true
-        const seed = parsed.seed || readHomeRandomSeed()
-        if (seed) {
-          randomSeedRef.current = seed
-          writeHomeRandomSeed(seed)
-        }
-        const pageCount = Math.max(1, parsed.page || 1)
-        void (async () => {
-          try {
-            const results = await Promise.all(
-              Array.from({ length: pageCount }, (_, index) => {
-                const params = new URLSearchParams({
-                  sort: parsed.sort,
-                  page: String(index + 1),
-                  limit: '20',
-                })
-                if (parsed.type) params.set('type', parsed.type)
-                if (parsed.sort === 'random' && randomSeedRef.current) params.set('seed', randomSeedRef.current)
-                if (parsed.search?.startsWith('@')) params.set('user', parsed.search.slice(1))
-                else if (parsed.search) params.set('search', parsed.search)
-                return fetch(`/api/media?${params}`, { cache: 'no-store' }).then((res) => res.json())
-              })
-            )
-            const merged = results.flatMap((data, index) =>
-              ((data?.media || []) as Media[]).map((item) => ({ ...item, _page: index + 1 }))
-            )
-            mediaFiltersRef.current = { sort: parsed.sort, type: parsed.type, search: parsed.search }
-            setMedia(merged)
-            setPage(pageCount)
-            const totalPages = results[pageCount - 1]?.pagination?.totalPages ?? pageCount
-            setHasMore(pageCount < totalPages)
-            setLoading(false)
-          } finally {
-            isRestoringRef.current = false
+      const loaded = mediaIdsRef.current.has(parsed.targetId)
+      if (loaded) {
+        const restored = applySavedBodyScroll(parsed.scrollTop)
+        if (!restored) {
+          const selector = `[data-media-id="${CSS.escape(parsed.targetId)}"]`
+          const el = (gridSectionRef.current?.querySelector(selector) ??
+            document.querySelector(selector)) as HTMLElement | null
+          if (el) {
+            const top = document.body.scrollTop + el.getBoundingClientRect().top - 80
+            document.body.scrollTo({ top, behavior: 'auto' })
           }
-        })()
+        }
+        if (attempts < 12) timer = window.setTimeout(scrollToOpened, 150)
+        else {
+          try { sessionStorage.removeItem('homeScrollState') } catch { /* ignore */ }
+        }
         return
       }
-      const top = document.body.scrollTop + el.getBoundingClientRect().top - 80
-      document.body.scrollTo({ top, behavior: 'auto' })
-      if (attempts < 15) timer = window.setTimeout(scrollToOpened, 200)
-      else {
-        try { sessionStorage.removeItem('homeScrollState') } catch { /* ignore */ }
+      if (attempts < 20) {
+        timer = window.setTimeout(scrollToOpened, 50)
+        return
       }
+      if (returnRebuildRef.current) return
+      returnRebuildRef.current = true
+      isRestoringRef.current = true
+      const seed = parsed.seed || readHomeRandomSeed()
+      if (seed) {
+        randomSeedRef.current = seed
+        writeHomeRandomSeed(seed)
+      }
+      const pageCount = Math.max(1, parsed.page || 1)
+      void (async () => {
+        try {
+          const results = await Promise.all(
+            Array.from({ length: pageCount }, (_, index) => {
+              const params = new URLSearchParams({
+                sort: parsed.sort,
+                page: String(index + 1),
+                limit: '20',
+              })
+              if (parsed.type) params.set('type', parsed.type)
+              if (parsed.sort === 'random' && randomSeedRef.current) params.set('seed', randomSeedRef.current)
+              if (parsed.search?.startsWith('@')) params.set('user', parsed.search.slice(1))
+              else if (parsed.search) params.set('search', parsed.search)
+              return fetch(`/api/media?${params}`, { cache: 'no-store' }).then((res) => res.json())
+            })
+          )
+          const merged = results.flatMap((data, index) =>
+            ((data?.media || []) as Media[]).map((item) => ({ ...item, _page: index + 1 }))
+          )
+          mediaFiltersRef.current = { sort: parsed.sort, type: parsed.type, search: parsed.search }
+          setMedia(merged)
+          setPage(pageCount)
+          const totalPages = results[pageCount - 1]?.pagination?.totalPages ?? pageCount
+          setHasMore(pageCount < totalPages)
+          setLoading(false)
+          applySavedBodyScroll(parsed.scrollTop)
+        } finally {
+          isRestoringRef.current = false
+        }
+      })()
     }
     scrollToOpened()
     return () => window.clearTimeout(timer)
-  }, [pathname, sort, type, search, media])
+  }, [pathname, sort, type, search])
 
   // Reset and fetch when filters change (only after sort is initialized)
   useEffect(() => {
@@ -613,6 +629,7 @@ function HomeContent() {
         setPage(restoreState.page)
         if (skipOverlay) setContentReady(true)
         const scrollToTarget = (el: HTMLElement) => {
+          if (applySavedBodyScroll(restoreState.scrollTop)) return
           const rect = el.getBoundingClientRect()
           const headerOffset = 80
           const top = document.body.scrollTop + rect.top - headerOffset
@@ -652,6 +669,10 @@ function HomeContent() {
               correctionCount++
               if (correctionCount > maxCorrections) return
               if (restoreRunIdRef.current !== runId) return
+              if (applySavedBodyScroll(restoreState.scrollTop)) {
+                setTimeout(correctScroll, correctionInterval)
+                return
+              }
               const el = findCard(restoreState.targetId)
               if (!el) return
               const rect = el.getBoundingClientRect()
@@ -726,6 +747,7 @@ function HomeContent() {
         }
 
         const scrollToTarget = (el: HTMLElement) => {
+          if (applySavedBodyScroll(restoreState.scrollTop)) return
           const rect = el.getBoundingClientRect()
           const headerOffset = 80
           const top = document.body.scrollTop + rect.top - headerOffset
@@ -762,6 +784,10 @@ function HomeContent() {
               correctionCount++
               if (correctionCount > maxCorrections) return
               if (restoreRunIdRef.current !== runId) return
+              if (applySavedBodyScroll(restoreState.scrollTop)) {
+                setTimeout(correctScroll, correctionInterval)
+                return
+              }
               const el = findCard(restoreState.targetId)
               if (!el) return
               const rect = el.getBoundingClientRect()

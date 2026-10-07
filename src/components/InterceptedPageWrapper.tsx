@@ -5,9 +5,14 @@ import SiteFooter from '@/components/SiteFooter'
 
 export default function InterceptedPageWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
+    const scrollTop = document.body.scrollTop
     document.body.style.overflow = 'hidden'
     return () => {
       document.body.style.overflow = ''
+      document.body.scrollTop = scrollTop
+      requestAnimationFrame(() => {
+        document.body.scrollTop = scrollTop
+      })
     }
   }, [])
 
