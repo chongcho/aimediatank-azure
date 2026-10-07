@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useState, Suspense, useRef, useCallback, useMemo } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MediaCard from '@/components/MediaCard'
 import { HomePreplayFocusProvider } from '@/contexts/HomePreplayFocusContext'
 import LiveChat from '@/components/LiveChat'
 import MarketingPopup from '@/components/MarketingPopup'
-import { getHomeFeed, saveHomeFeed } from '@/lib/homePrefetchCache'
+import { getHomeFeed, readHomeRandomSeed, saveHomeFeed, writeHomeRandomSeed } from '@/lib/homePrefetchCache'
 import { registerHomeFeedNav, unregisterHomeFeedNav } from '@/lib/homeFeedNav'
 import { getNativePlatform } from '@/lib/nativeShellBoot'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
@@ -74,9 +74,17 @@ interface HomeScrollState {
   sort: string
   type: string | null
   search: string
+  seed?: string
+}
+
+function mintHomeRandomSeed(): string {
+  const seed = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+  writeHomeRandomSeed(seed)
+  return seed
 }
 
 function HomeContent() {
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const { localeTag } = useUiLocale()
   const feedAutoTranslation = useFeedGridAutoTranslation()
@@ -323,6 +331,10 @@ function HomeContent() {
     const { sort: s, type: t } = filtersRef.current
     const params = new URLSearchParams({ sort: s, page: '1', limit: '20' })
     if (t) params.set('type', t)
+    if (s === 'random') {
+      if (!randomSeedRef.current) randomSeedRef.current = readHomeRandomSeed() || mintHomeRandomSeed()
+      params.set('seed', randomSeedRef.current)
+    }
     fetch(`/api/media?${params}`, { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
@@ -366,6 +378,10 @@ function HomeContent() {
     const s = filtersRef.current.sort
     const params = new URLSearchParams({ sort: s, page: '1', limit: '20' })
     if (newType) params.set('type', newType)
+    if (s === 'random') {
+      randomSeedRef.current = mintHomeRandomSeed()
+      params.set('seed', randomSeedRef.current)
+    }
 
     fetch(`/api/media?${params}`, { cache: 'no-store' })
       .then((res) => res.json())
@@ -439,16 +455,16 @@ function HomeContent() {
   }
 
   useEffect(() => {
-    // Once filters are managed by navbar events (via replaceState), the Next.js
-    // router doesn't know about the ?type= param.  Don't let router-driven
-    // searchParams changes (e.g. opening a media modal) reset the active filter.
+    // Opening a media page changes the URL to /media/… which has no home filters.
+    // Applying that here clears type/search and rebuilds Random behind the detail view.
     if (filterOwnedByNavRef.current) return
+    if (pathname !== '/') return
     const typeParam = searchParams.get('type')
     const searchParam = searchParams.get('search')
     if (typeParam) setType(typeParam)
     else setType(null)
     if (searchParam) setSearch(searchParam)
-  }, [searchParams])
+  }, [pathname, searchParams])
 
   // Reset and fetch when filters change (only after sort is initialized)
   useEffect(() => {
@@ -467,14 +483,28 @@ function HomeContent() {
       restoreState.type === type &&
       restoreState.search === search
 
+    const findCard = (id: string) => {
+      const selector = `[data-media-id="${CSS.escape(id)}"]`
+      return (gridSectionRef.current?.querySelector(selector) ?? document.querySelector(selector)) as HTMLElement | null
+    }
+
     if (canRestore) {
+      if (sort === 'random') {
+        const seed = restoreState.seed || readHomeRandomSeed()
+        if (seed) {
+          randomSeedRef.current = seed
+          writeHomeRandomSeed(seed)
+        }
+      }
       const prefetched = getHomeFeed({
         sort: restoreState.sort,
         type: restoreState.type,
         search: restoreState.search,
         page: restoreState.page,
       })
-      if (prefetched) {
+      const prefetchedList = (prefetched?.media || []) as Media[]
+      const prefetchedHasTarget = prefetchedList.some((item) => item.id === restoreState.targetId)
+      if (prefetched && prefetchedHasTarget) {
         // Skip skeleton overlay when we have cached data (e.g. back from modal) to avoid flash.
         const skipOverlay = cachedInitUsedRef.current || true
         cachedInitUsedRef.current = false
@@ -483,7 +513,7 @@ function HomeContent() {
         activeRestoreRunIdRef.current = runId
         scrollRestoredRef.current = false
         mediaFiltersRef.current = { sort: restoreState.sort, type: restoreState.type, search: restoreState.search }
-        setMedia(prefetched.media as Media[])
+        setMedia(prefetchedList)
         setLoading(false)
         setHasMore(prefetched.params.page < prefetched.totalPages)
         setPage(restoreState.page)
@@ -511,7 +541,7 @@ function HomeContent() {
             enablePreplayAfterRestore()
             return
           }
-          const target = document.querySelector(`[data-media-id="${restoreState.targetId}"]`) as HTMLElement | null
+          const target = findCard(restoreState.targetId)
           if (target) {
             scrollToTarget(target)
             scrollRestoredRef.current = true
@@ -528,7 +558,7 @@ function HomeContent() {
               correctionCount++
               if (correctionCount > maxCorrections) return
               if (restoreRunIdRef.current !== runId) return
-              const el = document.querySelector(`[data-media-id="${restoreState.targetId}"]`) as HTMLElement | null
+              const el = findCard(restoreState.targetId)
               if (!el) return
               const rect = el.getBoundingClientRect()
               const headerOffset = 80
@@ -566,6 +596,7 @@ function HomeContent() {
         const fetchOnePage = async (p: number): Promise<{ media: Media[]; totalPages: number }> => {
           const params = new URLSearchParams({ sort: s, page: p.toString(), limit: '20' })
           if (t) params.set('type', t)
+          if (s === 'random' && randomSeedRef.current) params.set('seed', randomSeedRef.current)
           if (q?.startsWith('@')) params.set('user', q.slice(1))
           else if (q) params.set('search', q)
           const res = await fetch(`/api/media?${params}`, { cache: 'no-store' })
@@ -620,7 +651,7 @@ function HomeContent() {
             enablePreplayAfterRestore()
             return
           }
-          const target = document.querySelector(`[data-media-id="${restoreState.targetId}"]`) as HTMLElement | null
+          const target = findCard(restoreState.targetId)
           if (target) {
             scrollToTarget(target)
             scrollRestoredRef.current = true
@@ -637,7 +668,7 @@ function HomeContent() {
               correctionCount++
               if (correctionCount > maxCorrections) return
               if (restoreRunIdRef.current !== runId) return
-              const el = document.querySelector(`[data-media-id="${restoreState.targetId}"]`) as HTMLElement | null
+              const el = findCard(restoreState.targetId)
               if (!el) return
               const rect = el.getBoundingClientRect()
               const headerOffset = 80
@@ -692,7 +723,7 @@ function HomeContent() {
     isRestoringRef.current = false
     activeRestoreRunIdRef.current = null
     if (sort === 'random') {
-      randomSeedRef.current = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+      randomSeedRef.current = mintHomeRandomSeed()
     }
     setMedia([])
     setPage(1)

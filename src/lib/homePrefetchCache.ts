@@ -8,6 +8,21 @@
  */
 
 const STORAGE_KEY = 'homeFeedSnapshot'
+const RANDOM_SEED_KEY = 'homeRandomSeed'
+
+export function readHomeRandomSeed(): string {
+  try {
+    return sessionStorage.getItem(RANDOM_SEED_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+export function writeHomeRandomSeed(seed: string): void {
+  try {
+    if (seed) sessionStorage.setItem(RANDOM_SEED_KEY, seed)
+  } catch { /* private mode */ }
+}
 
 export interface HomeFeedParams {
   sort: string

@@ -17,6 +17,7 @@ import {
 import MediaShareModal from '@/components/MediaShareModal'
 import MediaDownloadingOverlay from '@/components/MediaDownloadingOverlay'
 import { prefetchMediaPlay } from '@/lib/mediaPlayCache'
+import { readHomeRandomSeed } from '@/lib/homePrefetchCache'
 import { pickInitialRenditionIndex, sortRenditions } from '@/lib/adaptiveVideoTier'
 import { mergeStoredMediaViews, resolveDisplayViews } from '@/lib/mediaViewsSync'
 import {
@@ -878,6 +879,7 @@ export default function MediaCard({
           sort: h.sort,
           type: h.type,
           search: h.search,
+          seed: h.sort === 'random' ? readHomeRandomSeed() : '',
         })
       )
     }
