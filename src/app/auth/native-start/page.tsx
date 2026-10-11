@@ -15,7 +15,7 @@ function NativeStart() {
   if (!ALLOWED_PROVIDER.test(provider)) {
     return (
       <div className="fixed inset-0 z-[100020] flex items-center justify-center bg-white px-6 text-center text-neutral-800">
-        <p>Unknown sign-in provider.</p>
+        <p>Unknown log in provider.</p>
       </div>
     )
   }

@@ -18,9 +18,9 @@ export function socialSignInMode(value: string | null | undefined): SocialSignIn
   return value === 'signup' ? 'signup' : 'signin'
 }
 
-/** Label that matches the dialog the user opened: Register or Sign in. */
+/** Label that matches the dialog the user opened: Register or Log in. */
 export function socialSignInModeLabel(mode: SocialSignInMode, network: string): string {
-  return mode === 'signup' ? `Register with ${network}` : `Sign in with ${network}`
+  return mode === 'signup' ? `Register with ${network}` : `Log in with ${network}`
 }
 
 const SOCIAL_RETURN_KEY = 'amt-social-return'

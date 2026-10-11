@@ -53,7 +53,7 @@ function ProviderMark({ label }: { label: string }) {
 /**
  * The network name stays on the page so the user can see which social sign-in
  * they opened. It is not a link. Register shows "Register with"; Log in shows
- * "Sign in with". Next sends that network's hint with the email.
+ * "Log in with". Next sends that network's hint with the email.
  */
 export function ProviderSignInPage({ providerId, callbackUrl, mode = 'signin' }: Props) {
   const provider = socialProviderSignIn(providerId)
@@ -71,7 +71,7 @@ export function ProviderSignInPage({ providerId, callbackUrl, mode = 'signin' }:
   if (!provider) {
     return (
       <div className="fixed inset-0 z-[100020] flex items-center justify-center bg-white px-6 text-center text-neutral-800">
-        <p>Unknown sign-in provider.</p>
+        <p>Unknown log in provider.</p>
       </div>
     )
   }
@@ -102,8 +102,12 @@ export function ProviderSignInPage({ providerId, callbackUrl, mode = 'signin' }:
         </div>
 
         <p className="mt-8 text-[13px] font-semibold text-[#323130]">AiMediaTank</p>
-        <h1 className="mt-6 text-[28px] font-semibold leading-tight text-[#1b1b1b]">Sign in</h1>
-        <p className="mt-4 text-[15px] text-[#1b1b1b]">Sign in to access aimediatank</p>
+        <h1 className="mt-6 text-[28px] font-semibold leading-tight text-[#1b1b1b]">
+          {mode === 'signup' ? 'Register' : 'Log in'}
+        </h1>
+        <p className="mt-4 text-[15px] text-[#1b1b1b]">
+          {mode === 'signup' ? 'Register to access aimediatank' : 'Log in to access aimediatank'}
+        </p>
 
         <form
           className="mt-6"

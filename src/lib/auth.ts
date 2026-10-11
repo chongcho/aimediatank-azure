@@ -25,7 +25,7 @@ import {
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
 /**
  * Continue with / Register with Google, Facebook, Apple, or Microsoft opens `/auth/social`.
- * The label matches that choice ("Sign in with" or "Register with") and is not a link. Next sends
+ * The label matches that choice ("Log in with" or "Register with") and is not a link. Next sends
  * `domain_hint` (`Google`, `facebook`, `apple`, `microsoft`) with the email.
  * Google must stay `Google`: lowercase `google` is rejected with AADSTS90023.
  * `prompt=login` avoids resuming a saved session.
@@ -232,7 +232,7 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         const userId = await consumeNativeAuthHandoffCode(credentials?.code ?? '')
         if (!userId) {
-          throw new Error('This sign-in link has expired. Please try again.')
+          throw new Error('This log in link has expired. Please try again.')
         }
 
         const user = await prisma.user.findUnique({
@@ -253,7 +253,7 @@ export const authOptions: NextAuthOptions = {
           },
         })
         if (!user) {
-          throw new Error('No user found for this sign-in')
+          throw new Error('No user found for this log in')
         }
 
         if (user.isSuspended) {

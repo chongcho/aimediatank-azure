@@ -237,7 +237,7 @@ function LoginContent() {
             </p>
           )}
           <div className="flex items-center justify-center relative">
-            <h1 className="form-compact-title text-2xl sm:text-3xl font-bold mb-0 sm:mb-2">Log in / Register</h1>
+            <h1 className="form-compact-title text-2xl sm:text-3xl font-bold mb-0 sm:mb-2">Log in</h1>
             <button
               type="button"
               onClick={() => { window.location.href = '/' }}
@@ -499,7 +499,7 @@ function LoginFallback() {
               <span className="text-sky-400">T</span>ank
             </span>
           </Link>
-          <h1 className="text-2xl sm:text-3xl font-bold mb-0 sm:mb-2">Log in / Register</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-0 sm:mb-2">Log in</h1>
         </div>
         <div className="card flex items-center justify-center py-8 sm:py-12">
           <span className="spinner w-8 h-8" />

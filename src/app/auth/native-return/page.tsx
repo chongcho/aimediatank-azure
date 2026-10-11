@@ -22,7 +22,7 @@ function NativeReturn() {
     const code = params.get('code') || ''
     const next = safeNextPath(params.get('next'))
     if (!code) {
-      setError('Sign-in link was incomplete.')
+      setError('Log in link was incomplete.')
       return
     }
 
@@ -31,7 +31,7 @@ function NativeReturn() {
       if (result?.ok) {
         window.location.replace(next)
       } else {
-        setError(result?.error || 'Sign-in could not be completed.')
+        setError(result?.error || 'Log in could not be completed.')
       }
     })()
   }, [params])
@@ -49,7 +49,7 @@ function NativeReturn() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 text-center">
-      <p className="text-gray-300">Finishing sign-in…</p>
+      <p className="text-gray-300">Finishing log in…</p>
     </div>
   )
 }

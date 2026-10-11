@@ -73,7 +73,7 @@ const EDIT_PROFILE_STRINGS = [
   'Type your username and password (if you use one) to confirm permanent deletion.',
   'Type your username',
   'to confirm',
-  'Account password (leave blank if you only use social sign-in)',
+  'Account password (leave blank if you only log in with a social account)',
   'Keep account',
   'Deleting…',
   'Verify Your New Email',

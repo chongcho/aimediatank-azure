@@ -74,7 +74,7 @@ async function startIosSignIn(startUrl: string): Promise<void> {
     callbackScheme: NATIVE_AUTH_SCHEME,
   })
   const returnPath = returnPathFromDeepLink(url)
-  if (!returnPath) throw new Error('Sign-in was cancelled')
+  if (!returnPath) throw new Error('Log in was cancelled')
   window.location.replace(returnPath)
 }
 
@@ -113,7 +113,7 @@ export async function startNativeSocialSignIn(
 ): Promise<void> {
   const platform = getNativePlatform()
   if (platform !== 'ios' && platform !== 'android') {
-    throw new Error('Native sign-in is only available in the app')
+    throw new Error('Native log in is only available in the app')
   }
 
   const startUrl = buildStartUrl(providerId, callbackUrl, platform, mode)

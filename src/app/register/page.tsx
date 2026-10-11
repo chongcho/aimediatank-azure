@@ -142,7 +142,7 @@ const REGISTER_STRINGS = [
   'Enter Verification Code',
   'Didn\'t receive the code?',
   'Resend',
-  'Create your account and sign in to complete checkout.',
+  'Create your account and log in to complete checkout.',
   'Choose Billing Period',
   'You selected:',
   'Monthly',

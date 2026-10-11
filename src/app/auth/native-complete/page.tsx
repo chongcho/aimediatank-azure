@@ -27,10 +27,10 @@ function NativeComplete() {
           credentials: 'include',
         })
         if (!res.ok) {
-          throw new Error(res.status === 401 ? 'Sign-in did not complete.' : 'Could not finish sign-in.')
+          throw new Error(res.status === 401 ? 'Log in did not complete.' : 'Could not finish log in.')
         }
         const { code } = (await res.json()) as { code?: string }
-        if (!code) throw new Error('Could not finish sign-in.')
+        if (!code) throw new Error('Could not finish log in.')
         if (cancelled) return
 
         const url = buildNativeReturnUrl(code, next)
@@ -38,7 +38,7 @@ function NativeComplete() {
         window.location.replace(url)
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Could not finish sign-in.')
+          setError(e instanceof Error ? e.message : 'Could not finish log in.')
         }
       }
     })()

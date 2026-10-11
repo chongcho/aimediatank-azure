@@ -166,7 +166,7 @@ function SignInModalContent({ onClose }: { onClose: () => void }) {
             </span>
           </div>
           <h2 className="signin-modal-title" style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
-            Log in / Register
+            Log in
           </h2>
         </div>
 

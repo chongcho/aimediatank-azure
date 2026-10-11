@@ -121,7 +121,7 @@ export function SocialSignIn({
         await startNativeSocialSignIn(providerId, dest, mode)
       } catch (e) {
         setLoadingId(null)
-        setError(e instanceof Error ? e.message : 'Could not open sign-in. Please try again.')
+        setError(e instanceof Error ? e.message : 'Could not open log in. Please try again.')
       }
       return
     }
@@ -144,7 +144,7 @@ export function SocialSignIn({
 
   if (buttons.length === 0) return null
 
-  const actionText = mode === 'signin' ? 'Continue with' : 'Register with'
+  const actionText = mode === 'signin' ? 'Log in with' : 'Register with'
 
   return (
     <>

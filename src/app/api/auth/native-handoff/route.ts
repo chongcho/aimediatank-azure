@@ -23,6 +23,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ code })
   } catch (error) {
     console.error('[native-handoff] failed to mint code:', error)
-    return NextResponse.json({ error: 'Could not start native sign-in handoff' }, { status: 500 })
+    return NextResponse.json({ error: 'Could not start native log in handoff' }, { status: 500 })
   }
 }
