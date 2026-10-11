@@ -24,9 +24,9 @@ import {
 // Build Entra External ID / Azure AD B2C provider(s) when env is configured (single-point social: Google, Facebook, Apple, Microsoft)
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
 /**
- * Continue with / Register with Google, Facebook, Apple, or Microsoft opens `/auth/social`.
- * The label matches that choice ("Log in with" or "Register with") and is not a link. Next sends
- * `domain_hint` (`Google`, `facebook`, `apple`, `microsoft`) with the email.
+ * Log in with / Register with Google, Facebook, Apple, or Microsoft opens that network.
+ * The request sends only `domain_hint` (`Google`, `facebook`, `apple`, `microsoft`).
+ * It does not send `login_hint`, so a Microsoft email cannot complete a Google login.
  * Google must stay `Google`: lowercase `google` is rejected with AADSTS90023.
  * `prompt=login` avoids resuming a saved session.
  */

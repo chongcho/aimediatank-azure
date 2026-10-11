@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getProviders } from 'next-auth/react'
+import { getProviders, signIn } from 'next-auth/react'
 import { ADMIN_FORCE_STEP2_STORAGE_KEY } from '@/lib/adminFreshStep2'
 import { shouldUseNativeSocialAuth, startNativeSocialSignIn } from '@/lib/nativeSocialAuth'
-import { rememberSocialSignInReturn, takeSocialSignInReturn } from '@/lib/socialProviderSignIn'
+import { socialProviderSignIn, takeSocialSignInReturn } from '@/lib/socialProviderSignIn'
 
 const SOCIAL_BUTTONS: { id: string; label: string; icon: 'google' | 'facebook' | 'apple' | 'microsoft' }[] = [
   { id: 'entra-external-id-google', label: 'Google', icon: 'google' },
@@ -126,9 +126,23 @@ export function SocialSignIn({
       return
     }
 
-    const q = new URLSearchParams({ provider: providerId, next: dest, mode })
-    rememberSocialSignInReturn()
-    window.location.assign(`/auth/social?${q}`)
+    // Open that network directly. Do not collect an email here — an address typed on
+    // our page was sent to Microsoft and could succeed without a Google account.
+    const hint = socialProviderSignIn(providerId)?.hint
+    try {
+      const result = await signIn(
+        providerId,
+        { callbackUrl: dest },
+        hint ? { domain_hint: hint } : undefined
+      )
+      if (result?.error) {
+        setLoadingId(null)
+        setError('Could not open log in. Please try again.')
+      }
+    } catch (e) {
+      setLoadingId(null)
+      setError(e instanceof Error ? e.message : 'Could not open log in. Please try again.')
+    }
   }
 
   const hasSocialButtons = SOCIAL_BUTTONS.some((b) => availableIds.has(b.id))
