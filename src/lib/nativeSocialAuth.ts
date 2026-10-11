@@ -32,11 +32,17 @@ export function shouldUseNativeSocialAuth(): boolean {
   return detectNativeShell()
 }
 
-function buildStartUrl(providerId: string, callbackUrl: string, platform: 'ios' | 'android'): string {
+function buildStartUrl(
+  providerId: string,
+  callbackUrl: string,
+  platform: 'ios' | 'android',
+  mode: 'signin' | 'signup',
+): string {
   const url = new URL(NATIVE_AUTH_START_PATH, window.location.origin)
   url.searchParams.set('provider', providerId)
   url.searchParams.set('next', safeNextPath(callbackUrl))
   url.searchParams.set('platform', platform)
+  url.searchParams.set('mode', mode)
   return url.toString()
 }
 
@@ -103,13 +109,14 @@ async function startAndroidSignIn(startUrl: string): Promise<void> {
 export async function startNativeSocialSignIn(
   providerId: string,
   callbackUrl: string,
+  mode: 'signin' | 'signup' = 'signin',
 ): Promise<void> {
   const platform = getNativePlatform()
   if (platform !== 'ios' && platform !== 'android') {
     throw new Error('Native sign-in is only available in the app')
   }
 
-  const startUrl = buildStartUrl(providerId, callbackUrl, platform)
+  const startUrl = buildStartUrl(providerId, callbackUrl, platform, mode)
 
   if (platform === 'ios') {
     await startIosSignIn(startUrl)

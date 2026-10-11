@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ProviderSignInPage } from '@/components/ProviderSignInPage'
 import { NATIVE_AUTH_COMPLETE_PATH, safeNextPath } from '@/lib/nativeAuthFlow'
+import { socialSignInMode } from '@/lib/socialProviderSignIn'
 
 const ALLOWED_PROVIDER = /^(entra-external-id(-(google|facebook|apple|microsoft))?|azure-ad-b2c)$/
 
@@ -21,7 +22,8 @@ function NativeStart() {
   const next = safeNextPath(params.get('next'))
   const platform = params.get('platform') === 'ios' ? 'ios' : 'android'
   const callbackUrl = `${NATIVE_AUTH_COMPLETE_PATH}?next=${encodeURIComponent(next)}&platform=${platform}`
-  return <ProviderSignInPage providerId={provider} callbackUrl={callbackUrl} />
+  const mode = socialSignInMode(params.get('mode'))
+  return <ProviderSignInPage providerId={provider} callbackUrl={callbackUrl} mode={mode} />
 }
 
 export default function NativeStartPage() {

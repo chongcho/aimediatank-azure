@@ -118,7 +118,7 @@ export function SocialSignIn({
     // In the app the OAuth flow must run in the system browser — Google rejects WebViews.
     if (shouldUseNativeSocialAuth()) {
       try {
-        await startNativeSocialSignIn(providerId, dest)
+        await startNativeSocialSignIn(providerId, dest, mode)
       } catch (e) {
         setLoadingId(null)
         setError(e instanceof Error ? e.message : 'Could not open sign-in. Please try again.')
@@ -126,7 +126,7 @@ export function SocialSignIn({
       return
     }
 
-    const q = new URLSearchParams({ provider: providerId, next: dest })
+    const q = new URLSearchParams({ provider: providerId, next: dest, mode })
     rememberSocialSignInReturn()
     window.location.assign(`/auth/social?${q}`)
   }

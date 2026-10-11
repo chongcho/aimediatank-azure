@@ -12,6 +12,17 @@ export function socialProviderSignIn(providerId: string) {
   return SOCIAL_PROVIDER_SIGN_IN[providerId] ?? null
 }
 
+export type SocialSignInMode = 'signin' | 'signup'
+
+export function socialSignInMode(value: string | null | undefined): SocialSignInMode {
+  return value === 'signup' ? 'signup' : 'signin'
+}
+
+/** Label that matches the dialog the user opened: Register or Sign in. */
+export function socialSignInModeLabel(mode: SocialSignInMode, network: string): string {
+  return mode === 'signup' ? `Register with ${network}` : `Sign in with ${network}`
+}
+
 const SOCIAL_RETURN_KEY = 'amt-social-return'
 const SOCIAL_RETURN_MS = 60_000
 

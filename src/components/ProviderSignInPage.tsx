@@ -2,11 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { clearSocialSignInReturn, socialProviderSignIn } from '@/lib/socialProviderSignIn'
+import {
+  clearSocialSignInReturn,
+  socialProviderSignIn,
+  socialSignInModeLabel,
+  type SocialSignInMode,
+} from '@/lib/socialProviderSignIn'
 
 type Props = {
   providerId: string
   callbackUrl: string
+  mode?: SocialSignInMode
 }
 
 function ProviderMark({ label }: { label: string }) {
@@ -46,9 +52,10 @@ function ProviderMark({ label }: { label: string }) {
 
 /**
  * The network name stays on the page so the user can see which social sign-in
- * they opened. It is not a link. Next sends that network's hint with the email.
+ * they opened. It is not a link. Register shows "Register with"; Log in shows
+ * "Sign in with". Next sends that network's hint with the email.
  */
-export function ProviderSignInPage({ providerId, callbackUrl }: Props) {
+export function ProviderSignInPage({ providerId, callbackUrl, mode = 'signin' }: Props) {
   const provider = socialProviderSignIn(providerId)
   const [email, setEmail] = useState('')
   const [starting, setStarting] = useState(false)
@@ -91,7 +98,7 @@ export function ProviderSignInPage({ providerId, callbackUrl }: Props) {
       <div className="mx-auto w-full max-w-[440px] px-6 pb-16 pt-10">
         <div className="flex w-full items-center gap-3 py-3 text-left text-[15px] text-[#323130]">
           <ProviderMark label={provider.label} />
-          <span>Sign in with {provider.label}</span>
+          <span>{socialSignInModeLabel(mode, provider.label)}</span>
         </div>
 
         <p className="mt-8 text-[13px] font-semibold text-[#323130]">AiMediaTank</p>
