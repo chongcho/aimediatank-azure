@@ -25,10 +25,10 @@ import {
 const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
 /**
  * Log in with / Register with Google, Facebook, Apple, or Microsoft opens that network.
- * The request sends only `domain_hint` (`Google`, `facebook`, `apple`, `microsoft`).
- * It does not send `login_hint`, so a Microsoft email cannot complete a Google login.
- * Google must stay `Google`: lowercase `google` is rejected with AADSTS90023.
- * `prompt=login` avoids resuming a saved session.
+ * `domain_hint` is set on the authorize request (`Google`, `facebook`, `apple`, `microsoft`).
+ * Google must stay `Google`: lowercase `google` is rejected with AADSTS90023 on desktop.
+ * Do not send `prompt=login` here. It keeps Microsoft's email page on screen.
+ * Google, Facebook, and Apple must be checked on the Entra user flow or this page stays email-only.
  */
 
 /** Display name on the NextAuth provider (button labels come from SocialSignIn). */
@@ -37,6 +37,14 @@ const ENTRA_PROVIDER_NAMES: Record<(typeof ENTRA_SOCIAL_IDS)[number], string> = 
   facebook: 'Facebook',
   apple: 'Apple',
   microsoft: 'Microsoft',
+}
+
+/** Issuer acceleration. Google is capitalized; lowercase `google` returns AADSTS90023 on desktop. */
+const ENTRA_DOMAIN_HINT: Record<(typeof ENTRA_SOCIAL_IDS)[number], string> = {
+  google: 'Google',
+  facebook: 'facebook',
+  apple: 'apple',
+  microsoft: 'microsoft',
 }
 
 function buildEntraProvider(idSuffix: (typeof ENTRA_SOCIAL_IDS)[number]) {
@@ -54,7 +62,7 @@ function buildEntraProvider(idSuffix: (typeof ENTRA_SOCIAL_IDS)[number]) {
     authorization: {
       params: {
         scope: 'openid email profile',
-        prompt: 'login',
+        domain_hint: ENTRA_DOMAIN_HINT[idSuffix],
       },
     },
     idToken: true,
