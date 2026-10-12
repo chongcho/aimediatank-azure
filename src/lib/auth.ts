@@ -1,7 +1,9 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import GoogleProvider from 'next-auth/providers/google'
+import AppleProvider from 'next-auth/providers/apple'
 import AzureADProvider from 'next-auth/providers/azure-ad'
+import { importPKCS8, SignJWT } from 'jose'
 import AzureADB2CProvider from 'next-auth/providers/azure-ad-b2c'
 import { compare } from 'bcryptjs'
 import { prisma } from './prisma'
@@ -35,6 +37,8 @@ const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
  * Microsoft, when `MICROSOFT_CLIENT_ID` and `MICROSOFT_CLIENT_SECRET` are set, opens
  * login.microsoftonline.com (`common`) with `prompt=select_account`. That is Microsoft's
  * account list for personal and work accounts. It does not open the Entra email page.
+ * Apple, when `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, and `APPLE_PRIVATE_KEY`
+ * are set, opens appleid.apple.com. It does not open the Entra email page.
  * Do not send `prompt=select_account` or `prompt=login` to Entra. Entra treats that
  * as its own email page.
  * Google, Facebook, and Apple must be checked on the Entra user flow or this page stays email-only.
@@ -239,6 +243,90 @@ function directMicrosoftProvider() {
 
 const microsoftProvider = directMicrosoftProvider()
 
+function applePrivateKeyPem(): string {
+  const raw = process.env.APPLE_PRIVATE_KEY?.trim() ?? ''
+  const unquoted = raw.replace(/^["']|["']$/g, '')
+  return unquoted.replace(/\\n/g, '\n')
+}
+
+/** Apple's client secret is a short-lived JWT signed with the Sign in with Apple key. */
+async function appleClientSecret(): Promise<string> {
+  const key = await importPKCS8(applePrivateKeyPem(), 'ES256')
+  const now = Math.floor(Date.now() / 1000)
+  return new SignJWT({})
+    .setProtectedHeader({ alg: 'ES256', kid: process.env.APPLE_KEY_ID!.trim() })
+    .setIssuer(process.env.APPLE_TEAM_ID!.trim())
+    .setIssuedAt(now)
+    .setExpirationTime(now + 60 * 60 * 24 * 150)
+    .setSubject(process.env.APPLE_CLIENT_ID!.trim())
+    .setAudience('https://appleid.apple.com')
+    .sign(key)
+}
+
+/**
+ * Direct Apple sign-in. Opens appleid.apple.com instead of the Entra email page.
+ * The client id is the Services ID, not the iOS bundle id.
+ */
+function directAppleProvider() {
+  const clientId = process.env.APPLE_CLIENT_ID?.trim()
+  const teamId = process.env.APPLE_TEAM_ID?.trim()
+  const keyId = process.env.APPLE_KEY_ID?.trim()
+  const privateKey = applePrivateKeyPem()
+  if (!clientId || !teamId || !keyId || !privateKey.includes('BEGIN PRIVATE KEY')) return null
+  const provider = AppleProvider({
+    clientId,
+    clientSecret: 'generated-per-request',
+  })
+  return {
+    ...provider,
+    id: 'apple',
+    name: 'Apple',
+    token: {
+      async request(context: {
+        provider: { callbackUrl?: string; clientId?: string }
+        params: { code?: string }
+        checks: { code_verifier?: string }
+      }) {
+        const secret = await appleClientSecret()
+        const body = new URLSearchParams({
+          client_id: context.provider.clientId || clientId,
+          client_secret: secret,
+          grant_type: 'authorization_code',
+          code: context.params.code ?? '',
+          redirect_uri: context.provider.callbackUrl ?? '',
+        })
+        if (context.checks.code_verifier) body.set('code_verifier', context.checks.code_verifier)
+        const response = await fetch('https://appleid.apple.com/auth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body,
+        })
+        const tokens = (await response.json()) as { error?: string }
+        if (!response.ok) {
+          throw new Error(tokens.error || 'Apple token exchange failed')
+        }
+        return { tokens }
+      },
+    },
+    userinfo: {
+      async request({ tokens }: { tokens: { id_token?: string } }) {
+        return microsoftIdTokenClaims(tokens.id_token)
+      },
+    },
+    profile(profile: { sub?: string; name?: string; email?: string }) {
+      const email = profile.email?.trim() && profile.email.includes('@') ? profile.email.trim() : null
+      return {
+        id: profile.sub ?? '',
+        name: profile.name ?? email?.split('@')[0] ?? 'User',
+        email,
+        image: null,
+      }
+    },
+  }
+}
+
+const appleProvider = directAppleProvider()
+
 /** Ensure unique username from email; add suffix if taken. */
 async function ensureUniqueUsername(base: string): Promise<string> {
   let username = base.replace(/[^a-z0-9_]/gi, '').slice(0, 24) || 'user'
@@ -268,6 +356,7 @@ export const authOptions: NextAuthOptions = {
   },
   providers: [
     ...(googleProvider ? [googleProvider] : []),
+    ...(appleProvider ? [appleProvider] : []),
     ...(microsoftProvider ? [microsoftProvider] : []),
     ...entraProviders,
     CredentialsProvider({
