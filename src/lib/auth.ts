@@ -348,6 +348,24 @@ const isProductionHttps =
 
 export const authOptions: NextAuthOptions = {
   useSecureCookies: isProductionHttps,
+  // Apple returns with a cross-site form POST. A Lax cookie is omitted on that POST,
+  // so the PKCE check fails and the login page shows "Social login failed".
+  ...(isProductionHttps
+    ? {
+        cookies: {
+          pkceCodeVerifier: {
+            name: '__Secure-next-auth.pkce.code_verifier',
+            options: {
+              httpOnly: true,
+              sameSite: 'none' as const,
+              path: '/',
+              secure: true,
+              maxAge: 60 * 15,
+            },
+          },
+        },
+      }
+    : {}),
   session: {
     strategy: 'jwt',
   },
