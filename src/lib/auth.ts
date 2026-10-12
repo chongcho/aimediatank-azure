@@ -148,6 +148,34 @@ function directGoogleProvider() {
 
 const googleProvider = directGoogleProvider()
 
+/** Claims from a Microsoft id_token. Graph userinfo rejects a token that only has openid scopes. */
+function microsoftIdTokenClaims(idToken: string | undefined): {
+  sub?: string
+  name?: string
+  email?: string
+  preferred_username?: string
+  given_name?: string
+  family_name?: string
+} {
+  if (!idToken) return {}
+  try {
+    const part = idToken.split('.')[1]
+    if (!part) return {}
+    const claims = JSON.parse(Buffer.from(part, 'base64url').toString('utf8')) as Record<string, unknown>
+    const str = (key: string) => (typeof claims[key] === 'string' ? claims[key] : undefined)
+    return {
+      sub: str('sub'),
+      name: str('name'),
+      email: str('email'),
+      preferred_username: str('preferred_username'),
+      given_name: str('given_name'),
+      family_name: str('family_name'),
+    }
+  } catch {
+    return {}
+  }
+}
+
 /**
  * Direct Microsoft sign-in. Shows Microsoft's account list (personal and work)
  * instead of the Entra email page. The app registration must allow personal
@@ -174,6 +202,13 @@ function directMicrosoftProvider() {
     ...provider,
     id: 'microsoft',
     name: 'Microsoft',
+    // Skip https://graph.microsoft.com/oidc/userinfo. That call returns 401 for this
+    // scope and NextAuth turns it into "Social login failed" after Pick an account.
+    userinfo: {
+      async request({ tokens }: { tokens: { id_token?: string } }) {
+        return microsoftIdTokenClaims(tokens.id_token)
+      },
+    },
     profile(profile: {
       sub?: string
       name?: string
