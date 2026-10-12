@@ -11,6 +11,7 @@ const SOCIAL_BUTTONS: { id: string; label: string; icon: 'google' | 'facebook' |
   { id: 'entra-external-id-google', label: 'Google', icon: 'google' },
   { id: 'entra-external-id-facebook', label: 'Facebook', icon: 'facebook' },
   { id: 'entra-external-id-apple', label: 'Apple', icon: 'apple' },
+  { id: 'microsoft', label: 'Microsoft', icon: 'microsoft' },
   { id: 'entra-external-id-microsoft', label: 'Microsoft', icon: 'microsoft' },
 ]
 const FALLBACK_PROVIDER_IDS = ['entra-external-id', 'azure-ad-b2c']
@@ -80,6 +81,7 @@ export function SocialSignIn({
         if (fallback) ids.add(fallback)
       }
       if (ids.has('google')) ids.delete('entra-external-id-google')
+      if (ids.has('microsoft')) ids.delete('entra-external-id-microsoft')
       setAvailableIds(ids)
     })
   }, [])

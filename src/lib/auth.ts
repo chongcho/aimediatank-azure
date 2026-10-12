@@ -1,6 +1,7 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import GoogleProvider from 'next-auth/providers/google'
+import AzureADProvider from 'next-auth/providers/azure-ad'
 import AzureADB2CProvider from 'next-auth/providers/azure-ad-b2c'
 import { compare } from 'bcryptjs'
 import { prisma } from './prisma'
@@ -31,6 +32,9 @@ const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
  * accounts.google.com with `prompt=select_account` (the account list). It does not
  * open the Microsoft email page. Google's Entra hint must stay `Google`: lowercase
  * `google` is rejected with AADSTS90023 on desktop.
+ * Microsoft, when `MICROSOFT_CLIENT_ID` and `MICROSOFT_CLIENT_SECRET` are set, opens
+ * login.microsoftonline.com (`common`) with `prompt=select_account`. That is Microsoft's
+ * account list for personal and work accounts. It does not open the Entra email page.
  * Do not send `prompt=select_account` or `prompt=login` to Entra. Entra treats that
  * as its own email page.
  * Google, Facebook, and Apple must be checked on the Entra user flow or this page stays email-only.
@@ -144,6 +148,62 @@ function directGoogleProvider() {
 
 const googleProvider = directGoogleProvider()
 
+/**
+ * Direct Microsoft sign-in. Shows Microsoft's account list (personal and work)
+ * instead of the Entra email page. The app registration must allow personal
+ * Microsoft accounts; tenant `common` is that account list.
+ */
+function directMicrosoftProvider() {
+  const clientId = process.env.MICROSOFT_CLIENT_ID
+  const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
+  if (!clientId || !clientSecret) return null
+  const tenantId = process.env.MICROSOFT_TENANT_ID?.trim() || 'common'
+  const provider = AzureADProvider({
+    clientId,
+    clientSecret,
+    tenantId,
+    authorization: {
+      params: {
+        prompt: 'select_account',
+        response_type: 'code',
+        scope: 'openid email profile',
+      },
+    },
+  })
+  return {
+    ...provider,
+    id: 'microsoft',
+    name: 'Microsoft',
+    profile(profile: {
+      sub?: string
+      name?: string
+      email?: string
+      preferred_username?: string
+      given_name?: string
+      family_name?: string
+    }) {
+      const emailClaim = profile.email?.trim()
+      const upn = profile.preferred_username?.trim()
+      const email =
+        emailClaim && emailClaim.includes('@')
+          ? emailClaim
+          : upn && upn.includes('@')
+            ? upn
+            : null
+      return {
+        id: profile.sub ?? '',
+        name: profile.name ?? email?.split('@')[0] ?? 'User',
+        email,
+        image: null,
+        given_name: profile.given_name,
+        family_name: profile.family_name,
+      }
+    },
+  }
+}
+
+const microsoftProvider = directMicrosoftProvider()
+
 /** Ensure unique username from email; add suffix if taken. */
 async function ensureUniqueUsername(base: string): Promise<string> {
   let username = base.replace(/[^a-z0-9_]/gi, '').slice(0, 24) || 'user'
@@ -173,6 +233,7 @@ export const authOptions: NextAuthOptions = {
   },
   providers: [
     ...(googleProvider ? [googleProvider] : []),
+    ...(microsoftProvider ? [microsoftProvider] : []),
     ...entraProviders,
     CredentialsProvider({
       name: 'credentials',
