@@ -27,6 +27,7 @@ const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
  * Log in with / Register with Google, Facebook, Apple, or Microsoft opens that network.
  * `domain_hint` is set on the authorize request (`Google`, `facebook`, `apple`, `microsoft`).
  * Google must stay `Google`: lowercase `google` is rejected with AADSTS90023 on desktop.
+ * Google also sends `prompt=select_account` so the user picks a Google account.
  * Do not send `prompt=login` here. It keeps Microsoft's email page on screen.
  * Google, Facebook, and Apple must be checked on the Entra user flow or this page stays email-only.
  */
@@ -63,6 +64,7 @@ function buildEntraProvider(idSuffix: (typeof ENTRA_SOCIAL_IDS)[number]) {
       params: {
         scope: 'openid email profile',
         domain_hint: ENTRA_DOMAIN_HINT[idSuffix],
+        ...(idSuffix === 'google' ? { prompt: 'select_account' } : {}),
       },
     },
     idToken: true,

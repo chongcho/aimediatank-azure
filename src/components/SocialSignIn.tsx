@@ -128,12 +128,15 @@ export function SocialSignIn({
 
     // Open that network directly. Do not collect an email here — an address typed on
     // our page was sent to Microsoft and could succeed without a Google account.
-    const hint = socialProviderSignIn(providerId)?.hint
+    const provider = socialProviderSignIn(providerId)
+    const authorizationParams: Record<string, string> = {}
+    if (provider?.hint) authorizationParams.domain_hint = provider.hint
+    if (provider?.prompt) authorizationParams.prompt = provider.prompt
     try {
       const result = await signIn(
         providerId,
         { callbackUrl: dest },
-        hint ? { domain_hint: hint } : undefined
+        Object.keys(authorizationParams).length > 0 ? authorizationParams : undefined
       )
       if (result?.error) {
         setLoadingId(null)

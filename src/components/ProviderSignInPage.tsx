@@ -64,7 +64,9 @@ export function ProviderSignInPage({ providerId, callbackUrl, mode = 'signin' }:
     if (!provider || started.current) return
     started.current = true
     clearSocialSignInReturn()
-    const authorizationParams = provider.hint ? { domain_hint: provider.hint } : undefined
+    const authorizationParams: Record<string, string> = {}
+    if (provider.hint) authorizationParams.domain_hint = provider.hint
+    if (provider.prompt) authorizationParams.prompt = provider.prompt
     void signIn(providerId, { callbackUrl }, authorizationParams)
       .then((result) => {
         if (result?.error) {
