@@ -7,6 +7,7 @@ import { shouldUseNativeSocialAuth, startNativeSocialSignIn } from '@/lib/native
 import { socialProviderSignIn, takeSocialSignInReturn } from '@/lib/socialProviderSignIn'
 
 const SOCIAL_BUTTONS: { id: string; label: string; icon: 'google' | 'facebook' | 'apple' | 'microsoft' }[] = [
+  { id: 'google', label: 'Google', icon: 'google' },
   { id: 'entra-external-id-google', label: 'Google', icon: 'google' },
   { id: 'entra-external-id-facebook', label: 'Facebook', icon: 'facebook' },
   { id: 'entra-external-id-apple', label: 'Apple', icon: 'apple' },
@@ -78,6 +79,7 @@ export function SocialSignIn({
         const fallback = FALLBACK_PROVIDER_IDS.find((id) => providers[id])
         if (fallback) ids.add(fallback)
       }
+      if (ids.has('google')) ids.delete('entra-external-id-google')
       setAvailableIds(ids)
     })
   }, [])

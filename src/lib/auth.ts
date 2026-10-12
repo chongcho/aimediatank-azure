@@ -1,5 +1,6 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
+import GoogleProvider from 'next-auth/providers/google'
 import AzureADB2CProvider from 'next-auth/providers/azure-ad-b2c'
 import { compare } from 'bcryptjs'
 import { prisma } from './prisma'
@@ -26,9 +27,12 @@ const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
 /**
  * Log in with / Register with Google, Facebook, Apple, or Microsoft opens that network.
  * `domain_hint` is set on the authorize request (`Google`, `facebook`, `apple`, `microsoft`).
- * Google must stay `Google`: lowercase `google` is rejected with AADSTS90023 on desktop.
- * Google also sends `prompt=select_account` so the user picks a Google account.
- * Do not send `prompt=login` here. It keeps Microsoft's email page on screen.
+ * Google, when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set, opens
+ * accounts.google.com with `prompt=select_account` (the account list). It does not
+ * open the Microsoft email page. Google's Entra hint must stay `Google`: lowercase
+ * `google` is rejected with AADSTS90023 on desktop.
+ * Do not send `prompt=select_account` or `prompt=login` to Entra. Entra treats that
+ * as its own email page.
  * Google, Facebook, and Apple must be checked on the Entra user flow or this page stays email-only.
  */
 
@@ -64,7 +68,6 @@ function buildEntraProvider(idSuffix: (typeof ENTRA_SOCIAL_IDS)[number]) {
       params: {
         scope: 'openid email profile',
         domain_hint: ENTRA_DOMAIN_HINT[idSuffix],
-        ...(idSuffix === 'google' ? { prompt: 'select_account' } : {}),
       },
     },
     idToken: true,
@@ -121,6 +124,26 @@ function getEntraProviders(): any[] {
 
 const entraProviders = getEntraProviders()
 
+/** Direct Google sign-in. Shows Google's account list instead of Microsoft's email page. */
+function directGoogleProvider() {
+  const clientId = process.env.GOOGLE_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  if (!clientId || !clientSecret) return null
+  return GoogleProvider({
+    clientId,
+    clientSecret,
+    authorization: {
+      params: {
+        prompt: 'select_account',
+        response_type: 'code',
+        scope: 'openid email profile',
+      },
+    },
+  })
+}
+
+const googleProvider = directGoogleProvider()
+
 /** Ensure unique username from email; add suffix if taken. */
 async function ensureUniqueUsername(base: string): Promise<string> {
   let username = base.replace(/[^a-z0-9_]/gi, '').slice(0, 24) || 'user'
@@ -149,6 +172,7 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
   },
   providers: [
+    ...(googleProvider ? [googleProvider] : []),
     ...entraProviders,
     CredentialsProvider({
       name: 'credentials',

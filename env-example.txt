@@ -25,6 +25,15 @@ EMAIL_PASS="your-google-app-password"
 # Optional: Cron Secret (for securing cron endpoints)
 CRON_SECRET="your-cron-secret"
 
+# Optional: direct Google sign-in (Register / Log in with Google opens accounts.google.com)
+# Use the same Client ID and Client secret as the Entra Google identity provider.
+# In Google Cloud, add redirect URIs:
+#   https://aimediatank.com/api/auth/callback/google
+#   https://www.aimediatank.com/api/auth/callback/google
+#   https://aimediatank-staging.azurewebsites.net/api/auth/callback/google
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+
 # Optional: Google AdSense
 NEXT_PUBLIC_ADSENSE_CLIENT_ID="ca-pub-xxx"
 
