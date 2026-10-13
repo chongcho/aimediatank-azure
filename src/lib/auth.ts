@@ -385,8 +385,9 @@ const isProductionHttps =
 
 export const authOptions: NextAuthOptions = {
   useSecureCookies: isProductionHttps,
-  // Apple returns with a cross-site form POST. A Lax cookie is omitted on that POST,
-  // so the PKCE check fails and the login page shows "Social login failed".
+  // Apple returns with a cross-site form POST. Lax cookies are omitted on that POST.
+  // The PKCE cookie must arrive or login fails. The callback cookie must arrive or the
+  // iOS sign-in window stays on aimediatank.com until the X button cancels it.
   ...(isProductionHttps
     ? {
         cookies: {
@@ -398,6 +399,15 @@ export const authOptions: NextAuthOptions = {
               path: '/',
               secure: true,
               maxAge: 60 * 15,
+            },
+          },
+          callbackUrl: {
+            name: '__Secure-next-auth.callback-url',
+            options: {
+              httpOnly: true,
+              sameSite: 'none' as const,
+              path: '/',
+              secure: true,
             },
           },
         },
