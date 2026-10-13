@@ -9,6 +9,7 @@ import { socialProviderSignIn, takeSocialSignInReturn } from '@/lib/socialProvid
 const SOCIAL_BUTTONS: { id: string; label: string; icon: 'google' | 'facebook' | 'apple' | 'microsoft' }[] = [
   { id: 'google', label: 'Google', icon: 'google' },
   { id: 'entra-external-id-google', label: 'Google', icon: 'google' },
+  { id: 'facebook', label: 'Facebook', icon: 'facebook' },
   { id: 'entra-external-id-facebook', label: 'Facebook', icon: 'facebook' },
   { id: 'apple', label: 'Apple', icon: 'apple' },
   { id: 'entra-external-id-apple', label: 'Apple', icon: 'apple' },
@@ -82,6 +83,7 @@ export function SocialSignIn({
         if (fallback) ids.add(fallback)
       }
       if (ids.has('google')) ids.delete('entra-external-id-google')
+      if (ids.has('facebook')) ids.delete('entra-external-id-facebook')
       if (ids.has('apple')) ids.delete('entra-external-id-apple')
       if (ids.has('microsoft')) ids.delete('entra-external-id-microsoft')
       setAvailableIds(ids)

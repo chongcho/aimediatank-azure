@@ -1,6 +1,7 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import GoogleProvider from 'next-auth/providers/google'
+import FacebookProvider from 'next-auth/providers/facebook'
 import AppleProvider from 'next-auth/providers/apple'
 import AzureADProvider from 'next-auth/providers/azure-ad'
 import { importPKCS8, SignJWT } from 'jose'
@@ -39,6 +40,8 @@ const ENTRA_SOCIAL_IDS = ['google', 'facebook', 'apple', 'microsoft'] as const
  * account list for personal and work accounts. It does not open the Entra email page.
  * Apple, when `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, and `APPLE_PRIVATE_KEY`
  * are set, opens appleid.apple.com. It does not open the Entra email page.
+ * Facebook, when `FACEBOOK_CLIENT_ID` and `FACEBOOK_CLIENT_SECRET` are set, opens
+ * facebook.com. It does not open the Entra email page.
  * Do not send `prompt=select_account` or `prompt=login` to Entra. Entra treats that
  * as its own email page.
  * Google, Facebook, and Apple must be checked on the Entra user flow or this page stays email-only.
@@ -327,6 +330,40 @@ function directAppleProvider() {
 
 const appleProvider = directAppleProvider()
 
+/** Direct Facebook sign-in. Opens Facebook instead of the Entra email page. */
+function directFacebookProvider() {
+  const clientId = process.env.FACEBOOK_CLIENT_ID?.trim()
+  const clientSecret = process.env.FACEBOOK_CLIENT_SECRET?.trim()
+  if (!clientId || !clientSecret) return null
+  const provider = FacebookProvider({
+    clientId,
+    clientSecret,
+    authorization: 'https://www.facebook.com/v21.0/dialog/oauth?scope=email',
+    token: 'https://graph.facebook.com/v21.0/oauth/access_token',
+  })
+  return {
+    ...provider,
+    id: 'facebook',
+    name: 'Facebook',
+    profile(profile: {
+      id?: string
+      name?: string
+      email?: string
+      picture?: { data?: { url?: string } }
+    }) {
+      const email = profile.email?.trim() && profile.email.includes('@') ? profile.email.trim() : null
+      return {
+        id: profile.id ?? '',
+        name: profile.name ?? email?.split('@')[0] ?? 'User',
+        email,
+        image: profile.picture?.data?.url ?? null,
+      }
+    },
+  }
+}
+
+const facebookProvider = directFacebookProvider()
+
 /** Ensure unique username from email; add suffix if taken. */
 async function ensureUniqueUsername(base: string): Promise<string> {
   let username = base.replace(/[^a-z0-9_]/gi, '').slice(0, 24) || 'user'
@@ -374,6 +411,7 @@ export const authOptions: NextAuthOptions = {
   },
   providers: [
     ...(googleProvider ? [googleProvider] : []),
+    ...(facebookProvider ? [facebookProvider] : []),
     ...(appleProvider ? [appleProvider] : []),
     ...(microsoftProvider ? [microsoftProvider] : []),
     ...entraProviders,

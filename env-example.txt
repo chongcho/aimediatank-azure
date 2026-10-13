@@ -58,6 +58,14 @@ APPLE_TEAM_ID=""
 APPLE_KEY_ID=""
 APPLE_PRIVATE_KEY=""
 
+# Optional: direct Facebook sign-in (Register / Log in with Facebook opens facebook.com)
+# Valid OAuth Redirect URIs in the Facebook app:
+#   https://aimediatank.com/api/auth/callback/facebook
+#   https://www.aimediatank.com/api/auth/callback/facebook
+#   https://aimediatank-staging.azurewebsites.net/api/auth/callback/facebook
+FACEBOOK_CLIENT_ID=""
+FACEBOOK_CLIENT_SECRET=""
+
 # Optional: Google AdSense
 NEXT_PUBLIC_ADSENSE_CLIENT_ID="ca-pub-xxx"
 

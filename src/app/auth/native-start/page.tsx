@@ -6,7 +6,7 @@ import { ProviderSignInPage } from '@/components/ProviderSignInPage'
 import { NATIVE_AUTH_COMPLETE_PATH, safeNextPath } from '@/lib/nativeAuthFlow'
 import { socialSignInMode } from '@/lib/socialProviderSignIn'
 
-const ALLOWED_PROVIDER = /^(google|apple|microsoft|entra-external-id(-(google|facebook|apple|microsoft))?|azure-ad-b2c)$/
+const ALLOWED_PROVIDER = /^(google|facebook|apple|microsoft|entra-external-id(-(google|facebook|apple|microsoft))?|azure-ad-b2c)$/
 
 function NativeStart() {
   const params = useSearchParams()
