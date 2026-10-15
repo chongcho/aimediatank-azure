@@ -73,7 +73,7 @@ export const UPLOAD_PAGE_ORIGINALS = [
   'No Returns',
   'All digital media purchases are final once payment succeeds—no returns, refunds, cancellations, or exchanges. See Terms §10.1.',
   'License & Usage',
-  'Payment does not transfer copyright. Media is license-free between Seller and Buyer (non-exclusive, perpetual, royalty-free) for personal/commercial use. Do not re-upload identical files. See Terms §§10.7–10.11.',
+  'Payment is a download fee. It does not transfer copyright or remove the listing, and other buyers may still purchase it. The poster can remove the listing 10 days after the latest purchase. The license is non-exclusive, perpetual, and royalty-free for personal and commercial use. Do not re-upload identical files. See Terms §§10.7–10.13.',
   'Cancel',
   'Uploading...',
   'Pay & Upload ({price})',

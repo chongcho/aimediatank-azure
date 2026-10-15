@@ -48,7 +48,7 @@ function TermsPageContent() {
 
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Terms of Service</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: September 3, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 &middot; Last Updated: October 14, 2026</p>
 
         {/* 1. Acceptance */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">1. Acceptance of Terms</h2>
@@ -301,7 +301,7 @@ function TermsPageContent() {
         <h3 className="text-lg font-semibold mt-6 mb-3">10.9 Permitted Uses</h3>
         <p className="text-gray-300 mb-2">Subject to these Terms and Conditions:</p>
         <ul className="list-disc list-inside text-gray-300 mb-4 space-y-1">
-          <li>The Seller (Poster), as the original creator and copyright owner, retains the unrestricted right to use, reproduce, display, distribute, sell, and commercially exploit the media.</li>
+          <li>The Seller (Poster), as the original creator and copyright owner, retains the right to use, reproduce, display, distribute, sell, and commercially exploit the media, and to delete their own listing, subject to the 10-day hold in Section 10.13.</li>
           <li>The Buyer (Downloader) is granted a non-exclusive, perpetual, royalty-free license to use, reproduce, display, modify, and distribute the downloaded media for both personal and commercial purposes without the obligation to pay additional royalties to the Seller.</li>
         </ul>
         <h3 className="text-lg font-semibold mt-6 mb-3">10.10 Restrictions</h3>
@@ -310,10 +310,15 @@ function TermsPageContent() {
         <p className="text-gray-300 mb-4">AI Media Tank reserves the right to remove duplicated media and take any appropriate enforcement actions against accounts that violate these policies, including content removal, suspension of posting privileges, or account termination where necessary.</p>
         <h3 className="text-lg font-semibold mt-6 mb-3">10.12 Guest Downloads and Watermarks</h3>
         <p className="text-gray-300 mb-4">Visitors who are not logged in may download certain free media only with a burned-in watermark applied by the Platform. Registered members may receive unwatermarked downloads according to their membership plan, purchase status, and per-media download settings. Circumventing watermarks or technical download restrictions is prohibited.</p>
+        <h3 className="text-lg font-semibold mt-6 mb-3">10.13 Listing After Purchase</h3>
+        <p className="text-gray-300 mb-4">A purchase pays for a download of the media file. It does not take the listing or any ownership interest from the Seller (Poster), and it does not stop later buyers from purchasing a download of the same listing. Apple in-app purchases and other payment methods are treated the same way. The listing stays on the Platform after purchase.</p>
+        <p className="text-gray-300 mb-4">The Seller (Poster) may delete media they posted. AI Media Tank, LLC (AMT) may remove media that does not meet these Terms or Platform policy and, where possible, will notify the Seller of the reason.</p>
+        <p className="text-gray-300 mb-4">If the media has been purchased, neither the Seller (Poster) nor the Company will delete that media until 10 days after the latest completed purchase. The Seller also cannot delete their account in a way that removes that media during this period. The Buyer should download the file during this time. The Platform notifies the Buyer at 7 days, 3 days, and 1 day before the Seller may remove it.</p>
+        <p className="text-gray-300 mb-4">After those 10 days, the Seller may delete the listing, and the Company may remove it when it does not meet policy. A file the Buyer has already downloaded is not recalled when the listing is later removed. The license in Section 10.8 continues for that downloaded file.</p>
 
         {/* 11. Content Moderation */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">11. Content Moderation</h2>
-        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) reserves the right to remove or disable access to any content at its sole discretion. Where possible, users will be notified regarding the reason for removal. The Company may also moderate Open Chat, Private Chat, and Voice Talk usage, including issuing warnings, removing messages, suspending chat privileges, or terminating accounts for violations.</p>
+        <p className="text-gray-300 mb-4">AI Media Tank, LLC (AMT) reserves the right to remove or disable access to content that does not meet these Terms or Platform policy. Removal of purchased media is subject to the 10-day hold in Section 10.13. Unpurchased media may be removed at any time. Where possible, users will be notified regarding the reason for removal. The Company may also moderate Open Chat, Private Chat, and Voice Talk usage, including issuing warnings, removing messages, suspending chat privileges, or terminating accounts for violations.</p>
 
         {/* 12. Copyright and DMCA */}
         <h2 className="text-xl font-bold mt-10 mb-4 text-white">12. Copyright and DMCA</h2>
@@ -456,7 +461,7 @@ function TermsPageFallback() {
       </div>
       <div className="card prose prose-invert max-w-none">
         <h1 className="text-2xl font-bold text-tank-accent mb-2">Terms of Service</h1>
-        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 · Last Updated: September 3, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Effective: December 20, 2024 · Last Updated: October 14, 2026</p>
         <p className="text-gray-400">Loading...</p>
       </div>
     </div>

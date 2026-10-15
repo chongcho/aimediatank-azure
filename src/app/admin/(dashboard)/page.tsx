@@ -5576,6 +5576,7 @@ export default function AdminPage() {
               <div className="bg-tank-dark rounded-lg p-4">
                 <p className="text-gray-400 text-sm">Content Title:</p>
                 <p className="font-medium">{deleteModal.mediaTitle}</p>
+                <p className="text-amber-300 text-xs mt-2">Purchased content cannot be deleted until 10 days after the latest purchase.</p>
               </div>
               
               <div className="bg-tank-dark rounded-lg p-4">
@@ -5632,7 +5633,8 @@ export default function AdminPage() {
                     setToast({ message: 'Content deleted successfully', type: 'success' })
                     fetchData()
                   } else {
-                    setToast({ message: 'Failed to delete content', type: 'error' })
+                    const data = await res.json().catch(() => null)
+                    setToast({ message: data?.error || 'Failed to delete content', type: 'error' })
                   }
                   setDeleteModal(null)
                   setDeleteReason('')

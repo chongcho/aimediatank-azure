@@ -24,6 +24,10 @@ interface MediaData {
     id: string
     username: string
   }
+  posterDeleteLock?: {
+    locked: boolean
+    daysLeft: number | null
+  } | null
 }
 
 export default function EditMediaPageContent({ intercepted = false }: { intercepted?: boolean }) {
@@ -258,8 +262,17 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
             </span>
           </div>
           <button
-            onClick={() => setShowDeleteModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors"
+            onClick={() => {
+              if (media.posterDeleteLock?.locked) return
+              setShowDeleteModal(true)
+            }}
+            disabled={Boolean(media.posterDeleteLock?.locked)}
+            title={
+              media.posterDeleteLock?.locked
+                ? `The poster and an admin can delete this 10 days after the latest purchase (${media.posterDeleteLock.daysLeft ?? 0} days left).`
+                : undefined
+            }
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -267,6 +280,12 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
             Delete
           </button>
         </div>
+        {media.posterDeleteLock?.locked && (
+          <p className="mt-3 text-sm text-amber-300">
+            The poster and an admin can delete this 10 days after the latest purchase
+            {media.posterDeleteLock.daysLeft != null ? ` (${media.posterDeleteLock.daysLeft} days left).` : '.'}
+          </p>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="card form-compact-card form-compact-stack space-y-3 sm:space-y-6">
@@ -418,9 +437,10 @@ export default function EditMediaPageContent({ intercepted = false }: { intercep
           </p>
           <div className="font-semibold text-white mb-1">License &amp; Usage</div>
           <p>
-            Payment does not transfer copyright. Media is license-free between Seller and Buyer
-            (non-exclusive, perpetual, royalty-free) for personal/commercial use. Do not re-upload
-            identical files. See Terms §§10.7–10.11.
+            Payment is a download fee. It does not transfer copyright or remove the listing, and
+            other buyers may still purchase it. The poster can remove the listing 10 days after the
+            latest purchase. The license is non-exclusive, perpetual, and royalty-free for personal
+            and commercial use. Do not re-upload identical files. See Terms §§10.7–10.13.
           </p>
         </div>
 

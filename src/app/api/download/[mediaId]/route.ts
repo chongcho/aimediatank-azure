@@ -218,21 +218,6 @@ export async function GET(
       )
     }
 
-    if (isRegistered && hasPurchased && !isOwner && !media.isSold) {
-      const deleteAfterDate = new Date()
-      deleteAfterDate.setDate(deleteAfterDate.getDate() + 10)
-
-      await prisma.media.update({
-        where: { id: mediaId },
-        data: {
-          isSold: true,
-          soldAt: new Date(),
-          deleteAfter: deleteAfterDate,
-          isPublic: false,
-        },
-      })
-    }
-
     await prisma.media
       .update({
         where: { id: mediaId },

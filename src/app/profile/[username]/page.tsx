@@ -94,6 +94,7 @@ interface Purchase {
   amount: number
   createdAt: string
   completedAt: string | null
+  daysUntilPosterCanRemove?: number | null
   media: {
     id: string
     title: string
@@ -428,16 +429,6 @@ export default function ProfilePage() {
     )
   }
 
-  // Calculate days remaining for purchased items
-  const getDaysRemaining = (deleteAfter: string | null) => {
-    if (!deleteAfter) return null
-    const deleteDate = new Date(deleteAfter)
-    const now = new Date()
-    const diffTime = deleteDate.getTime() - now.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays > 0 ? diffDays : 0
-  }
-
   return (
     <div ref={gridSectionRef} className="max-w-7xl mx-auto p-0 m-0 pb-[500px]">
       {/* Profile Header */}
@@ -623,10 +614,13 @@ export default function ProfilePage() {
                     {tr[14]}
                   </div>
                   
-                  {/* Days Remaining Badge */}
-                  {purchase.media.deleteAfter && (
-                    <div className="absolute top-3 right-3 z-10 px-2 py-1 bg-red-500/80 rounded-lg text-xs font-bold text-white">
-                      {getDaysRemaining(purchase.media.deleteAfter)} {tr[15]}
+                  {/* Days until the poster can remove this purchase */}
+                  {purchase.daysUntilPosterCanRemove != null && purchase.daysUntilPosterCanRemove > 0 && (
+                    <div
+                      className="absolute top-3 right-3 z-10 px-2 py-1 bg-red-500/80 rounded-lg text-xs font-bold text-white"
+                      title="The poster can remove this 10 days after the latest purchase"
+                    >
+                      {purchase.daysUntilPosterCanRemove} {tr[15]}
                     </div>
                   )}
 

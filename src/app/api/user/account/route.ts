@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getStripe, isStripeConfigured } from '@/lib/stripe'
 import { deleteUserAccountPermanently } from '@/lib/userAccountDeletion'
+import { PurchaseDeleteLockError } from '@/lib/purchaseDeleteLock'
 import { isSelfServiceAccountDeactivationEnabled } from '@/lib/selfServiceAccountDeactivation'
 
 export const dynamic = 'force-dynamic'
@@ -254,6 +255,9 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true, deleted: true })
   } catch (error) {
+    if (error instanceof PurchaseDeleteLockError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 409 })
+    }
     console.error('Error deleting account:', error)
     return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
   }

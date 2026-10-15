@@ -1,6 +1,6 @@
 # AI Media Tank (AMT) — Terms of Service
 
-**Effective:** December 20, 2024 · **Last Updated:** August 11, 2026
+**Effective:** December 20, 2024 · **Last Updated:** October 14, 2026
 
 ---
 
@@ -309,7 +309,7 @@ Upon the Seller's successful upload of the media to the AI Media Tank app and th
 
 Subject to these Terms and Conditions:
 
-- The Seller (Poster), as the original creator and copyright owner, retains the unrestricted right to use, reproduce, display, distribute, sell, and commercially exploit the media.
+- The Seller (Poster), as the original creator and copyright owner, retains the right to use, reproduce, display, distribute, sell, and commercially exploit the media, and to delete their own listing, subject to the 10-day hold in Section 10.13.
 - The Buyer (Downloader) is granted a non-exclusive, perpetual, royalty-free license to use, reproduce, display, modify, and distribute the downloaded media for both personal and commercial purposes without the obligation to pay additional royalties to the Seller.
 
 ### 10.10 Restrictions
@@ -333,11 +333,25 @@ Registered members may receive unwatermarked downloads according to their member
 
 Circumventing watermarks or technical download restrictions is prohibited.
 
+### 10.13 Listing After Purchase
+
+A purchase pays for a download of the media file. It does not take the listing or any ownership interest from the Seller (Poster), and it does not stop later buyers from purchasing a download of the same listing. Apple in-app purchases and other payment methods are treated the same way.
+
+The listing stays on the Platform after purchase.
+
+The Seller (Poster) may delete media they posted. AI Media Tank, LLC (AMT) may remove media that does not meet these Terms or Platform policy and, where possible, will notify the Seller of the reason.
+
+If the media has been purchased, neither the Seller (Poster) nor the Company will delete that media until 10 days after the latest completed purchase. The Seller also cannot delete their account in a way that removes that media during this period. The Buyer should download the file during this time. The Platform notifies the Buyer at 7 days, 3 days, and 1 day before the Seller may remove it.
+
+After those 10 days, the Seller may delete the listing, and the Company may remove it when it does not meet policy. A file the Buyer has already downloaded is not recalled when the listing is later removed. The license in Section 10.8 continues for that downloaded file.
+
 ---
 
 ## 11. Content Moderation
 
-AI Media Tank, LLC (AMT) reserves the right to remove or disable access to any content at its sole discretion.
+AI Media Tank, LLC (AMT) reserves the right to remove or disable access to content that does not meet these Terms or Platform policy.
+
+Removal of purchased media is subject to the 10-day hold in Section 10.13. Unpurchased media may be removed at any time.
 
 Where possible, users will be notified regarding the reason for removal.
 

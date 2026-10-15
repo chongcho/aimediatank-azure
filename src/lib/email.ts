@@ -266,8 +266,8 @@ export function generatePurchaseEmail(
   <p style="font-size: 16px;">Thank you for your purchase! Your items are now available for download.</p>
   
   <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff6b6b;">
-    <p style="margin: 0 0 10px 0; font-weight: bold; color: #ff6b6b;">⚠️ Important: Download Required</p>
-    <p style="margin: 0; font-size: 14px;">Please download your purchased items from <strong>My Contents → Purchased</strong> before they are removed from the server. <strong>Purchased items will be permanently deleted 10 days after the purchase date.</strong></p>
+    <p style="margin: 0 0 10px 0; font-weight: bold; color: #ff6b6b;">⚠️ Download window</p>
+    <p style="margin: 0; font-size: 14px;">Your payment is for a download. The listing stays on AI Media Tank for other buyers. <strong>The poster can remove it 10 days after the latest purchase.</strong> Download it from <strong>My Contents → Purchased</strong> during that time.</p>
   </div>
   
   <h3 style="color: #1a1a2e; margin-top: 30px;">Your Purchased Items:</h3>
@@ -275,7 +275,7 @@ export function generatePurchaseEmail(
     ${itemsList}
   </ul>
   
-  <p style="font-size: 16px;">You currently have <strong>${itemCount} item${itemCount > 1 ? 's' : ''}</strong> that require${itemCount === 1 ? 's' : ''} your action to avoid losing access to your content.</p>
+  <p style="font-size: 16px;">You currently have <strong>${itemCount} item${itemCount > 1 ? 's' : ''}</strong> ready to download.</p>
   
   <div style="text-align: center; margin: 30px 0;">
     <a href="https://www.aimediatank.com/profile" style="display: inline-block; background: linear-gradient(135deg, #0f8 0%, #0a6 100%); color: #000; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
@@ -744,18 +744,18 @@ export function generateDownloadReminderEmail(
   
   <div style="background: #fff3f3; padding: 20px; border-radius: 8px; margin: 20px 0; border: 2px solid ${urgencyColor};">
     <p style="margin: 0; font-size: 16px; color: ${urgencyColor}; font-weight: bold;">
-      ⚠️ Your purchased items will be deleted in ${daysRemaining} day${daysRemaining > 1 ? 's' : ''}!
+      ⚠️ The poster can remove your purchased items in ${daysRemaining} day${daysRemaining > 1 ? 's' : ''}.
     </p>
   </div>
   
-  <p style="font-size: 16px;">Please download your purchased items from <strong>My Contents → Purchased</strong> before they are removed from the server. Purchased items will be permanently deleted 10 days after the purchase date.</p>
+  <p style="font-size: 16px;">A purchase pays for a download. The listing stays available to other buyers. <strong>The poster can remove the media 10 days after the latest purchase.</strong> Download it from <strong>My Contents → Purchased</strong> if you still need the file.</p>
   
   <h3 style="color: #1a1a2e; margin-top: 30px;">Items Requiring Download:</h3>
   <ul style="background: #f8f9fa; padding: 20px 20px 20px 40px; border-radius: 8px;">
     ${itemsList}
   </ul>
   
-  <p style="font-size: 16px;">You currently have <strong>${itemCount} item${itemCount > 1 ? 's' : ''}</strong> that require${itemCount === 1 ? 's' : ''} your action to avoid losing access to your data.</p>
+  <p style="font-size: 16px;">You currently have <strong>${itemCount} item${itemCount > 1 ? 's' : ''}</strong> in that download window.</p>
   
   <div style="text-align: center; margin: 30px 0;">
     <a href="https://www.aimediatank.com/profile" style="display: inline-block; background: linear-gradient(135deg, #ff6b6b 0%, #ff0000 100%); color: #fff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">

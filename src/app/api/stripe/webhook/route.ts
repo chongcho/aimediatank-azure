@@ -307,23 +307,7 @@ export async function POST(request: Request) {
         },
       })
       
-      // Mark all purchased media as SOLD with 10-day deletion schedule
-      const now = new Date()
-      const deleteAfter = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000) // 10 days from now
-      
-      for (const purchase of purchases) {
-        await prisma.media.update({
-          where: { id: purchase.mediaId },
-          data: {
-            isSold: true,
-            soldAt: now,
-            deleteAfter: deleteAfter,
-          },
-        })
-      }
-      
-      console.log(`Marked ${purchases.length} media items as SOLD, scheduled for deletion on ${deleteAfter.toISOString()}`)
-      
+      // A purchase pays for a download. The listing stays up for later buyers.
       // Send email notification to buyer
       if (purchases.length > 0) {
         const buyer = purchases[0].buyer
@@ -352,7 +336,7 @@ export async function POST(request: Request) {
             userId: buyer.id,
             type: 'purchase',
             title: 'Purchase Confirmed! 🎉',
-            message: `Your purchase of "${itemTitles}" is complete. Download within 10 days before it expires.`,
+            message: `Your purchase of "${itemTitles}" is complete. The poster can remove it 10 days after the latest purchase.`,
             link: `/profile/${buyer.username}`,
           }
         })

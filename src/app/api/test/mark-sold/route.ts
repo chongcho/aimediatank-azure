@@ -22,14 +22,13 @@ export async function POST(request: Request) {
     }
 
     const now = new Date()
-    const deleteAfter = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000) // 10 days from now
 
     const media = await prisma.media.update({
       where: { id: mediaId },
       data: {
         isSold: markAsSold !== false, // default to true
         soldAt: markAsSold !== false ? now : null,
-        deleteAfter: markAsSold !== false ? deleteAfter : null,
+        deleteAfter: null,
       },
     })
 

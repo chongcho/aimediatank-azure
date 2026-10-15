@@ -43,7 +43,6 @@ export async function POST(request: Request) {
         id: true,
         price: true,
         userId: true,
-        isSold: true,
         title: true,
       },
     })
@@ -55,9 +54,6 @@ export async function POST(request: Request) {
     }
     if (!media.price || media.price <= 0) {
       return NextResponse.json({ error: 'This media is free' }, { status: 400 })
-    }
-    if (media.isSold) {
-      return NextResponse.json({ error: 'This media is no longer available' }, { status: 400 })
     }
     if (tier.usd + 1e-9 < media.price) {
       return NextResponse.json(
@@ -81,7 +77,6 @@ export async function POST(request: Request) {
     }
 
     const now = new Date()
-    const deleteAfter = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000)
 
     const purchase = await prisma.purchase.create({
       data: {
@@ -94,14 +89,6 @@ export async function POST(request: Request) {
         buyerId: session.user.id,
         mediaId,
         sellerId: media.userId,
-      },
-    })
-
-    await prisma.media.update({
-      where: { id: mediaId },
-      data: {
-        isSold: true,
-        deleteAfter,
       },
     })
 
@@ -123,7 +110,7 @@ export async function POST(request: Request) {
           userId: session.user.id,
           type: 'system',
           title: 'Purchase Confirmed! 🎉',
-          message: `You unlocked "${media.title || 'media'}". Download within 10 days.`,
+          message: `You unlocked "${media.title || 'media'}". The poster can remove it 10 days after the latest purchase.`,
           link: `/media/${mediaId}`,
         },
       })

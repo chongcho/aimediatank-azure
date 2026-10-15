@@ -12,6 +12,7 @@ import { selectVideoStreams } from '@/lib/videoStreamRenditions'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
 import { requireAdminContentElevation } from '@/lib/requireAdminElevation'
 import { isMediaBlocked } from '@/lib/mediaBlocks'
+import { deleteLockMessage, getPosterDeleteLock } from '@/lib/purchaseDeleteLock'
 
 // Force dynamic rendering to always get fresh data
 export const dynamic = 'force-dynamic'
@@ -142,11 +143,18 @@ export async function GET(
       }
     }
 
+    const viewer = sessionForBlock?.user as { id?: string; role?: string } | undefined
+    const canSeeDeleteLock =
+      Boolean(viewer?.id) &&
+      (viewer!.id === media.userId || isAppAdminRole(viewer?.role))
+    const posterDeleteLock = canSeeDeleteLock ? await getPosterDeleteLock(mediaId) : null
+
     const payload: Record<string, unknown> = {
       ...media,
       fileSize: (media as any).fileSize === null || (media as any).fileSize === undefined ? null : (media as any).fileSize.toString(),
       avgRating: Math.round(avgRating * 10) / 10,
       views: media.views + (skipView ? 0 : 1),
+      ...(posterDeleteLock ? { posterDeleteLock } : {}),
     }
     if (streamUrl) payload.streamUrl = streamUrl
     if (streamRenditions) payload.streamRenditions = streamRenditions
@@ -279,6 +287,14 @@ export async function DELETE(
       }
       const elevErr = requireAdminContentElevation(request, session)
       if (elevErr) return elevErr
+    }
+
+    const deleteLock = await getPosterDeleteLock(mediaId)
+    if (deleteLock.locked) {
+      return NextResponse.json(
+        { error: deleteLockMessage(deleteLock), code: 'PURCHASE_DELETE_LOCK', daysLeft: deleteLock.daysLeft },
+        { status: 409 }
+      )
     }
 
     // Azure URLs must use Blob API; local dev may still use paths under /public

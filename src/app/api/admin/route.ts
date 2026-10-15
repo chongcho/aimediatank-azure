@@ -19,6 +19,12 @@ import {
   setAdminPanelAccessPassword,
 } from '@/lib/adminPanelAccessPassword'
 import { Prisma } from '@prisma/client'
+import {
+  assertOwnerCanDeleteAccount,
+  deleteLockMessage,
+  getPosterDeleteLock,
+  PurchaseDeleteLockError,
+} from '@/lib/purchaseDeleteLock'
 import { DEFAULT_MEMBERSHIP_PLANS, ensureMembershipPlans } from '@/lib/membershipPlans'
 
 export const dynamic = 'force-dynamic'
@@ -1322,6 +1328,14 @@ export async function POST(request: Request) {
         if (!mediaToDelete) {
           return NextResponse.json({ error: 'Media not found' }, { status: 404 })
         }
+
+        const deleteLock = await getPosterDeleteLock(targetId)
+        if (deleteLock.locked) {
+          return NextResponse.json(
+            { error: deleteLockMessage(deleteLock), code: 'PURCHASE_DELETE_LOCK', daysLeft: deleteLock.daysLeft },
+            { status: 409 }
+          )
+        }
         
         // Soft delete the media (keep record but hide from platform)
         const deletionReason = data?.reason || 'Policy violation'
@@ -1622,6 +1636,8 @@ export async function POST(request: Request) {
         
         const recipientEmail = deleteUserEmail || userToDelete?.email
         const recipientName = deleteUsername || userToDelete?.username
+
+        await assertOwnerCanDeleteAccount(targetId)
         
         await prisma.user.delete({
           where: { id: targetId },
@@ -3037,6 +3053,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
   } catch (error) {
+    if (error instanceof PurchaseDeleteLockError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 409 })
+    }
     console.error('Error processing admin action:', error)
     return NextResponse.json(
       { error: 'Failed to process action' },

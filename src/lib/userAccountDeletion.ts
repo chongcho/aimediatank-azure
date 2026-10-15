@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { assertOwnerCanDeleteAccount } from '@/lib/purchaseDeleteLock'
 import { getStripe, isStripeConfigured } from '@/lib/stripe'
 
 export type DeleteUserAccountOptions = {
@@ -24,6 +25,8 @@ export async function deleteUserAccountPermanently(
   if (!user) {
     throw new Error('User not found')
   }
+
+  await assertOwnerCanDeleteAccount(userId)
 
   if (user.stripeSubscriptionId && isStripeConfigured()) {
     try {

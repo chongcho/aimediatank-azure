@@ -299,6 +299,14 @@ export async function GET(request: Request) {
 
     // Fetch anonymous ratings for all media items in one query
     const mediaIds = media.map((m: any) => m.id)
+    const soldGroups = mediaIds.length
+      ? await prisma.purchase.groupBy({
+          by: ['mediaId'],
+          where: { status: 'completed', mediaId: { in: mediaIds } },
+          _count: { id: true },
+        })
+      : []
+    const soldCountByMedia = new Map(soldGroups.map((group) => [group.mediaId, group._count.id]))
     const anonymousRatings = await prisma.anonymousRating.findMany({
       where: { mediaId: { in: mediaIds } },
       select: { mediaId: true, score: true },
@@ -315,7 +323,6 @@ export async function GET(request: Request) {
     }
 
     // Calculate average rating for each media and add sold info
-    const now = new Date()
     const mediaWithRating = media.map((m: any) => {
       try {
         const avgRating =
@@ -329,14 +336,6 @@ export async function GET(request: Request) {
         const anonCounts = anonRatingsByMedia[m.id] || { happy: 0, sad: 0 }
         const happyCount = userHappy + anonCounts.happy
         const sadCount = userSad + anonCounts.sad
-        
-        // Calculate days remaining before deletion for sold items
-        let daysRemaining = null
-        if (m.isSold && m.deleteAfter) {
-          const deleteDate = new Date(m.deleteAfter)
-          const diffTime = deleteDate.getTime() - now.getTime()
-          daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-        }
         
         // Safely convert BigInt fields
         let fileSize = null
@@ -386,7 +385,7 @@ export async function GET(request: Request) {
           avgRating: Math.round(avgRating * 10) / 10,
           reactions: { happy: happyCount, sad: sadCount },
           ratings: undefined, // Remove individual ratings from response
-          daysRemaining, // Days until removal (for sold items)
+          soldCount: soldCountByMedia.get(m.id) ?? 0,
         }
       } catch (itemError) {
         console.error('Error processing media item:', m.id, itemError)

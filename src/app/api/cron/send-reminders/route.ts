@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, generateDownloadReminderEmail } from '@/lib/email'
 import { requireCronAuth } from '@/lib/cronAuth'
+import { lockFromLastPurchase, purchaseAnchor } from '@/lib/purchaseDeleteLock'
 
 export const dynamic = 'force-dynamic'
 
-// This cron job sends reminder emails to buyers whose purchases are expiring soon
-// Run daily - sends reminders at 7 days, 3 days, and 1 day before deletion
+// Remind buyers at 7, 3, and 1 days before the poster can remove purchased media.
+// The clock is 10 days after the latest completed purchase of that media.
 
 export async function GET(request: Request) {
   const authError = requireCronAuth(request)
@@ -16,27 +17,27 @@ export async function GET(request: Request) {
   const results: any[] = []
 
   try {
-    // Find all completed purchases where media is sold but not yet deleted
-    // Group by buyer to send one email per user
     const purchasesNeedingReminders = await prisma.purchase.findMany({
       where: {
         status: 'completed',
-        media: {
-          isSold: true,
-          deleteAfter: {
-            gt: now, // Not yet expired
-          },
-        },
+        media: { isDeleted: false },
       },
       include: {
         buyer: {
           select: { id: true, email: true, name: true, username: true },
         },
         media: {
-          select: { id: true, title: true, deleteAfter: true },
+          select: { id: true, title: true },
         },
       },
     })
+
+    const lastPurchaseByMedia = new Map<string, Date>()
+    for (const purchase of purchasesNeedingReminders) {
+      const at = purchaseAnchor(purchase)
+      const prev = lastPurchaseByMedia.get(purchase.media.id)
+      if (!prev || at > prev) lastPurchaseByMedia.set(purchase.media.id, at)
+    }
 
     // Group purchases by buyer
     const purchasesByBuyer: Record<string, typeof purchasesNeedingReminders> = {}
@@ -54,31 +55,31 @@ export async function GET(request: Request) {
       const purchases = purchasesByBuyer[buyerId]
       const buyer = purchases[0].buyer
       
-      // Calculate days remaining for each item
+      // Days until the poster can remove each item (from that item's latest purchase)
       const itemsWithDays = purchases.map(p => {
-        const deleteDate = new Date(p.media.deleteAfter!)
-        const diffTime = deleteDate.getTime() - now.getTime()
-        const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        const lastPurchaseAt = lastPurchaseByMedia.get(p.media.id)!
+        const lock = lockFromLastPurchase(lastPurchaseAt, now)
         return {
           title: p.media.title,
-          daysLeft,
+          daysLeft: lock.daysLeft ?? 0,
           mediaId: p.media.id,
         }
       })
 
-      // Find the minimum days remaining for this buyer's items
-      const minDaysRemaining = Math.min(...itemsWithDays.map(i => i.daysLeft))
+      const seenMedia = new Set<string>()
+      const urgentItems = itemsWithDays.filter((item) => {
+        if (seenMedia.has(item.mediaId)) return false
+        if (![7, 3, 1].includes(item.daysLeft)) return false
+        seenMedia.add(item.mediaId)
+        return true
+      })
+      const minDaysRemaining = urgentItems.length
+        ? Math.min(...urgentItems.map((item) => item.daysLeft))
+        : null
 
-      // Determine if we should send a reminder based on days remaining
-      // Send reminders at: 7 days, 3 days, 1 day
-      const shouldSendReminder = [7, 3, 1].includes(minDaysRemaining)
-
-      if (shouldSendReminder) {
+      if (minDaysRemaining != null) {
         const buyerName = buyer.name || buyer.username || 'Valued Customer'
         const buyerEmail = buyer.email
-
-        // Filter items that need attention (7 days or less)
-        const urgentItems = itemsWithDays.filter(i => i.daysLeft <= 7)
 
         if (urgentItems.length > 0) {
           const emailHtml = generateDownloadReminderEmail(
@@ -90,7 +91,7 @@ export async function GET(request: Request) {
 
           const sent = await sendEmail({
             to: buyerEmail,
-            subject: `⏰ ${minDaysRemaining} Day${minDaysRemaining > 1 ? 's' : ''} Left - Download Your Purchases Before Deletion | AI Media Tank (AMT)`,
+            subject: `⏰ ${minDaysRemaining} Day${minDaysRemaining > 1 ? 's' : ''} Left — The poster can remove your purchase | AI Media Tank (AMT)`,
             html: emailHtml,
           })
 
@@ -102,7 +103,7 @@ export async function GET(request: Request) {
               userId: buyerId,
               type: 'download_reminder',
               title: `⏰ ${minDaysRemaining} Day${minDaysRemaining > 1 ? 's' : ''} Left!`,
-              message: `Download "${itemTitles}"${moreItems} before they are permanently deleted.`,
+              message: `The poster can remove "${itemTitles}"${moreItems} after 10 days.`,
               link: `/profile/${buyer.username}`,
             }
           })

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { lockFromLastPurchase, purchaseAnchor } from '@/lib/purchaseDeleteLock'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,9 +50,29 @@ export async function GET() {
 
     // Filter out purchases where media might be deleted
     const validPurchases = purchases.filter(p => p.media !== null)
+    const mediaIds = Array.from(new Set(validPurchases.map((purchase) => purchase.media.id)))
+    const relatedPurchases = mediaIds.length
+      ? await prisma.purchase.findMany({
+          where: { status: 'completed', mediaId: { in: mediaIds } },
+          select: { mediaId: true, completedAt: true, createdAt: true },
+        })
+      : []
+    const lastPurchaseByMedia = new Map<string, Date>()
+    for (const row of relatedPurchases) {
+      const at = purchaseAnchor(row)
+      const prev = lastPurchaseByMedia.get(row.mediaId)
+      if (!prev || at > prev) lastPurchaseByMedia.set(row.mediaId, at)
+    }
+    const now = new Date()
 
     return NextResponse.json({
-      purchases: validPurchases,
+      purchases: validPurchases.map((purchase) => {
+        const lock = lockFromLastPurchase(lastPurchaseByMedia.get(purchase.media.id) ?? null, now)
+        return {
+          ...purchase,
+          daysUntilPosterCanRemove: lock.locked ? lock.daysLeft : null,
+        }
+      }),
     })
   } catch (error) {
     console.error('Error fetching purchases:', error)

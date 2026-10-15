@@ -1,7 +1,7 @@
 # AI Media Tank (AMT) — Policy Home
 
 **Effective Date:** December 20, 2024  
-**Last Updated:** August 11, 2026
+**Last Updated:** October 14, 2026
 
 ---
 
@@ -21,7 +21,7 @@ Governs the use of the Platform, including:
 - User accounts (email or social Register), conduct, and responsibilities
 - Content guidelines, AI disclosure, Open Chat, Private Chat, and Voice Talk
 - Copyright, intellectual property, guest watermarks, and DMCA procedures
-- Payment, refund (no returns on purchased media), license/usage rights, and creator payout policies
+- Payment, refund (no returns on purchased media), download-only purchases (the listing stays up; the poster or the Company may delete purchased media only after 10 days from the latest purchase), license/usage rights, and creator payout policies
 - Third-party platform integrations (YouTube, TikTok, X, KakaoTalk, and others)
 - Native mobile applications (iOS and Android) and social sharing
 - Disclaimer of warranties, limitation of liability, and indemnification

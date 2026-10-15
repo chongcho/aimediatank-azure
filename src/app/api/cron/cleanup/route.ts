@@ -1,100 +1,38 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { BlobServiceClient } from '@azure/storage-blob'
 import { requireCronAuth } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 
-// Initialize Azure Blob Storage client
-function getAzureBlobClient() {
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
-  if (!connectionString) {
-    throw new Error('AZURE_STORAGE_CONNECTION_STRING is not defined')
-  }
-  return BlobServiceClient.fromConnectionString(connectionString)
-}
-
-// Extract blob name from Azure URL
-function getBlobNameFromUrl(url: string): string | null {
-  try {
-    const urlObj = new URL(url)
-    const pathParts = urlObj.pathname.split('/')
-    return pathParts[pathParts.length - 1]
-  } catch {
-    return null
-  }
-}
-
-// This endpoint should be called by a cron job daily
+// Purchases pay for a download. This job no longer deletes sold media.
+// It clears leftover sale-deletion schedules and puts those listings back on the feed.
 export async function GET(request: Request) {
   try {
     const authError = requireCronAuth(request)
     if (authError) return authError
 
-    const now = new Date()
-
-    // Find all media that should be deleted
-    const mediaToDelete = await prisma.media.findMany({
+    const republished = await prisma.media.updateMany({
       where: {
-        isSold: true,
-        deleteAfter: {
-          lte: now,
-        },
+        deleteAfter: { not: null },
+        isPublic: false,
+        isDeleted: false,
+      },
+      data: {
+        isPublic: true,
+        deleteAfter: null,
       },
     })
 
-    console.log(`Found ${mediaToDelete.length} media items to delete`)
-
-    if (mediaToDelete.length === 0) {
-      return NextResponse.json({
-        message: 'No media to delete',
-        deleted: 0,
-      })
-    }
-
-    // Initialize Azure Blob Storage
-    const blobServiceClient = getAzureBlobClient()
-    const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'media'
-    const containerClient = blobServiceClient.getContainerClient(containerName)
-
-    let deletedCount = 0
-    const errors: string[] = []
-
-    for (const media of mediaToDelete) {
-      try {
-        // Delete main file from Azure
-        const blobName = getBlobNameFromUrl(media.url)
-        if (blobName) {
-          const blobClient = containerClient.getBlockBlobClient(blobName)
-          await blobClient.deleteIfExists()
-        }
-
-        // Delete thumbnail if exists
-        if (media.thumbnailUrl) {
-          const thumbBlobName = getBlobNameFromUrl(media.thumbnailUrl)
-          if (thumbBlobName) {
-            const thumbBlobClient = containerClient.getBlockBlobClient(thumbBlobName)
-            await thumbBlobClient.deleteIfExists()
-          }
-        }
-
-        // Delete from database
-        await prisma.media.delete({
-          where: { id: media.id },
-        })
-
-        deletedCount++
-      } catch (err) {
-        console.error(`Failed to delete media ${media.id}:`, err)
-        errors.push(`${media.id}: ${(err as Error).message}`)
-      }
-    }
+    const cleared = await prisma.media.updateMany({
+      where: { deleteAfter: { not: null } },
+      data: { deleteAfter: null },
+    })
 
     return NextResponse.json({
-      message: 'Cleanup completed',
-      deleted: deletedCount,
-      total: mediaToDelete.length,
-      errors: errors.length > 0 ? errors : undefined,
+      message: 'Sold media is kept. Cleared leftover deletion schedules.',
+      deleted: 0,
+      republished: republished.count,
+      clearedSchedules: cleared.count,
     })
   } catch (error) {
     console.error('Cleanup cron error:', error)
