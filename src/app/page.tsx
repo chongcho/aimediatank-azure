@@ -239,14 +239,10 @@ function HomeContent() {
         )
         setHomePreplay(data.preplay !== false)
         setHomePreplaySound(data.homePreplaySound !== false)
-        try {
-          if (!localStorage.getItem('mediaSortPreference')) {
-            setSort(defaultSort)
-          }
-        } catch {
-          setSort(defaultSort)
-        }
+        // Homepage sort always starts from admin Home Layout default (Random).
+        // Do not restore a sticky localStorage preference — that kept old "Recent" visits forever.
         if (initializeSort) {
+          setSort(defaultSort)
           setSortInitialized(true)
         }
       })
@@ -258,13 +254,10 @@ function HomeContent() {
   }, [])
 
   useEffect(() => {
-    const savedSort = localStorage.getItem('mediaSortPreference')
-    const normalizedSort = savedSort === 'rated' ? 'random' : savedSort
-    if (normalizedSort && ['popular', 'recent', 'random'].includes(normalizedSort)) {
-      setSort(normalizedSort)
-      setSortInitialized(true)
-      refreshHomeLayoutUi(false)
-      return
+    try {
+      localStorage.removeItem('mediaSortPreference')
+    } catch {
+      /* ignore */
     }
     refreshHomeLayoutUi(true)
   }, [refreshHomeLayoutUi])
@@ -466,10 +459,9 @@ function HomeContent() {
     })
   }, [])
 
-  // Handler for when user changes sort - saves to localStorage
+  // In-session only; full reloads use admin Home Layout default sort (Random).
   const handleSortChange = (newSort: string) => {
     setSort(newSort)
-    localStorage.setItem('mediaSortPreference', newSort)
   }
 
   useEffect(() => {

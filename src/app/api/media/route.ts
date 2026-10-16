@@ -120,10 +120,10 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') // VIDEO, IMAGE, MUSIC
-    const sortParam = searchParams.get('sort') || 'popular'
-    // Validate sort param - default to 'popular' if invalid ('rated' kept for older clients)
+    const sortParam = searchParams.get('sort') || 'random'
+    // Validate sort param - default to 'random' if invalid ('rated' kept for older clients)
     const normalizedSort = sortParam === 'rated' ? 'random' : sortParam
-    const sort = ['popular', 'recent', 'random'].includes(normalizedSort) ? normalizedSort : 'popular'
+    const sort = ['popular', 'recent', 'random'].includes(normalizedSort) ? normalizedSort : 'random'
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20') || 20))
     const search = searchParams.get('search')
