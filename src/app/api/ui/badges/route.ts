@@ -28,6 +28,7 @@ const defaultItems = [
   { itemKey: 'mediaType', label: 'Media type', isEnabled: true, sortOrder: 9 },
   { itemKey: 'feedChat', label: 'Chat', isEnabled: true, sortOrder: 10 },
   { itemKey: 'feedDownload', label: 'Download', isEnabled: true, sortOrder: 11 },
+  { itemKey: 'sortBy', label: 'Sort by', isEnabled: true, sortOrder: 12 },
 ]
 
 export async function GET() {

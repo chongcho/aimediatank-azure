@@ -12,6 +12,7 @@ import { registerHomeFeedNav, unregisterHomeFeedNav } from '@/lib/homeFeedNav'
 import { getNativePlatform } from '@/lib/nativeShellBoot'
 import { useFeedCardTextMode } from '@/contexts/FeedCardTextModeContext'
 import { useFeedGridAutoTranslation } from '@/hooks/useFeedGridAutoTranslation'
+import { useFeedSortByEnabled } from '@/hooks/useFeedSortByEnabled'
 import { useMediaGridColumns } from '@/hooks/useMediaGridColumns'
 import { useGuestFeedLocalTargets } from '@/hooks/useGuestFeedLocalTargets'
 import { useUiLocale } from '@/hooks/useUiLocale'
@@ -95,6 +96,7 @@ function HomeContent() {
   const searchParams = useSearchParams()
   const { localeTag } = useUiLocale()
   const feedAutoTranslation = useFeedGridAutoTranslation()
+  const sortByEnabled = useFeedSortByEnabled()
   const { mode: feedCardTextMode } = useFeedCardTextMode()
   const { bundledTag, guestLocal, ensureGuestGeoLoaded } =
     useGuestFeedLocalTargets(feedAutoTranslation)
@@ -1239,21 +1241,23 @@ function HomeContent() {
           )}
         </div>
 
-        {/* Right: Sort Options */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <label htmlFor="sort-select" className="text-sm text-gray-300 whitespace-nowrap">{tHero('sortBy')}</label>
-          <select
-            id="sort-select"
-            value={sort}
-            onChange={(e) => handleSortChange(e.target.value)}
-            className="bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-sm min-w-[130px]"
-            aria-label={tHero('sortAria')}
-          >
-            <option value="popular">{tHero('mostPopular')}</option>
-            <option value="recent">{tHero('mostRecent')}</option>
-            <option value="random">{tHero('random')}</option>
-          </select>
-        </div>
+        {/* Right: Sort Options (Media Badge Control → Sort by) */}
+        {sortByEnabled && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <label htmlFor="sort-select" className="text-sm text-gray-300 whitespace-nowrap">{tHero('sortBy')}</label>
+            <select
+              id="sort-select"
+              value={sort}
+              onChange={(e) => handleSortChange(e.target.value)}
+              className="bg-tank-gray border border-tank-light rounded-lg px-3 py-2 text-sm min-w-[130px]"
+              aria-label={tHero('sortAria')}
+            >
+              <option value="popular">{tHero('mostPopular')}</option>
+              <option value="recent">{tHero('mostRecent')}</option>
+              <option value="random">{tHero('random')}</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Search Badge for Hashtag or @username */}
