@@ -48,12 +48,20 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
                 guard let self else { continue }
                 do {
                     let transaction = try Self.checkVerified(result)
+                    // Once a Buy is on the payment queue, accept the matching StoreKit 2
+                    // update even if purchaseDate is slightly older than startedAt
+                    // (subscription upgrades often replay that way).
+                    let acceptExisting = await MainActor.run {
+                        self.inflight?.productId == transaction.productID
+                            && self.inflight?.enqueued == true
+                            && self.inflight?.settled == false
+                    }
                     let delivered = await self.deliver(
                         productId: transaction.productID,
                         jws: result.jwsRepresentation,
                         transactionId: String(transaction.id),
                         purchaseDate: transaction.purchaseDate,
-                        acceptExisting: false
+                        acceptExisting: acceptExisting
                     )
                     if delivered {
                         await transaction.finish()
@@ -274,7 +282,7 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
     /// transaction. A receipt from the previous Buy is used once a newer one
     /// does not appear, so that payment is still recorded.
     private func collectJws(productId: String) async -> Bool {
-        for attempt in 0..<40 {
+        for attempt in 0..<60 {
             let state = await MainActor.run { () -> String in
                 guard let inflight = self.inflight else { return "done" }
                 if inflight.settled { return "done" }
@@ -283,32 +291,65 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
             }
             if state == "done" { return true }
             if state == "other" { return false }
-            if let result = await Transaction.latest(for: productId) {
-                do {
-                    let transaction = try Self.checkVerified(result)
-                    let delivered = await self.deliver(
-                        productId: transaction.productID,
-                        jws: result.jwsRepresentation,
-                        transactionId: String(transaction.id),
-                        purchaseDate: transaction.purchaseDate,
-                        acceptExisting: attempt >= 8
-                    )
-                    if delivered {
-                        await transaction.finish()
-                        return true
-                    }
-                } catch {
-                    print("[AppleIAP] latest transaction unverified: \(error.localizedDescription)")
-                }
+            if await self.tryDeliverLatest(productId: productId, acceptExisting: attempt >= 8) {
+                return true
             }
             try? await Task.sleep(nanoseconds: 500_000_000)
         }
+
+        // Subscription upgrades are slow to surface a StoreKit 2 JWS. Sync once,
+        // then accept any current entitlement for this product before failing.
+        try? await AppStore.sync()
+        if await self.tryDeliverLatest(productId: productId, acceptExisting: true) {
+            return true
+        }
+        for await result in Transaction.currentEntitlements {
+            do {
+                let transaction = try Self.checkVerified(result)
+                guard transaction.productID == productId else { continue }
+                let delivered = await self.deliver(
+                    productId: transaction.productID,
+                    jws: result.jwsRepresentation,
+                    transactionId: String(transaction.id),
+                    purchaseDate: transaction.purchaseDate,
+                    acceptExisting: true
+                )
+                if delivered {
+                    await transaction.finish()
+                    return true
+                }
+            } catch {
+                continue
+            }
+        }
+
         await MainActor.run {
             guard self.inflight?.productId == productId, self.inflight?.settled == false else { return }
             self.failPurchase(
-                message: "Apple completed the payment but the receipt was not ready. Tap Buy again.",
+                message: "Apple completed the payment but the receipt was not ready. Tap Restore purchases.",
                 code: "RECEIPT"
             )
+        }
+        return false
+    }
+
+    private func tryDeliverLatest(productId: String, acceptExisting: Bool) async -> Bool {
+        guard let result = await Transaction.latest(for: productId) else { return false }
+        do {
+            let transaction = try Self.checkVerified(result)
+            let delivered = await self.deliver(
+                productId: transaction.productID,
+                jws: result.jwsRepresentation,
+                transactionId: String(transaction.id),
+                purchaseDate: transaction.purchaseDate,
+                acceptExisting: acceptExisting
+            )
+            if delivered {
+                await transaction.finish()
+                return true
+            }
+        } catch {
+            print("[AppleIAP] latest transaction unverified: \(error.localizedDescription)")
         }
         return false
     }
