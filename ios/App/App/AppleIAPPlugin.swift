@@ -144,25 +144,32 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
         call.keepAlive = true
         Task { @MainActor in
             defer { call.keepAlive = false }
+            // AppStore.sync() can fail in sandbox with "Unable to Complete Request"
+            // (cancelled Apple ID sheet, no sandbox account). Still read local
+            // entitlements so a completed Premium upgrade can be verified.
             do {
                 try await AppStore.sync()
-                var items: [[String: Any]] = []
-                for await result in Transaction.currentEntitlements {
-                    do {
-                        let transaction = try Self.checkVerified(result)
-                        items.append([
-                            "signedTransaction": result.jwsRepresentation,
-                            "transactionId": String(transaction.id),
-                            "productId": transaction.productID,
-                        ])
-                    } catch {
-                        continue
-                    }
-                }
-                call.resolve(["transactions": items])
             } catch {
-                call.reject("Restore failed: \(error.localizedDescription)")
+                print("[AppleIAP] AppStore.sync failed during restore: \(error.localizedDescription)")
             }
+            var items: [[String: Any]] = []
+            var seen = Set<String>()
+            for await result in Transaction.currentEntitlements {
+                do {
+                    let transaction = try Self.checkVerified(result)
+                    let id = String(transaction.id)
+                    if seen.contains(id) { continue }
+                    seen.insert(id)
+                    items.append([
+                        "signedTransaction": result.jwsRepresentation,
+                        "transactionId": id,
+                        "productId": transaction.productID,
+                    ])
+                } catch {
+                    continue
+                }
+            }
+            call.resolve(["transactions": items])
         }
     }
 
