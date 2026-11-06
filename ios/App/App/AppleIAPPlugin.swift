@@ -1,6 +1,7 @@
 import Capacitor
 import Foundation
 import StoreKit
+import UIKit
 
 /**
  * StoreKit bridge for Apple In-App Purchase (memberships + media unlock tiers).
@@ -17,6 +18,7 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
         CAPPluginMethod(name: "getProducts", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "purchase", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "restore", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "manageSubscriptions", returnType: CAPPluginReturnPromise),
     ]
 
     private final class Inflight {
@@ -171,6 +173,39 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
             }
             call.resolve(["transactions": items])
         }
+    }
+
+    /// Opens Apple's in-app subscription management sheet (cancel / change plan).
+    @objc func manageSubscriptions(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else {
+                call.reject("Subscription management is unavailable")
+                return
+            }
+            guard let scene = self.presentationWindowScene() else {
+                call.reject("Could not open Apple subscription management")
+                return
+            }
+            Task { @MainActor in
+                do {
+                    try await AppStore.showManageSubscriptions(in: scene)
+                    call.resolve(["ok": true])
+                } catch {
+                    call.reject(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func presentationWindowScene() -> UIWindowScene? {
+        if let scene = bridge?.viewController?.view.window?.windowScene {
+            return scene
+        }
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        if let key = scenes.first(where: { $0.activationState == .foregroundActive }) {
+            return key
+        }
+        return scenes.first
     }
 
     public func paymentQueue(_ queue: SKPaymentQueue, updatedTransactions transactions: [SKPaymentTransaction]) {

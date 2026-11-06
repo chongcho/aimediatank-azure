@@ -9,7 +9,11 @@ import {
   isNativeIosApp,
   nativeFetch,
 } from '@/lib/iosAppStoreCompliance'
-import { purchaseAppleMembership, restoreAppleMemberships } from '@/lib/appleIap'
+import {
+  manageAppleSubscriptions,
+  purchaseAppleMembership,
+  restoreAppleMemberships,
+} from '@/lib/appleIap'
 import type { AppleMembershipPlanId } from '@/lib/appleIapCatalog'
 
 const PRICING_STRINGS = [
@@ -95,6 +99,12 @@ const PRICING_STRINGS = [
   'You have {count} upload credits',
   '({freeCount} free + {creditCount} credits)',
   'Memberships and paid media are purchased with Apple In-App Purchase (App Store).',
+  'Cancel or manage your Apple subscription',
+  'Your membership is billed by Apple. Before you cancel, please know:',
+  'Canceling stops future renewals. You keep plan benefits until the end of the current billing period.',
+  'Your existing uploads stay on AiMediaTank. New uploads follow the Viewer free-upload limit after the period ends.',
+  'Refunds for the current period are handled by Apple, not AiMediaTank.',
+  'Continue to Apple',
 ] as const
 
 const S = {
@@ -180,6 +190,12 @@ const S = {
   uploadCreditsPlural: 79,
   uploadCreditsBreakdown: 80,
   faqPaymentAIos: 81,
+  appleCancelTitle: 82,
+  appleCancelIntro: 83,
+  appleCancelKeepUntilEnd: 84,
+  appleCancelUploads: 85,
+  appleCancelRefunds: 86,
+  appleCancelContinue: 87,
 } as const
 
 function fillPricingTemplate(template: string, vars: Record<string, string | number>): string {
@@ -297,6 +313,7 @@ function PricingPageContent() {
   const [livePlans, setLivePlans] = useState(plans)
   const [cancelLoading, setCancelLoading] = useState(false)
   const [showManageModal, setShowManageModal] = useState(false)
+  const [showAppleCancelModal, setShowAppleCancelModal] = useState(false)
   const [manageLoading, setManageLoading] = useState<string | null>(null)
   const [showBillingModal, setShowBillingModal] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<(typeof plans)[0] | null>(null)
@@ -510,9 +527,7 @@ function PricingPageContent() {
 
   const handleManageSubscription = async () => {
     if (isNativeIosApp()) {
-      alert(
-        'To manage or cancel an Apple subscription, open Settings → [Your Name] → Subscriptions on this device.',
-      )
+      setShowAppleCancelModal(true)
       return
     }
     setCancelLoading(true)
@@ -535,6 +550,22 @@ function PricingPageContent() {
       alert('Failed to open billing portal')
     } finally {
       setCancelLoading(false)
+    }
+  }
+
+  const handleOpenAppleSubscriptions = async () => {
+    setManageLoading('apple-cancel')
+    try {
+      setShowAppleCancelModal(false)
+      await manageAppleSubscriptions()
+      await restoreAppleMemberships()
+      await updateSession()
+      await fetchMembership()
+    } catch (error) {
+      console.error(error)
+      alert(error instanceof Error ? error.message : 'Could not open Apple subscription management')
+    } finally {
+      setManageLoading(null)
     }
   }
 
@@ -1009,6 +1040,57 @@ function PricingPageContent() {
             <p className="text-xs text-gray-400 mt-4 text-center">
               {tr[S.billingCancelNote]}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Apple subscription cancel / manage notice (iOS) */}
+      {showAppleCancelModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-tank-dark border border-tank-light rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold">{tr[S.appleCancelTitle]}</h3>
+              <button
+                type="button"
+                onClick={() => setShowAppleCancelModal(false)}
+                className="p-2 hover:bg-tank-light rounded-lg transition-colors"
+                aria-label={tr[S.close]}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="text-gray-300 mb-3">
+              {tr[S.yourCurrentPlan]} PLAN:{' '}
+              <span className="text-tank-accent font-bold">{currentMembership}</span>
+            </p>
+            <p className="text-gray-400 mb-4">{tr[S.appleCancelIntro]}</p>
+            <ul className="space-y-3 text-sm text-gray-300 mb-6 list-disc pl-5">
+              <li>{tr[S.appleCancelKeepUntilEnd]}</li>
+              <li>{tr[S.appleCancelUploads]}</li>
+              <li>{tr[S.appleCancelRefunds]}</li>
+            </ul>
+
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => void handleOpenAppleSubscriptions()}
+                disabled={manageLoading !== null}
+                className="w-full py-3 px-4 bg-tank-accent text-black font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {manageLoading === 'apple-cancel' ? tr[S.processing] : tr[S.appleCancelContinue]}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAppleCancelModal(false)}
+                disabled={manageLoading !== null}
+                className="w-full py-3 px-4 bg-tank-gray text-gray-300 rounded-xl hover:bg-tank-light transition-colors"
+              >
+                {tr[S.keepSubscription]}
+              </button>
+            </div>
           </div>
         </div>
       )}

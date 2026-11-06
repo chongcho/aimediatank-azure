@@ -25,6 +25,7 @@ type AppleIAPPlugin = {
   restore(): Promise<{
     transactions: Array<{ signedTransaction: string; transactionId: string; productId: string }>
   }>
+  manageSubscriptions(): Promise<{ ok?: boolean }>
 }
 
 const PLUGIN_TIMEOUT_MS = 120_000
@@ -174,4 +175,17 @@ export async function restoreAppleMemberships(): Promise<number> {
     body: JSON.stringify({ signedTransaction: best.signedTransaction }),
   })
   return res.ok ? 1 : 0
+}
+
+/** Opens Apple's in-app sheet to cancel or change the App Store subscription. */
+export async function manageAppleSubscriptions(): Promise<void> {
+  const plugin = getPlugin()
+  if (!plugin) {
+    throw new Error('Apple subscription management is only available in the iOS app')
+  }
+  try {
+    await plugin.manageSubscriptions()
+  } catch (error) {
+    rethrowPluginError(error, 'Could not open Apple subscription management')
+  }
 }
