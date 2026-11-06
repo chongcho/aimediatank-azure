@@ -1,7 +1,9 @@
 import { registerPlugin } from '@capacitor/core'
 import { IOS_IAP_UNAVAILABLE_MESSAGE, isNativeIosApp, nativeFetch } from '@/lib/iosAppStoreCompliance'
 import {
+  membershipPlanRank,
   membershipProductId,
+  parseMembershipProductId,
   type AppleBillingPeriod,
   type AppleMembershipPlanId,
 } from '@/lib/appleIapCatalog'
@@ -154,15 +156,22 @@ export async function restoreAppleMemberships(): Promise<number> {
   const plugin = getPlugin()
   if (!plugin) return 0
   const { transactions } = await withTimeout(plugin.restore(), PLUGIN_TIMEOUT_MS)
-  let applied = 0
+  // Prefer the highest plan. Verifying Basic after Advanced would flip Current Plan back down.
+  let best: { signedTransaction: string; rank: number } | null = null
   for (const txn of transactions) {
     if (!txn.productId.includes('.membership.')) continue
-    const res = await nativeFetch('/api/iap/membership/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ signedTransaction: txn.signedTransaction }),
-    })
-    if (res.ok) applied += 1
+    const parsed = parseMembershipProductId(txn.productId)
+    if (!parsed) continue
+    const rank = membershipPlanRank(parsed.planId)
+    if (!best || rank > best.rank) {
+      best = { signedTransaction: txn.signedTransaction, rank }
+    }
   }
-  return applied
+  if (!best) return 0
+  const res = await nativeFetch('/api/iap/membership/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ signedTransaction: best.signedTransaction }),
+  })
+  return res.ok ? 1 : 0
 }

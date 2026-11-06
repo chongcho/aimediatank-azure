@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { parseMembershipProductId } from '@/lib/appleIapCatalog'
+import { membershipPlanRank, parseMembershipProductId } from '@/lib/appleIapCatalog'
 import { verifyAppleTransactionJws } from '@/lib/appleIapVerify'
 import { applyAppleMembershipEntitlement } from '@/lib/applyAppleMembership'
 import { isNativeIosClientFromRequest } from '@/lib/iosAppStoreCompliance'
@@ -45,6 +45,24 @@ export async function POST(request: Request) {
         where: { id: session.user.id },
         select: { membershipType: true, membershipExpiresAt: true },
       })
+      // Re-apply when this receipt is a higher plan than the profile (missed upgrade refresh).
+      if (membershipPlanRank(product.planId) > membershipPlanRank(user?.membershipType)) {
+        const upgraded = await applyAppleMembershipEntitlement({
+          userId: session.user.id,
+          planId: product.planId,
+          billingPeriod: product.billingPeriod,
+          originalTransactionId: txn.originalTransactionId,
+          productId: txn.productId,
+          expiresDateMs: txn.expiresDate,
+          sendNotifications: false,
+        })
+        return NextResponse.json({
+          ok: true,
+          duplicate: true,
+          membershipType: upgraded.membershipType,
+          membershipExpiresAt: upgraded.membershipExpiresAt,
+        })
+      }
       return NextResponse.json({
         ok: true,
         duplicate: true,

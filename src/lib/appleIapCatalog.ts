@@ -79,3 +79,12 @@ export function membershipPlanDisplayName(planId: string): string {
   if (id === 'premium') return 'Premium Plan'
   return 'Membership'
 }
+
+/** Higher rank wins when Restore returns more than one membership product. */
+export function membershipPlanRank(planId: string | null | undefined): number {
+  const id = (planId || '').trim().toLowerCase()
+  if (id === 'premium') return 3
+  if (id === 'advanced') return 2
+  if (id === 'basic') return 1
+  return 0
+}

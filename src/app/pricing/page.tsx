@@ -443,11 +443,18 @@ function PricingPageContent() {
           alert('Please log in again')
           return
         }
-        await purchaseAppleMembership({
+        const purchased = await purchaseAppleMembership({
           planId: selectedPlan.id as AppleMembershipPlanId,
           billingPeriod,
           userId,
         })
+        // Apply the verified plan immediately. Waiting only on profile fetch can leave
+        // Current Plan on the old tier after a successful Apple upgrade.
+        if (purchased.membershipType) {
+          setCurrentMembership(String(purchased.membershipType).toUpperCase())
+        } else {
+          setCurrentMembership(selectedPlan.id.toUpperCase())
+        }
         setPurchasedPlanId(selectedPlan.id)
         setShowSuccessMessage(true)
         await updateSession()
@@ -490,6 +497,7 @@ function PricingPageContent() {
     setManageLoading('restore')
     try {
       const n = await restoreAppleMemberships()
+      await updateSession()
       await fetchMembership()
       alert(n > 0 ? 'Purchases restored.' : 'No active Apple subscriptions found for this Apple ID.')
     } catch (error) {
