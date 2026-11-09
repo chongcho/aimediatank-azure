@@ -106,9 +106,9 @@ export async function purchaseAppleMembership(params: {
     throw new Error(typeof data.error === 'string' ? data.error : 'Membership verify failed')
   }
 
-  // Reconcile with StoreKit current entitlements + Server API (scheduled upgrades stay on Basic).
+  // Quiet server sync only — do NOT call restore/AppStore.sync() here (triggers Apple ID password).
+  // Deferred upgrades are already recorded by verify as pending_upgrade.
   try {
-    await restoreAppleMemberships({ skipSync: true })
     const synced = await syncAppleMembership({ noActiveEntitlements: false })
     if (synced?.membershipType) {
       return {
@@ -117,8 +117,7 @@ export async function purchaseAppleMembership(params: {
           ? String(synced.membershipExpiresAt)
           : data.membershipExpiresAt,
         appleSubscriptionStatus: synced.appleSubscriptionStatus,
-        applePendingProductId: (synced as { applePendingProductId?: string | null })
-          .applePendingProductId,
+        applePendingProductId: synced.applePendingProductId,
         upgradeScheduled:
           synced.appleSubscriptionStatus === 'pending_upgrade' ||
           data.appleSubscriptionStatus === 'pending_upgrade',
