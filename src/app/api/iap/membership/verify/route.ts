@@ -40,8 +40,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unknown membership product' }, { status: 400 })
     }
 
-    // Expired receipt must not keep / re-apply a paid plan.
+    // Stale/expired JWS must not re-apply that SKU — but must not wipe a newer paid plan
+    // (common when Restore returns an old Basic receipt after an Advanced upgrade).
     if (typeof txn.expiresDate === 'number' && txn.expiresDate < Date.now()) {
+      const current = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { membershipType: true, membershipExpiresAt: true },
+      })
+      const localStillValid =
+        Boolean(current?.membershipExpiresAt) &&
+        current!.membershipExpiresAt!.getTime() > Date.now()
+      const txnRank = membershipPlanRank(product.planId)
+      const localRank = membershipPlanRank(current?.membershipType)
+      // Keep a still-valid equal/higher plan (e.g. Advanced) when an old Basic JWS is expired.
+      if (localStillValid && localRank >= txnRank) {
+        return NextResponse.json({
+          ok: true,
+          expired: true,
+          ignored: true,
+          membershipType: current?.membershipType,
+          membershipExpiresAt: current?.membershipExpiresAt,
+        })
+      }
       const cleared = await clearAppleMembershipToViewer({
         userId: session.user.id,
         appleSubscriptionStatus: 'expired',

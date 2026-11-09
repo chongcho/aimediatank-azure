@@ -414,13 +414,18 @@ function PricingPageContent() {
     let cancelled = false
     ;(async () => {
       await fetchMembership()
-      // On iOS, honor Apple expiry even if the user never taps Restore.
+      // On iOS, honor local expiry — but do not pass noActiveEntitlements here.
+      // Aggressive Server-API downgrades race with Basic→Advanced upgrades (Apple lag).
       if (!isNativeIosApp() || cancelled) return
       try {
         const synced = await syncAppleMembership({ noActiveEntitlements: false })
         if (cancelled) return
-        applyMembershipSync(synced)
-        if (synced?.membershipType === 'VIEWER') {
+        // Never let a background sync flip a just-shown upgrade banner to Viewer without
+        // an explicit Restore / Manage action. Only apply non-VIEWER refreshes here.
+        if (synced?.membershipType && synced.membershipType !== 'VIEWER') {
+          applyMembershipSync(synced)
+        } else if (synced?.membershipType === 'VIEWER') {
+          // Re-read profile; sync may have cleared an actually expired plan.
           await fetchMembership()
         }
       } catch (error) {
@@ -534,10 +539,18 @@ function PricingPageContent() {
         } else {
           setCurrentMembership(selectedPlan.id.toUpperCase())
         }
+        if (purchased.membershipExpiresAt) {
+          setMembershipExpiresAt(String(purchased.membershipExpiresAt))
+        }
+        setAppleSubscriptionStatus('active')
         setPurchasedPlanId(selectedPlan.id)
         setShowSuccessMessage(true)
         await updateSession()
+        // Prefer the verified purchase over a racing background sync/profile read.
         await fetchMembership()
+        if (purchased.membershipType) {
+          setCurrentMembership(String(purchased.membershipType).toUpperCase())
+        }
         return
       }
 

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { parseMembershipProductId } from '@/lib/appleIapCatalog'
+import { membershipPlanRank, parseMembershipProductId } from '@/lib/appleIapCatalog'
 import { fetchAppleSubscriptionStatuses } from '@/lib/appleIapVerify'
 import {
   applyAppleMembershipEntitlement,
@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic'
 /**
  * POST { noActiveEntitlements?: boolean }
  * Sync Apple membership after restore / manage subscriptions.
- * Downgrades to Viewer when Apple shows expired/revoked or device has no entitlements.
+ * Downgrades to Viewer only when Apple (or the device) clearly shows no remaining access.
  */
 export async function POST(request: Request) {
   try {
@@ -53,17 +53,37 @@ export async function POST(request: Request) {
       user.membershipType !== 'VIEWER' &&
       Boolean(user.appleOriginalTransactionId || user.appleProductId)
 
+    const localStillValid =
+      Boolean(user.membershipExpiresAt) && user.membershipExpiresAt!.getTime() > Date.now()
+
+    const unchanged = () =>
+      NextResponse.json({
+        ok: true,
+        membershipType: user.membershipType,
+        membershipExpiresAt: user.membershipExpiresAt,
+        appleSubscriptionStatus: user.appleSubscriptionStatus,
+        source: 'unchanged',
+      })
+
     // Prefer App Store Server API when configured.
     if (user.appleOriginalTransactionId) {
       const status = await fetchAppleSubscriptionStatuses(user.appleOriginalTransactionId)
       if (status) {
         // 1 Active, 3 Billing Retry, 4 Grace Period — keep access
         const stillEntitled = status.status === 1 || status.status === 3 || status.status === 4
-        const expiredOrRevoked = status.status === 2 || status.status === 5 || status.status == null
+        // Only treat explicit Expired (2) / Revoked (5) as ended — never status == null
+        // (null/empty lastTransactions is common right after an upgrade while Apple catches up).
+        const expiredOrRevoked = status.status === 2 || status.status === 5
 
         if (stillEntitled && status.productId) {
           const product = parseMembershipProductId(status.productId)
           if (product) {
+            const serverRank = membershipPlanRank(product.planId)
+            const localRank = membershipPlanRank(user.membershipType)
+            // After Basic→Advanced, Server API can briefly still report Basic. Keep the higher local plan.
+            if (serverRank < localRank && localStillValid) {
+              return unchanged()
+            }
             const applied = await applyAppleMembershipEntitlement({
               userId: session.user.id,
               planId: product.planId,
@@ -97,6 +117,10 @@ export async function POST(request: Request) {
         }
 
         if (expiredOrRevoked && paid) {
+          // Do not wipe a freshly applied upgrade while Apple status still reflects the old SKU period.
+          if (localStillValid) {
+            return unchanged()
+          }
           const cleared = await clearAppleMembershipToViewer({
             userId: session.user.id,
             appleSubscriptionStatus: status.status === 5 ? 'revoked' : 'expired',
@@ -112,7 +136,11 @@ export async function POST(request: Request) {
     }
 
     // Device reported no StoreKit entitlements after restore/manage.
+    // Skip wipe when our DB still has a future period (upgrade / sandbox lag).
     if (noActiveEntitlements && paid) {
+      if (localStillValid) {
+        return unchanged()
+      }
       const cleared = await clearAppleMembershipToViewer({
         userId: session.user.id,
         appleSubscriptionStatus: 'expired',
@@ -126,11 +154,7 @@ export async function POST(request: Request) {
     }
 
     // Local expiry clock (covers missed sync while offline).
-    if (
-      paid &&
-      user.membershipExpiresAt &&
-      user.membershipExpiresAt.getTime() < Date.now()
-    ) {
+    if (paid && user.membershipExpiresAt && user.membershipExpiresAt.getTime() < Date.now()) {
       const cleared = await clearAppleMembershipToViewer({
         userId: session.user.id,
         appleSubscriptionStatus: 'expired',
@@ -143,13 +167,7 @@ export async function POST(request: Request) {
       })
     }
 
-    return NextResponse.json({
-      ok: true,
-      membershipType: user.membershipType,
-      membershipExpiresAt: user.membershipExpiresAt,
-      appleSubscriptionStatus: user.appleSubscriptionStatus,
-      source: 'unchanged',
-    })
+    return unchanged()
   } catch (error) {
     console.error('[iap/membership/sync]', error)
     return NextResponse.json(
