@@ -107,8 +107,9 @@ const PRICING_STRINGS = [
   'Your existing uploads stay on AiMediaTank. New uploads follow the Viewer free-upload limit after the period ends.',
   'Refunds for the current period are handled by Apple, not AiMediaTank.',
   'Continue to Apple',
-  'Access until {date}',
+  'Current period ends {date}',
   'Canceled — access until {date}',
+  'TestFlight Sandbox shortens billing periods for testing; production uses the full month or year.',
 ] as const
 
 const S = {
@@ -200,8 +201,9 @@ const S = {
   appleCancelUploads: 85,
   appleCancelRefunds: 86,
   appleCancelContinue: 87,
-  accessUntil: 88,
+  currentPeriodEnds: 88,
   canceledAccessUntil: 89,
+  sandboxPeriodHint: 90,
 } as const
 
 function fillPricingTemplate(template: string, vars: Record<string, string | number>): string {
@@ -669,13 +671,29 @@ function PricingPageContent() {
   }
 
   const hasPaidSubscription = currentMembership !== 'VIEWER'
+  const membershipPeriodEnd = membershipExpiresAt ? new Date(membershipExpiresAt) : null
   const membershipAccessLabel = (() => {
-    if (!hasPaidSubscription || !membershipExpiresAt) return null
-    const dateLabel = new Date(membershipExpiresAt).toLocaleDateString()
+    if (!hasPaidSubscription || !membershipPeriodEnd || Number.isNaN(membershipPeriodEnd.getTime())) {
+      return null
+    }
+    // Include time so Sandbox’s short periods (minutes/hours) are not mistaken for a 1-day plan.
+    const dateLabel = membershipPeriodEnd.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
     if (appleSubscriptionStatus === 'canceled') {
       return fillPricingTemplate(tr[S.canceledAccessUntil], { date: dateLabel })
     }
-    return fillPricingTemplate(tr[S.accessUntil], { date: dateLabel })
+    return fillPricingTemplate(tr[S.currentPeriodEnds], { date: dateLabel })
+  })()
+  const showSandboxPeriodHint = (() => {
+    if (!nativeIosApp || !hasPaidSubscription || !membershipPeriodEnd) return false
+    const remainingMs = membershipPeriodEnd.getTime() - Date.now()
+    // Production month/year periods are much longer; Sandbox monthly is often minutes–hours.
+    return remainingMs > 0 && remainingMs < 2 * 24 * 60 * 60 * 1000
   })()
   const manageSubscriptionLabel =
     appleSubscriptionStatus === 'canceled' ? tr[S.manageSubscription] : tr[S.cancelSubscription]
@@ -757,6 +775,11 @@ function PricingPageContent() {
               </p>
               {membershipAccessLabel ? (
                 <p className="text-sm text-gray-300 mt-1">{membershipAccessLabel}</p>
+              ) : null}
+              {showSandboxPeriodHint ? (
+                <p className="text-xs text-amber-200/90 mt-1 max-w-md">
+                  {tr[S.sandboxPeriodHint]}
+                </p>
               ) : null}
             </div>
               {uploadStatus ? (
