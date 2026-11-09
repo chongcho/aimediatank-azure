@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { selectVideoStreams } from '@/lib/videoStreamRenditions'
+import { purchaseAnchor } from '@/lib/purchaseDeleteLock'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,19 +49,20 @@ export async function GET(
       return NextResponse.json({ error: 'Media not found' }, { status: 404 })
     }
 
+    const isOwner = media.userId === session?.user?.id
+    const purchase =
+      session?.user?.id && !isOwner
+        ? await prisma.purchase.findFirst({
+            where: { mediaId, buyerId: session.user.id, status: 'completed' },
+            select: { amount: true, completedAt: true, createdAt: true },
+          })
+        : null
+    const hasPurchased = !!purchase
+
     let streamUrl: string | null = null
     let streamRenditions: { height: number; url: string }[] | undefined
     if (media.type === 'VIDEO' && media.url) {
-      const [purchase, cropSettings] = await Promise.all([
-        session?.user
-          ? prisma.purchase.findFirst({
-              where: { mediaId, buyerId: session.user.id, status: 'completed' },
-            })
-          : Promise.resolve(null),
-        prisma.cropToolSetting.findFirst(),
-      ])
-      const isOwner = media.userId === session?.user?.id
-      const hasPurchased = !!purchase
+      const cropSettings = await prisma.cropToolSetting.findFirst()
       const freeStreamMaxHeight = (cropSettings as { freeStreamMaxHeight?: number } | null)?.freeStreamMaxHeight ?? 720
       const paidQuality = (cropSettings as { paidDownloadQuality?: string } | null)?.paidDownloadQuality ?? 'hq'
       const versions = (media as { versions: Array<{ url: string; height: number }> }).versions ?? []
@@ -103,6 +105,13 @@ export async function GET(
       ratings: [],
       _count: { comments: 0, ratings: 0 },
       fileSize,
+      hasPurchased,
+      ...(hasPurchased && purchase
+        ? {
+            purchaseAmount: purchase.amount != null ? Number(purchase.amount) : media.price,
+            purchasedAt: purchaseAnchor(purchase).toISOString(),
+          }
+        : {}),
       ...(streamUrl && { streamUrl }),
       ...(streamRenditions && { streamRenditions }),
     }

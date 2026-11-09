@@ -12,7 +12,11 @@ import { selectVideoStreams } from '@/lib/videoStreamRenditions'
 import { isAppAdminRole } from '@/lib/adminFreshStep2'
 import { requireAdminContentElevation } from '@/lib/requireAdminElevation'
 import { isMediaBlocked } from '@/lib/mediaBlocks'
-import { deleteLockMessage, getPosterDeleteLock } from '@/lib/purchaseDeleteLock'
+import {
+  deleteLockMessage,
+  getPosterDeleteLock,
+  purchaseAnchor,
+} from '@/lib/purchaseDeleteLock'
 
 // Force dynamic rendering to always get fresh data
 export const dynamic = 'force-dynamic'
@@ -109,21 +113,22 @@ export async function GET(
         ? ratings.reduce((acc: number, r: any) => acc + r.score, 0) / ratings.length
         : 0
 
-    // Resolve stream URL for video from admin download/stream settings (session + crop in parallel)
+    const viewer = sessionForBlock?.user as { id?: string; role?: string } | undefined
+    const viewerPurchase =
+      viewer?.id && viewer.id !== media.userId
+        ? await prisma.purchase.findFirst({
+            where: { mediaId, buyerId: viewer.id, status: 'completed' },
+            select: { amount: true, completedAt: true, createdAt: true },
+          })
+        : null
+    const hasPurchased = !!viewerPurchase
+    const isOwner = media.userId === viewer?.id
+
+    // Resolve stream URL for video from admin download/stream settings
     let streamUrl: string | null = null
     let streamRenditions: { height: number; url: string }[] | undefined
     if (media.type === 'VIDEO' && media.url) {
-      const [session, cropSettings] = await Promise.all([
-        getServerSession(authOptions),
-        prisma.cropToolSetting.findFirst(),
-      ])
-      const purchase = session?.user
-        ? await prisma.purchase.findFirst({
-            where: { mediaId, buyerId: session.user.id, status: 'completed' },
-          })
-        : null
-      const isOwner = media.userId === session?.user?.id
-      const hasPurchased = !!purchase
+      const cropSettings = await prisma.cropToolSetting.findFirst()
       const crop = cropSettings as { freeStreamMaxHeight?: number; paidDownloadQuality?: string } | null
       const freeStreamMaxHeight = crop?.freeStreamMaxHeight ?? 720
       const paidQuality = crop?.paidDownloadQuality ?? 'hq'
@@ -143,17 +148,29 @@ export async function GET(
       }
     }
 
-    const viewer = sessionForBlock?.user as { id?: string; role?: string } | undefined
     const canSeeDeleteLock =
       Boolean(viewer?.id) &&
       (viewer!.id === media.userId || isAppAdminRole(viewer?.role))
     const posterDeleteLock = canSeeDeleteLock ? await getPosterDeleteLock(mediaId) : null
+    const buyerDeleteLock = hasPurchased ? await getPosterDeleteLock(mediaId) : null
 
     const payload: Record<string, unknown> = {
       ...media,
       fileSize: (media as any).fileSize === null || (media as any).fileSize === undefined ? null : (media as any).fileSize.toString(),
       avgRating: Math.round(avgRating * 10) / 10,
       views: media.views + (skipView ? 0 : 1),
+      hasPurchased,
+      ...(hasPurchased && viewerPurchase
+        ? {
+            purchaseAmount:
+              viewerPurchase.amount != null ? Number(viewerPurchase.amount) : media.price,
+            purchasedAt: purchaseAnchor(viewerPurchase).toISOString(),
+            daysUntilPosterCanRemove:
+              buyerDeleteLock?.locked && buyerDeleteLock.daysLeft != null
+                ? buyerDeleteLock.daysLeft
+                : null,
+          }
+        : {}),
       ...(posterDeleteLock ? { posterDeleteLock } : {}),
     }
     if (streamUrl) payload.streamUrl = streamUrl

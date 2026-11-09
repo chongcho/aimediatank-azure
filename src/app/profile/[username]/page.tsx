@@ -51,6 +51,7 @@ const PROFILE_STRINGS = [
   'Failed to unsave some items',
   'No paid items selected. Select items with a price to checkout.',
   'Failed to start checkout. Please try again.',
+  'You purchased this content on {date}. Please download it if you haven’t already, as the poster may remove it from the platform at any time',
 ] as const
 
 interface UserProfile {
@@ -609,20 +610,33 @@ export default function ProfilePage() {
             <div className="media-grid" style={gridStyle}>
               {purchasesForGrid.map((purchase) => (
                 <div key={purchase.id} className="card group relative overflow-hidden">
-                  {/* Purchased Badge */}
-                  <div className="absolute top-3 left-3 z-10 px-2 py-1 bg-gradient-to-r from-tank-accent to-purple-500 rounded-lg text-xs font-bold text-tank-black">
-                    {tr[14]}
-                  </div>
-                  
-                  {/* Days until the poster can remove this purchase */}
-                  {purchase.daysUntilPosterCanRemove != null && purchase.daysUntilPosterCanRemove > 0 && (
-                    <div
-                      className="absolute top-3 right-3 z-10 px-2 py-1 bg-red-500/80 rounded-lg text-xs font-bold text-white"
-                      title="The poster can remove this 10 days after the latest purchase"
-                    >
-                      {purchase.daysUntilPosterCanRemove} {tr[15]}
-                    </div>
-                  )}
+                  {/* Purchased Badge — PURCHASED while locked; Purchased after 10 days */}
+                  {(() => {
+                    const lockActive =
+                      purchase.daysUntilPosterCanRemove != null &&
+                      purchase.daysUntilPosterCanRemove > 0
+                    return (
+                      <>
+                        <div
+                          className={`absolute top-3 left-3 z-10 px-2 py-1 rounded-lg text-xs font-bold ${
+                            lockActive
+                              ? 'bg-gradient-to-r from-tank-accent to-purple-500 text-tank-black'
+                              : 'bg-tank-gray border border-tank-light text-white'
+                          }`}
+                        >
+                          {lockActive ? tr[14] : tr[7]}
+                        </div>
+                        {lockActive ? (
+                          <div
+                            className="absolute top-3 right-3 z-10 px-2 py-1 bg-red-500/80 rounded-lg text-xs font-bold text-white"
+                            title="The poster can remove this 10 days after the latest purchase"
+                          >
+                            {purchase.daysUntilPosterCanRemove} {tr[15]}
+                          </div>
+                        ) : null}
+                      </>
+                    )
+                  })()}
 
                   {/* Thumbnail */}
                   <Link href={`/media/${purchase.media.id}`} className="no-touch-callout" onContextMenu={(e) => e.preventDefault()}>
@@ -664,6 +678,18 @@ export default function ProfilePage() {
                     <span>{tr[18]} ${purchase.amount.toFixed(2)}</span>
                     <span>{new Date(purchase.createdAt).toLocaleDateString()}</span>
                   </div>
+
+                  {!(
+                    purchase.daysUntilPosterCanRemove != null &&
+                    purchase.daysUntilPosterCanRemove > 0
+                  ) ? (
+                    <p className="mt-3 text-sm text-amber-200/90 leading-snug">
+                      {tr[40].replace(
+                        '{date}',
+                        new Date(purchase.completedAt || purchase.createdAt).toLocaleDateString()
+                      )}
+                    </p>
+                  ) : null}
 
                   {/* Download Button */}
                   <a

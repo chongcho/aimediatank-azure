@@ -34,6 +34,11 @@ export type MediaPageKey =
   | 'sendByEmail'
   | 'buyNow'
   | 'buyNowWithPrice'
+  | 'purchasedBadge'
+  | 'purchasedBadgeAfterLock'
+  | 'daysLeft'
+  | 'paidAmount'
+  | 'downloadNoticeAfterLock'
   | 'processingShort'
   | 'yourPrice'
   | 'yourPriceWithAmount'
@@ -124,6 +129,12 @@ const EN: Pack = {
   sendByEmail: 'Send by email',
   buyNow: 'Buy Now',
   buyNowWithPrice: 'Buy Now - {price}',
+  purchasedBadge: 'PURCHASED',
+  purchasedBadgeAfterLock: 'Purchased',
+  daysLeft: '{n} days left',
+  paidAmount: 'Paid {price}',
+  downloadNoticeAfterLock:
+    'You purchased this content on {date}. Please download it if you haven’t already, as the poster may remove it from the platform at any time',
   processingShort: 'Processing...',
   yourPrice: 'Your Price:',
   yourPriceWithAmount: 'Your Price: {price}',

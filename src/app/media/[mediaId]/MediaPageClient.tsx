@@ -65,6 +65,14 @@ interface MediaDetail {
   price: number | null
   processingStatus: string
   processingError?: string | null
+  /** True when the signed-in viewer already bought this media */
+  hasPurchased?: boolean
+  /** Amount the viewer paid (when hasPurchased) */
+  purchaseAmount?: number | null
+  /** When the viewer completed their purchase */
+  purchasedAt?: string | null
+  /** Days left before poster can remove this media (buyer view) */
+  daysUntilPosterCanRemove?: number | null
   user: {
     id: string
     username: string
@@ -181,6 +189,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
 
   const { loaded: adminElevLoaded, contentElevated: adminContentElevated } = useAdminContentElevation()
   const isOwner = session?.user?.id === media?.user?.id
+  const hasPurchased = Boolean(media?.hasPurchased)
   const isAdmin = session?.user?.role === 'ADMIN'
   const canManage = isOwner || (isAdmin && adminElevLoaded && adminContentElevated)
 
@@ -1064,8 +1073,81 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                 )}
               </div>
 
-              {/* Buy Now — under Created by / Save · Block (paid content, non-owner) */}
-              {media.price && media.price > 0 && !isOwner && (
+              {/* Purchased — match My Contents / Purchased (badge + paid line + Download) */}
+              {media.price && media.price > 0 && !isOwner && hasPurchased && (
+                <div className="mb-4 w-full space-y-3">
+                  {(() => {
+                    const lockActive =
+                      media.daysUntilPosterCanRemove != null && media.daysUntilPosterCanRemove > 0
+                    const purchaseDateLabel = media.purchasedAt
+                      ? new Date(media.purchasedAt).toLocaleDateString(
+                          calendarLocaleFromUiTag(chromeLocaleTag)
+                        )
+                      : null
+                    return (
+                      <>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span
+                            className={
+                              lockActive
+                                ? 'px-2 py-1 bg-gradient-to-r from-tank-accent to-purple-500 rounded-lg text-xs font-bold text-tank-black'
+                                : 'px-2 py-1 bg-tank-gray border border-tank-light rounded-lg text-xs font-bold text-white'
+                            }
+                          >
+                            {lockActive
+                              ? tMedia('purchasedBadge')
+                              : tMedia('purchasedBadgeAfterLock')}
+                          </span>
+                          {lockActive ? (
+                            <span className="px-2 py-1 bg-red-500/80 rounded-lg text-xs font-bold text-white">
+                              {mediaPageInterpolate(tMedia('daysLeft'), {
+                                n: String(media.daysUntilPosterCanRemove),
+                              })}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {mediaPageInterpolate(tMedia('paidAmount'), {
+                            price: `$${(media.purchaseAmount ?? media.price).toFixed(2)}`,
+                          })}
+                        </p>
+                        {!lockActive && purchaseDateLabel ? (
+                          <p className="text-sm text-amber-200/90 leading-snug">
+                            {mediaPageInterpolate(tMedia('downloadNoticeAfterLock'), {
+                              date: purchaseDateLabel,
+                            })}
+                          </p>
+                        ) : null}
+                        {mediaDetailDownloadEnabled ? (
+                          <button
+                            type="button"
+                            onClick={handleDownload}
+                            disabled={downloading}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold bg-tank-accent text-tank-black hover:bg-tank-accent/90 transition-colors"
+                          >
+                            {downloading ? (
+                              <div className="w-5 h-5 border-2 border-tank-black/30 border-t-tank-black rounded-full animate-spin" />
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                />
+                              </svg>
+                            )}
+                            {downloading ? tMedia('downloading') : tMedia('download')}
+                          </button>
+                        ) : null}
+                      </>
+                    )
+                  })()}
+                </div>
+              )}
+
+              {/* Buy Now — under Created by / Save · Block (paid content, non-owner, not yet purchased) */}
+              {media.price && media.price > 0 && !isOwner && !hasPurchased && (
                 <button
                   type="button"
                   onClick={handleBuyNow}
@@ -1112,8 +1194,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
             <div className="flex flex-col gap-3 w-full">
               {/* Download & Share row */}
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Download — free content for all visitors (guests get watermarked file); owners always */}
-                {mediaDetailDownloadEnabled && (isOwner || !media.price || media.price === 0) && (
+                {/* Download — free content for all visitors (guests get watermarked file); owners always.
+                    Purchasers get a dedicated Download button in the purchased block above. */}
+                {mediaDetailDownloadEnabled &&
+                  !hasPurchased &&
+                  (isOwner || !media.price || media.price === 0) && (
                   <button
                     onClick={handleDownload}
                     disabled={downloading}
