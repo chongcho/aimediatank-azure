@@ -40,6 +40,7 @@ export type MediaPageKey =
   | 'paidAmount'
   | 'purchasedDateLine'
   | 'downloadDateLine'
+  | 'notYetDownloaded'
   | 'downloadGuaranteeNote'
   | 'processingShort'
   | 'yourPrice'
@@ -137,6 +138,7 @@ const EN: Pack = {
   paidAmount: 'Paid {price}',
   purchasedDateLine: 'Purchased date: {date}',
   downloadDateLine: 'Download date: {date}',
+  notYetDownloaded: 'Not yet downloaded',
   downloadGuaranteeNote:
     'Note: Downloading purchased content is not guaranteed after 10 days from the purchase date. Please download it if you haven’t already.',
   processingShort: 'Processing...',

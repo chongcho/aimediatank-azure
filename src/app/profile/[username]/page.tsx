@@ -54,6 +54,7 @@ const PROFILE_STRINGS = [
   'Purchased date:',
   'Download date:',
   'Note: Downloading purchased content is not guaranteed after 10 days from the purchase date. Please download it if you haven’t already.',
+  'Not yet downloaded',
 ] as const
 
 interface UserProfile {
@@ -688,10 +689,10 @@ export default function ProfilePage() {
                       {new Date(purchase.completedAt || purchase.createdAt).toLocaleDateString()}
                     </p>
                     <p>
-                      {tr[41]}
+                      {tr[41]}{' '}
                       {purchase.downloadedAt
-                        ? ` ${new Date(purchase.downloadedAt).toLocaleDateString()}`
-                        : ''}
+                        ? new Date(purchase.downloadedAt).toLocaleDateString()
+                        : tr[43]}
                     </p>
                     <p>{tr[42]}</p>
                   </div>

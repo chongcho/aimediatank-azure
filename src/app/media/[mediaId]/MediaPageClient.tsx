@@ -1092,7 +1092,7 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                       : ''
                     const downloadDateLabel = media.downloadedAt
                       ? new Date(media.downloadedAt).toLocaleDateString(locale)
-                      : ''
+                      : tMedia('notYetDownloaded')
                     return (
                       <>
                         <div className="flex items-center justify-between gap-2 flex-wrap">
