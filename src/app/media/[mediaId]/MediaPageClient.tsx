@@ -71,6 +71,8 @@ interface MediaDetail {
   purchaseAmount?: number | null
   /** When the viewer completed their purchase */
   purchasedAt?: string | null
+  /** When the viewer first downloaded after purchase */
+  downloadedAt?: string | null
   /** Days left before poster can remove this media (buyer view) */
   daysUntilPosterCanRemove?: number | null
   user: {
@@ -574,6 +576,11 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
     try {
       const { triggerMediaDownload } = await import('@/lib/triggerMediaDownload')
       await triggerMediaDownload(mediaId)
+      setMedia((prev) =>
+        prev && !prev.downloadedAt
+          ? { ...prev, downloadedAt: new Date().toISOString() }
+          : prev
+      )
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Download failed. Please try again.'
       alert(message)
@@ -1079,11 +1086,13 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                   {(() => {
                     const lockActive =
                       media.daysUntilPosterCanRemove != null && media.daysUntilPosterCanRemove > 0
+                    const locale = calendarLocaleFromUiTag(chromeLocaleTag)
                     const purchaseDateLabel = media.purchasedAt
-                      ? new Date(media.purchasedAt).toLocaleDateString(
-                          calendarLocaleFromUiTag(chromeLocaleTag)
-                        )
-                      : null
+                      ? new Date(media.purchasedAt).toLocaleDateString(locale)
+                      : '—'
+                    const downloadDateLabel = media.downloadedAt
+                      ? new Date(media.downloadedAt).toLocaleDateString(locale)
+                      : tMedia('notYet')
                     return (
                       <>
                         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1111,13 +1120,12 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                             price: `$${(media.purchaseAmount ?? media.price).toFixed(2)}`,
                           })}
                         </p>
-                        {!lockActive && purchaseDateLabel ? (
-                          <p className="text-sm text-amber-200/90 leading-snug">
-                            {mediaPageInterpolate(tMedia('downloadNoticeAfterLock'), {
-                              date: purchaseDateLabel,
-                            })}
-                          </p>
-                        ) : null}
+                        <p className="text-sm text-amber-200/90 leading-snug">
+                          {mediaPageInterpolate(tMedia('downloadNoticePurchased'), {
+                            purchaseDate: purchaseDateLabel,
+                            downloadDate: downloadDateLabel,
+                          })}
+                        </p>
                         {mediaDetailDownloadEnabled ? (
                           <button
                             type="button"

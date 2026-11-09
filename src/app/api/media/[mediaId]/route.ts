@@ -118,7 +118,12 @@ export async function GET(
       viewer?.id && viewer.id !== media.userId
         ? await prisma.purchase.findFirst({
             where: { mediaId, buyerId: viewer.id, status: 'completed' },
-            select: { amount: true, completedAt: true, createdAt: true },
+            select: {
+              amount: true,
+              completedAt: true,
+              createdAt: true,
+              downloadedAt: true,
+            },
           })
         : null
     const hasPurchased = !!viewerPurchase
@@ -165,6 +170,9 @@ export async function GET(
             purchaseAmount:
               viewerPurchase.amount != null ? Number(viewerPurchase.amount) : media.price,
             purchasedAt: purchaseAnchor(viewerPurchase).toISOString(),
+            downloadedAt: viewerPurchase.downloadedAt
+              ? viewerPurchase.downloadedAt.toISOString()
+              : null,
             daysUntilPosterCanRemove:
               buyerDeleteLock?.locked && buyerDeleteLock.daysLeft != null
                 ? buyerDeleteLock.daysLeft

@@ -395,6 +395,8 @@ model Purchase {
   appleProductId    String?
   createdAt         DateTime  @default(now())
   completedAt       DateTime?
+  /** First time this buyer downloaded the purchased media file */
+  downloadedAt      DateTime?
 
   // Relations
   buyerId           String

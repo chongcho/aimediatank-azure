@@ -51,7 +51,8 @@ const PROFILE_STRINGS = [
   'Failed to unsave some items',
   'No paid items selected. Select items with a price to checkout.',
   'Failed to start checkout. Please try again.',
-  'You purchased this content on {date}. Please download it if you haven’t already, as the poster may remove it from the platform at any time',
+  'You purchased this content on {purchaseDate} and downloaded on {downloadDate}. Please download it if you haven’t already, as the poster may remove it from the platform at any time',
+  'not yet',
 ] as const
 
 interface UserProfile {
@@ -95,6 +96,7 @@ interface Purchase {
   amount: number
   createdAt: string
   completedAt: string | null
+  downloadedAt?: string | null
   daysUntilPosterCanRemove?: number | null
   media: {
     id: string
@@ -679,17 +681,19 @@ export default function ProfilePage() {
                     <span>{new Date(purchase.createdAt).toLocaleDateString()}</span>
                   </div>
 
-                  {!(
-                    purchase.daysUntilPosterCanRemove != null &&
-                    purchase.daysUntilPosterCanRemove > 0
-                  ) ? (
-                    <p className="mt-3 text-sm text-amber-200/90 leading-snug">
-                      {tr[40].replace(
-                        '{date}',
+                  <p className="mt-3 text-sm text-amber-200/90 leading-snug">
+                    {tr[40]
+                      .replace(
+                        '{purchaseDate}',
                         new Date(purchase.completedAt || purchase.createdAt).toLocaleDateString()
+                      )
+                      .replace(
+                        '{downloadDate}',
+                        purchase.downloadedAt
+                          ? new Date(purchase.downloadedAt).toLocaleDateString()
+                          : tr[41]
                       )}
-                    </p>
-                  ) : null}
+                  </p>
 
                   {/* Download Button */}
                   <a

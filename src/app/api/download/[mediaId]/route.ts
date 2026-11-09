@@ -197,15 +197,17 @@ export async function GET(
     const isFree = !media.price || media.price === 0
 
     let hasPurchased = false
+    let purchaseRow: { id: string; downloadedAt: Date | null } | null = null
     if (isRegistered) {
-      const purchase = await prisma.purchase.findFirst({
+      purchaseRow = await prisma.purchase.findFirst({
         where: {
           mediaId,
           buyerId: session!.user!.id,
           status: 'completed',
         },
+        select: { id: true, downloadedAt: true },
       })
-      hasPurchased = !!purchase
+      hasPurchased = !!purchaseRow
     }
 
     if (!isOwner && !isFree && !hasPurchased) {
@@ -216,6 +218,15 @@ export async function GET(
         { error: 'You must purchase this content to download it' },
         { status: 403 }
       )
+    }
+
+    if (purchaseRow && !purchaseRow.downloadedAt) {
+      await prisma.purchase
+        .update({
+          where: { id: purchaseRow.id },
+          data: { downloadedAt: new Date() },
+        })
+        .catch(() => {})
     }
 
     await prisma.media

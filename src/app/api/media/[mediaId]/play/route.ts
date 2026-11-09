@@ -54,7 +54,7 @@ export async function GET(
       session?.user?.id && !isOwner
         ? await prisma.purchase.findFirst({
             where: { mediaId, buyerId: session.user.id, status: 'completed' },
-            select: { amount: true, completedAt: true, createdAt: true },
+            select: { amount: true, completedAt: true, createdAt: true, downloadedAt: true },
           })
         : null
     const hasPurchased = !!purchase
@@ -110,6 +110,7 @@ export async function GET(
         ? {
             purchaseAmount: purchase.amount != null ? Number(purchase.amount) : media.price,
             purchasedAt: purchaseAnchor(purchase).toISOString(),
+            downloadedAt: purchase.downloadedAt ? purchase.downloadedAt.toISOString() : null,
           }
         : {}),
       ...(streamUrl && { streamUrl }),
