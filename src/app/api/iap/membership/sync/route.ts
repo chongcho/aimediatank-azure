@@ -83,13 +83,30 @@ export async function POST(request: Request) {
             const pendingParsed = status.autoRenewProductId
               ? parseMembershipProductId(status.autoRenewProductId)
               : null
-            // Apple schedules many upgrades for the next renewal: current SKU stays
-            // Basic while autoRenewProductId is already Advanced.
+            const currentRank = membershipPlanRank(product.planId)
+            const pendingRank = pendingParsed ? membershipPlanRank(pendingParsed.planId) : 0
+            // Upgrade scheduled: autoRenew higher than current. Downgrade: autoRenew lower.
             const pendingUpgrade =
-              pendingParsed &&
-              membershipPlanRank(pendingParsed.planId) > membershipPlanRank(product.planId)
+              pendingParsed && pendingRank > currentRank ? status.autoRenewProductId : null
+            const pendingDowngrade =
+              pendingParsed && pendingRank > 0 && pendingRank < currentRank
                 ? status.autoRenewProductId
                 : null
+            const pendingProductId = pendingUpgrade || pendingDowngrade
+            const pendingStatus = pendingUpgrade
+              ? 'pending_upgrade'
+              : pendingDowngrade
+                ? 'pending_downgrade'
+                : null
+
+            const serverRank = currentRank
+            const localRank = membershipPlanRank(user.membershipType)
+
+            // After a successful Advanced purchase, Server API can lag on Basic.
+            // Do not clobber the higher local plan unless Apple confirmed a deferred change.
+            if (serverRank < localRank && localStillValid && !pendingProductId) {
+              return unchanged()
+            }
 
             const applied = await applyAppleMembershipEntitlement({
               userId: session.user.id,
@@ -99,14 +116,14 @@ export async function POST(request: Request) {
               productId: status.productId,
               expiresDateMs: status.expiresDateMs ?? undefined,
               sendNotifications: false,
-              pendingProductId: pendingUpgrade,
-              subscriptionStatus: pendingUpgrade
-                ? 'pending_upgrade'
+              pendingProductId: pendingProductId,
+              subscriptionStatus: pendingStatus
+                ? pendingStatus
                 : status.autoRenewStatus === 0
                   ? 'canceled'
                   : 'active',
             })
-            if (!pendingUpgrade && status.autoRenewStatus === 0 && status.expiresDateMs) {
+            if (!pendingProductId && status.autoRenewStatus === 0 && status.expiresDateMs) {
               await markAppleMembershipCanceledUntilExpiry({
                 userId: session.user.id,
                 membershipExpiresAt: new Date(status.expiresDateMs),
@@ -116,12 +133,12 @@ export async function POST(request: Request) {
               ok: true,
               membershipType: applied.membershipType,
               membershipExpiresAt: applied.membershipExpiresAt,
-              appleSubscriptionStatus: pendingUpgrade
-                ? 'pending_upgrade'
+              appleSubscriptionStatus: pendingStatus
+                ? pendingStatus
                 : status.autoRenewStatus === 0
                   ? 'canceled'
                   : 'active',
-              applePendingProductId: pendingUpgrade,
+              applePendingProductId: pendingProductId,
               source: 'apple-server-api',
             })
           }

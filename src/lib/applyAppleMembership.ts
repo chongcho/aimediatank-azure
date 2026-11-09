@@ -23,7 +23,7 @@ export async function applyAppleMembershipEntitlement(params: {
   sendNotifications?: boolean
   /** Scheduled next product id (Apple autoRenewProductId), or null to clear */
   pendingProductId?: string | null
-  subscriptionStatus?: 'active' | 'canceled' | 'pending_upgrade'
+  subscriptionStatus?: 'active' | 'canceled' | 'pending_upgrade' | 'pending_downgrade'
 }): Promise<{ membershipType: string; membershipExpiresAt: Date }> {
   const membershipType = params.planId.toUpperCase()
   const periodEnd = params.expiresDateMs
@@ -47,9 +47,7 @@ export async function applyAppleMembershipEntitlement(params: {
 
   const pendingProductId =
     params.pendingProductId === undefined ? undefined : params.pendingProductId
-  const subscriptionStatus =
-    params.subscriptionStatus ??
-    (pendingProductId ? 'pending_upgrade' : 'active')
+  const subscriptionStatus = params.subscriptionStatus ?? 'active'
 
   await prisma.user.update({
     where: { id: params.userId },

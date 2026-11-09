@@ -51,7 +51,7 @@ model User {
   appleProductId String?
   /// Scheduled next product after upgrade/downgrade (Apple autoRenewProductId); null when none.
   applePendingProductId String?
-  appleSubscriptionStatus String? // active | canceled | pending_upgrade | expired | revoked | null
+  appleSubscriptionStatus String? // active | canceled | pending_upgrade | pending_downgrade | expired | revoked | null
   freeUploadsUsed Int      @default(0)      // Track free uploads used this period
   freeUploadsResetAt DateTime?              // When to reset free upload count
   paidUploadCredits Int     @default(0)      // Paid upload credits from Stripe payments

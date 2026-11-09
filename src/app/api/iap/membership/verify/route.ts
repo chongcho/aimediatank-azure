@@ -105,6 +105,45 @@ export async function POST(request: Request) {
       })
     }
 
+    // Apple always applies downgrades at the next renewal — keep current plan, mark pending.
+    const deferredDowngrade =
+      !asCurrentEntitlement && priorStillValid && priorRank > 0 && buyRank < priorRank
+
+    if (deferredDowngrade) {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: {
+          membershipType: String(prior!.membershipType).toUpperCase(),
+          membershipExpiresAt: prior!.membershipExpiresAt,
+          appleOriginalTransactionId: txn.originalTransactionId,
+          appleProductId: prior?.appleProductId ?? undefined,
+          applePendingProductId: txn.productId,
+          appleSubscriptionStatus: 'pending_downgrade',
+          policyAgreedAt: new Date(),
+        },
+      })
+      if (!existing) {
+        await prisma.appleIapTransaction.create({
+          data: {
+            transactionId: txn.transactionId,
+            originalTransactionId: txn.originalTransactionId,
+            productId: txn.productId,
+            userId: session.user.id,
+            kind: 'membership',
+            environment: txn.environment ?? null,
+          },
+        })
+      }
+      return NextResponse.json({
+        ok: true,
+        duplicate: Boolean(existing),
+        membershipType: String(prior!.membershipType).toUpperCase(),
+        membershipExpiresAt: prior!.membershipExpiresAt,
+        appleSubscriptionStatus: 'pending_downgrade',
+        applePendingProductId: txn.productId,
+      })
+    }
+
     if (existing) {
       if (asCurrentEntitlement || buyRank >= priorRank) {
         const applied = await applyAppleMembershipEntitlement({

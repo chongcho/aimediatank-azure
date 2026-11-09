@@ -113,6 +113,9 @@ const PRICING_STRINGS = [
   'Upgrades to {plan} on {date}',
   'Upgrade scheduled',
   'Apple kept your current plan active. Your upgrade starts on the next renewal date.',
+  'Changes to {plan} on {date}',
+  'Downgrade scheduled',
+  'Your current plan stays active until the end of this billing period. The lower plan starts on the next renewal.',
 ] as const
 
 const S = {
@@ -210,6 +213,9 @@ const S = {
   upgradesToOn: 91,
   upgradeScheduledTitle: 92,
   upgradeScheduledBody: 93,
+  changesToOn: 94,
+  downgradeScheduledTitle: 95,
+  downgradeScheduledBody: 96,
 } as const
 
 function fillPricingTemplate(template: string, vars: Record<string, string | number>): string {
@@ -426,15 +432,35 @@ function PricingPageContent() {
       if (!isNativeIosApp() || cancelled) return
       try {
         const synced = await syncAppleMembership({ noActiveEntitlements: false })
-        if (cancelled) return
-        // Never let a background sync flip a just-shown upgrade banner to Viewer without
-        // an explicit Restore / Manage action. Only apply non-VIEWER refreshes here.
-        if (synced?.membershipType && synced.membershipType !== 'VIEWER') {
-          applyMembershipSync(synced)
-        } else if (synced?.membershipType === 'VIEWER') {
-          // Re-read profile; sync may have cleared an actually expired plan.
-          await fetchMembership()
+        if (cancelled || !synced?.membershipType) return
+        const syncType = String(synced.membershipType).toUpperCase()
+        const planOrder = ['VIEWER', 'BASIC', 'ADVANCED', 'PREMIUM']
+        // Background sync must not downgrade after a just-completed upgrade (Server API lag).
+        setCurrentMembership((prev) => {
+          const prevRank = planOrder.indexOf(prev)
+          const nextRank = planOrder.indexOf(syncType)
+          if (
+            nextRank >= 0 &&
+            prevRank >= 0 &&
+            nextRank < prevRank &&
+            synced.appleSubscriptionStatus !== 'pending_upgrade'
+          ) {
+            return prev
+          }
+          return syncType
+        })
+        if (synced.membershipExpiresAt !== undefined) {
+          setMembershipExpiresAt(
+            synced.membershipExpiresAt ? String(synced.membershipExpiresAt) : null
+          )
         }
+        if (synced.appleSubscriptionStatus !== undefined) {
+          setAppleSubscriptionStatus(synced.appleSubscriptionStatus)
+        }
+        if (synced.applePendingProductId !== undefined) {
+          setApplePendingProductId(synced.applePendingProductId)
+        }
+        if (syncType === 'VIEWER') await fetchMembership()
       } catch (error) {
         console.error('Apple membership sync on load failed:', error)
       }
@@ -548,31 +574,44 @@ function PricingPageContent() {
           billingPeriod,
           userId,
         })
-        // Use reconciled membership (may still be Basic if Apple scheduled Advanced for next period).
-        if (purchased.membershipType) {
-          setCurrentMembership(String(purchased.membershipType).toUpperCase())
-        }
+        const resolvedType = String(
+          purchased.membershipType || selectedPlan.id
+        ).toUpperCase()
+        setCurrentMembership(resolvedType)
         if (purchased.membershipExpiresAt) {
           setMembershipExpiresAt(String(purchased.membershipExpiresAt))
         }
         setAppleSubscriptionStatus(purchased.appleSubscriptionStatus ?? 'active')
         setApplePendingProductId(purchased.applePendingProductId ?? null)
-        if (purchased.upgradeScheduled) {
-          // Don't show "Welcome to Advanced" while Apple still has Basic active.
+
+        const matchesSelected =
+          resolvedType === selectedPlan.id.toUpperCase() &&
+          !purchased.upgradeScheduled &&
+          !purchased.downgradeScheduled
+        if (purchased.downgradeScheduled) {
           setPurchasedPlanId(null)
           setShowSuccessMessage(false)
-          alert(
-            `${tr[S.upgradeScheduledTitle]}\n\n${tr[S.upgradeScheduledBody]}`
-          )
+          alert(`${tr[S.downgradeScheduledTitle]}\n\n${tr[S.downgradeScheduledBody]}`)
+        } else if (purchased.upgradeScheduled || !matchesSelected) {
+          setPurchasedPlanId(null)
+          setShowSuccessMessage(false)
+          if (purchased.upgradeScheduled) {
+            alert(`${tr[S.upgradeScheduledTitle]}\n\n${tr[S.upgradeScheduledBody]}`)
+          }
         } else {
           setPurchasedPlanId(selectedPlan.id)
           setShowSuccessMessage(true)
         }
         await updateSession()
+        // Re-read profile, then re-assert purchase result so a racing session sync
+        // cannot leave Welcome Advanced + Current Plan Basic.
         await fetchMembership()
-        if (purchased.membershipType) {
-          setCurrentMembership(String(purchased.membershipType).toUpperCase())
+        setCurrentMembership(resolvedType)
+        if (purchased.membershipExpiresAt) {
+          setMembershipExpiresAt(String(purchased.membershipExpiresAt))
         }
+        setAppleSubscriptionStatus(purchased.appleSubscriptionStatus ?? 'active')
+        setApplePendingProductId(purchased.applePendingProductId ?? null)
         return
       }
 
@@ -726,9 +765,16 @@ function PricingPageContent() {
       hour: 'numeric',
       minute: '2-digit',
     })
+    if (appleSubscriptionStatus === 'pending_downgrade' && pendingPlanLabel) {
+      return fillPricingTemplate(tr[S.changesToOn], {
+        plan: pendingPlanLabel,
+        date: dateLabel,
+      })
+    }
     if (
       (appleSubscriptionStatus === 'pending_upgrade' || pendingPlanLabel) &&
-      pendingPlanLabel
+      pendingPlanLabel &&
+      appleSubscriptionStatus !== 'pending_downgrade'
     ) {
       return fillPricingTemplate(tr[S.upgradesToOn], {
         plan: pendingPlanLabel,

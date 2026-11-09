@@ -81,6 +81,8 @@ export async function purchaseAppleMembership(params: {
   applePendingProductId?: string | null
   /** True when Apple kept the old plan active and scheduled this SKU for the next period. */
   upgradeScheduled?: boolean
+  /** True when a downgrade was purchased but takes effect at the next renewal. */
+  downgradeScheduled?: boolean
 }> {
   const plugin = getPlugin()
   if (!plugin) {
@@ -106,16 +108,15 @@ export async function purchaseAppleMembership(params: {
     throw new Error(typeof data.error === 'string' ? data.error : 'Membership verify failed')
   }
 
-  // Quiet server sync — may mark pending_upgrade when Apple deferred the change.
-  // Never let a lagged sync downgrade a just-verified higher purchase unless Apple
-  // explicitly reports pending_upgrade (current SKU still lower, next SKU higher).
+  // Quiet server sync — may mark pending_upgrade / pending_downgrade when Apple deferred.
   try {
     const synced = await syncAppleMembership({ noActiveEntitlements: false })
     if (synced?.membershipType) {
       const verifyRank = membershipPlanRank(data.membershipType)
       const syncRank = membershipPlanRank(synced.membershipType)
-      const scheduled = synced.appleSubscriptionStatus === 'pending_upgrade'
-      if (scheduled || syncRank >= verifyRank) {
+      const upgradeScheduled = synced.appleSubscriptionStatus === 'pending_upgrade'
+      const downgradeScheduled = synced.appleSubscriptionStatus === 'pending_downgrade'
+      if (upgradeScheduled || downgradeScheduled || syncRank >= verifyRank) {
         return {
           membershipType: synced.membershipType,
           membershipExpiresAt: synced.membershipExpiresAt
@@ -123,7 +124,8 @@ export async function purchaseAppleMembership(params: {
             : data.membershipExpiresAt,
           appleSubscriptionStatus: synced.appleSubscriptionStatus,
           applePendingProductId: synced.applePendingProductId,
-          upgradeScheduled: scheduled,
+          upgradeScheduled,
+          downgradeScheduled,
         }
       }
     }
@@ -136,7 +138,8 @@ export async function purchaseAppleMembership(params: {
     membershipExpiresAt: data.membershipExpiresAt,
     appleSubscriptionStatus: data.appleSubscriptionStatus ?? 'active',
     applePendingProductId: data.applePendingProductId ?? null,
-    upgradeScheduled: false,
+    upgradeScheduled: data.appleSubscriptionStatus === 'pending_upgrade',
+    downgradeScheduled: data.appleSubscriptionStatus === 'pending_downgrade',
   }
 }
 
