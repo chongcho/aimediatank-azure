@@ -144,15 +144,19 @@ public class AppleIAPPlugin: CAPPlugin, CAPBridgedPlugin, SKPaymentTransactionOb
 
     @objc func restore(_ call: CAPPluginCall) {
         call.keepAlive = true
+        let skipSync = call.getBool("skipSync") ?? false
         Task { @MainActor in
             defer { call.keepAlive = false }
             // AppStore.sync() can fail in sandbox with "Unable to Complete Request"
             // (cancelled Apple ID sheet, no sandbox account). Still read local
             // entitlements so a completed Premium upgrade can be verified.
-            do {
-                try await AppStore.sync()
-            } catch {
-                print("[AppleIAP] AppStore.sync failed during restore: \(error.localizedDescription)")
+            // After manageSubscriptions, skip sync to avoid an extra Apple ID password prompt.
+            if !skipSync {
+                do {
+                    try await AppStore.sync()
+                } catch {
+                    print("[AppleIAP] AppStore.sync failed during restore: \(error.localizedDescription)")
+                }
             }
             var items: [[String: Any]] = []
             var seen = Set<String>()

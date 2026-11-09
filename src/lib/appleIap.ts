@@ -22,7 +22,7 @@ type AppleIAPPlugin = {
     productId: string
     appAccountToken?: string
   }): Promise<{ signedTransaction: string; transactionId: string; productId: string }>
-  restore(): Promise<{
+  restore(options?: { skipSync?: boolean }): Promise<{
     transactions: Array<{ signedTransaction: string; transactionId: string; productId: string }>
   }>
   manageSubscriptions(): Promise<{ ok?: boolean }>
@@ -153,10 +153,16 @@ export async function purchaseAppleMediaUnlock(params: {
   }
 }
 
-export async function restoreAppleMemberships(): Promise<number> {
+export async function restoreAppleMemberships(options?: {
+  /** Skip AppStore.sync() — prefer after manageSubscriptions to avoid extra Apple ID prompts. */
+  skipSync?: boolean
+}): Promise<number> {
   const plugin = getPlugin()
   if (!plugin) return 0
-  const { transactions } = await withTimeout(plugin.restore(), PLUGIN_TIMEOUT_MS)
+  const { transactions } = await withTimeout(
+    plugin.restore(options?.skipSync ? { skipSync: true } : undefined),
+    PLUGIN_TIMEOUT_MS
+  )
   // Prefer the highest plan. Verifying Basic after Advanced would flip Current Plan back down.
   let best: { signedTransaction: string; rank: number } | null = null
   for (const txn of transactions) {
@@ -175,6 +181,42 @@ export async function restoreAppleMemberships(): Promise<number> {
     body: JSON.stringify({ signedTransaction: best.signedTransaction }),
   })
   return res.ok ? 1 : 0
+}
+
+export type AppleMembershipSyncResult = {
+  membershipType: string
+  membershipExpiresAt?: string | null
+  appleSubscriptionStatus?: string | null
+}
+
+/** Sync server membership after restore/manage — downgrades when Apple entitlements are gone. */
+export async function syncAppleMembership(params?: {
+  noActiveEntitlements?: boolean
+}): Promise<AppleMembershipSyncResult | null> {
+  const res = await nativeFetch('/api/iap/membership/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      noActiveEntitlements: params?.noActiveEntitlements === true,
+    }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(typeof data.error === 'string' ? data.error : 'Membership sync failed')
+  }
+  return {
+    membershipType: String(data.membershipType || 'VIEWER'),
+    membershipExpiresAt: data.membershipExpiresAt ?? null,
+    appleSubscriptionStatus: data.appleSubscriptionStatus ?? null,
+  }
+}
+
+/**
+ * After Apple subscription management: restore without forcing AppStore.sync, then sync server.
+ */
+export async function refreshAppleMembershipAfterManage(): Promise<AppleMembershipSyncResult | null> {
+  const restored = await restoreAppleMemberships({ skipSync: true })
+  return syncAppleMembership({ noActiveEntitlements: restored === 0 })
 }
 
 /** Opens Apple's in-app sheet to cancel or change the App Store subscription. */

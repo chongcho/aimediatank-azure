@@ -4,7 +4,10 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { membershipPlanRank, parseMembershipProductId } from '@/lib/appleIapCatalog'
 import { verifyAppleTransactionJws } from '@/lib/appleIapVerify'
-import { applyAppleMembershipEntitlement } from '@/lib/applyAppleMembership'
+import {
+  applyAppleMembershipEntitlement,
+  clearAppleMembershipToViewer,
+} from '@/lib/applyAppleMembership'
 import { isNativeIosClientFromRequest } from '@/lib/iosAppStoreCompliance'
 
 export const dynamic = 'force-dynamic'
@@ -37,6 +40,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unknown membership product' }, { status: 400 })
     }
 
+    // Expired receipt must not keep / re-apply a paid plan.
+    if (typeof txn.expiresDate === 'number' && txn.expiresDate < Date.now()) {
+      const cleared = await clearAppleMembershipToViewer({
+        userId: session.user.id,
+        appleSubscriptionStatus: 'expired',
+        sendNotifications: false,
+      })
+      return NextResponse.json({ ok: true, expired: true, ...cleared })
+    }
+
     const existing = await prisma.appleIapTransaction.findUnique({
       where: { transactionId: txn.transactionId },
     })
@@ -61,6 +74,30 @@ export async function POST(request: Request) {
           duplicate: true,
           membershipType: upgraded.membershipType,
           membershipExpiresAt: upgraded.membershipExpiresAt,
+        })
+      }
+      // Refresh expiry on duplicate so Current Plan stays accurate after renewals.
+      if (
+        typeof txn.expiresDate === 'number' &&
+        (!user?.membershipExpiresAt ||
+          user.membershipExpiresAt.getTime() !== txn.expiresDate ||
+          membershipPlanRank(product.planId) === membershipPlanRank(user?.membershipType))
+      ) {
+        const refreshed = await applyAppleMembershipEntitlement({
+          userId: session.user.id,
+          planId: product.planId,
+          billingPeriod: product.billingPeriod,
+          originalTransactionId: txn.originalTransactionId,
+          productId: txn.productId,
+          expiresDateMs: txn.expiresDate,
+          sendNotifications: false,
+        })
+        return NextResponse.json({
+          ok: true,
+          duplicate: true,
+          refreshed: true,
+          membershipType: refreshed.membershipType,
+          membershipExpiresAt: refreshed.membershipExpiresAt,
         })
       }
       return NextResponse.json({

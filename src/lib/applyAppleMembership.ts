@@ -76,3 +76,55 @@ export async function applyAppleMembershipEntitlement(params: {
 
   return { membershipType, membershipExpiresAt: periodEnd }
 }
+
+/** Downgrade Apple (or expired) paid membership to Viewer. */
+export async function clearAppleMembershipToViewer(params: {
+  userId: string
+  appleSubscriptionStatus?: 'expired' | 'canceled' | 'revoked'
+  sendNotifications?: boolean
+}): Promise<{ membershipType: 'VIEWER'; membershipExpiresAt: null }> {
+  const status = params.appleSubscriptionStatus ?? 'expired'
+  await prisma.user.update({
+    where: { id: params.userId },
+    data: {
+      membershipType: 'VIEWER',
+      membershipExpiresAt: null,
+      role: 'VIEWER',
+      appleSubscriptionStatus: status,
+      // Keep appleOriginalTransactionId / appleProductId for support & re-subscribe mapping.
+    },
+  })
+
+  if (params.sendNotifications !== false) {
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: params.userId,
+          type: 'system',
+          title: 'Subscription Ended',
+          message:
+            'Your Apple membership has ended. You are now on the Viewer Plan with free monthly uploads.',
+          link: '/pricing',
+        },
+      })
+    } catch (err) {
+      console.error('[apple-iap] downgrade notification failed', err)
+    }
+  }
+
+  return { membershipType: 'VIEWER', membershipExpiresAt: null }
+}
+
+/** Mark auto-renew off while access continues until membershipExpiresAt. */
+export async function markAppleMembershipCanceledUntilExpiry(params: {
+  userId: string
+  membershipExpiresAt: Date
+}): Promise<void> {
+  await prisma.user.update({
+    where: { id: params.userId },
+    data: {
+      appleSubscriptionStatus: 'canceled',
+      membershipExpiresAt: params.membershipExpiresAt,
+    },
+  })
+}

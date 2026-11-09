@@ -12,7 +12,9 @@ import {
 import {
   manageAppleSubscriptions,
   purchaseAppleMembership,
+  refreshAppleMembershipAfterManage,
   restoreAppleMemberships,
+  syncAppleMembership,
 } from '@/lib/appleIap'
 import type { AppleMembershipPlanId } from '@/lib/appleIapCatalog'
 
@@ -105,6 +107,8 @@ const PRICING_STRINGS = [
   'Your existing uploads stay on AiMediaTank. New uploads follow the Viewer free-upload limit after the period ends.',
   'Refunds for the current period are handled by Apple, not AiMediaTank.',
   'Continue to Apple',
+  'Access until {date}',
+  'Canceled — access until {date}',
 ] as const
 
 const S = {
@@ -196,6 +200,8 @@ const S = {
   appleCancelUploads: 85,
   appleCancelRefunds: 86,
   appleCancelContinue: 87,
+  accessUntil: 88,
+  canceledAccessUntil: 89,
 } as const
 
 function fillPricingTemplate(template: string, vars: Record<string, string | number>): string {
@@ -310,6 +316,8 @@ function PricingPageContent() {
   const tr = useLanguageModeList(PRICING_STRINGS)
   const [loading, setLoading] = useState<string | null>(null)
   const [currentMembership, setCurrentMembership] = useState('VIEWER')
+  const [membershipExpiresAt, setMembershipExpiresAt] = useState<string | null>(null)
+  const [appleSubscriptionStatus, setAppleSubscriptionStatus] = useState<string | null>(null)
   const [livePlans, setLivePlans] = useState(plans)
   const [cancelLoading, setCancelLoading] = useState(false)
   const [showManageModal, setShowManageModal] = useState(false)
@@ -400,8 +408,25 @@ function PricingPageContent() {
   }, [searchParams])
 
   useEffect(() => {
-    if (session?.user) {
-      fetchMembership()
+    if (!session?.user) return
+    let cancelled = false
+    ;(async () => {
+      await fetchMembership()
+      // On iOS, honor Apple expiry even if the user never taps Restore.
+      if (!isNativeIosApp() || cancelled) return
+      try {
+        const synced = await syncAppleMembership({ noActiveEntitlements: false })
+        if (cancelled) return
+        applyMembershipSync(synced)
+        if (synced?.membershipType === 'VIEWER') {
+          await fetchMembership()
+        }
+      } catch (error) {
+        console.error('Apple membership sync on load failed:', error)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
   }, [session])
 
@@ -410,9 +435,21 @@ function PricingPageContent() {
       const res = await fetch('/api/user/profile')
       const data = await res.json()
       if (data.user?.membershipType) {
-        setCurrentMembership(data.user.membershipType)
+        setCurrentMembership(String(data.user.membershipType).toUpperCase())
       }
-      
+      setMembershipExpiresAt(
+        typeof data.user?.membershipExpiresAt === 'string'
+          ? data.user.membershipExpiresAt
+          : data.user?.membershipExpiresAt
+            ? new Date(data.user.membershipExpiresAt).toISOString()
+            : null
+      )
+      setAppleSubscriptionStatus(
+        typeof data.user?.appleSubscriptionStatus === 'string'
+          ? data.user.appleSubscriptionStatus
+          : null
+      )
+
       // Also fetch upload status
       const uploadRes = await fetch('/api/upload/status')
       if (uploadRes.ok) {
@@ -430,6 +467,29 @@ function PricingPageContent() {
       }
     } catch (error) {
       console.error('Error fetching membership:', error)
+    }
+  }
+
+  const applyMembershipSync = (synced: {
+    membershipType?: string
+    membershipExpiresAt?: string | null
+    appleSubscriptionStatus?: string | null
+  } | null) => {
+    if (!synced) return
+    if (synced.membershipType) {
+      setCurrentMembership(String(synced.membershipType).toUpperCase())
+    }
+    if (synced.membershipExpiresAt !== undefined) {
+      setMembershipExpiresAt(
+        synced.membershipExpiresAt
+          ? typeof synced.membershipExpiresAt === 'string'
+            ? synced.membershipExpiresAt
+            : new Date(synced.membershipExpiresAt).toISOString()
+          : null
+      )
+    }
+    if (synced.appleSubscriptionStatus !== undefined) {
+      setAppleSubscriptionStatus(synced.appleSubscriptionStatus)
     }
   }
 
@@ -514,9 +574,15 @@ function PricingPageContent() {
     setManageLoading('restore')
     try {
       const n = await restoreAppleMemberships()
+      const synced = await syncAppleMembership({ noActiveEntitlements: n === 0 })
+      applyMembershipSync(synced)
       await updateSession()
       await fetchMembership()
-      alert(n > 0 ? 'Purchases restored.' : 'No active Apple subscriptions found for this Apple ID.')
+      alert(
+        (synced?.membershipType && synced.membershipType !== 'VIEWER') || n > 0
+          ? 'Purchases restored.'
+          : 'No active Apple subscriptions found for this Apple ID.'
+      )
     } catch (error) {
       console.error(error)
       alert(error instanceof Error ? error.message : 'Restore failed')
@@ -558,7 +624,8 @@ function PricingPageContent() {
     try {
       setShowAppleCancelModal(false)
       await manageAppleSubscriptions()
-      await restoreAppleMemberships()
+      const synced = await refreshAppleMembershipAfterManage()
+      applyMembershipSync(synced)
       await updateSession()
       await fetchMembership()
     } catch (error) {
@@ -602,6 +669,16 @@ function PricingPageContent() {
   }
 
   const hasPaidSubscription = currentMembership !== 'VIEWER'
+  const membershipAccessLabel = (() => {
+    if (!hasPaidSubscription || !membershipExpiresAt) return null
+    const dateLabel = new Date(membershipExpiresAt).toLocaleDateString()
+    if (appleSubscriptionStatus === 'canceled') {
+      return fillPricingTemplate(tr[S.canceledAccessUntil], { date: dateLabel })
+    }
+    return fillPricingTemplate(tr[S.accessUntil], { date: dateLabel })
+  })()
+  const manageSubscriptionLabel =
+    appleSubscriptionStatus === 'canceled' ? tr[S.manageSubscription] : tr[S.cancelSubscription]
 
   const purchasedPlan = purchasedPlanId ? livePlans.find(p => p.id === purchasedPlanId) : null
 
@@ -672,11 +749,16 @@ function PricingPageContent() {
         <div className="mb-8 p-4 bg-tank-accent/10 border border-tank-accent/30 rounded-xl">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-            <p className="text-tank-accent">
+            <div className="text-tank-accent text-center sm:text-left">
               {/* Keep PLAN in English — MT often mistranslates “Plan” (e.g. 계획) */}
-              {tr[S.yourCurrentPlan]} PLAN:{' '}
-              <span className="font-bold">{currentMembership}</span>
-            </p>
+              <p>
+                {tr[S.yourCurrentPlan]} PLAN:{' '}
+                <span className="font-bold">{currentMembership}</span>
+              </p>
+              {membershipAccessLabel ? (
+                <p className="text-sm text-gray-300 mt-1">{membershipAccessLabel}</p>
+              ) : null}
+            </div>
               {uploadStatus ? (
                 <div className="flex items-center gap-2">
                   {uploadStatus.uploadsAvailable === 'Unlimited' ||
@@ -750,7 +832,7 @@ function PricingPageContent() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    {tr[S.cancelSubscription]}
+                    {manageSubscriptionLabel}
                   </>
                 )}
               </button>

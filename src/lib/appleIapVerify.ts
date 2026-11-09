@@ -145,3 +145,116 @@ export async function verifyAppleTransactionJws(jws: string): Promise<AppleTrans
   }
   return verified
 }
+
+/** App Store Server API subscription status codes. */
+export type AppleSubscriptionStatusCode = 1 | 2 | 3 | 4 | 5
+
+export type AppleSubscriptionStatusSummary = {
+  status: AppleSubscriptionStatusCode | null
+  autoRenewStatus: number | null
+  productId: string | null
+  expiresDateMs: number | null
+  originalTransactionId: string
+  environment: 'Production' | 'Sandbox'
+  signedTransactionInfo: string | null
+}
+
+function decodeRenewalInfo(jws: string | undefined | null): {
+  autoRenewStatus?: number
+  productId?: string
+} {
+  if (!jws) return {}
+  try {
+    const parts = jws.trim().split('.')
+    if (parts.length !== 3) return {}
+    const raw = JSON.parse(base64UrlToBuffer(parts[1]).toString('utf8')) as Record<string, unknown>
+    return {
+      autoRenewStatus: typeof raw.autoRenewStatus === 'number' ? raw.autoRenewStatus : undefined,
+      productId: typeof raw.productId === 'string' ? raw.productId : undefined,
+    }
+  } catch {
+    return {}
+  }
+}
+
+async function fetchSubscriptionStatusesOnce(
+  originalTransactionId: string,
+  environment: 'Production' | 'Sandbox'
+): Promise<AppleSubscriptionStatusSummary | null> {
+  const creds = appleApiCredentials()
+  if (!creds) return null
+  const host =
+    environment === 'Sandbox'
+      ? 'https://api.storekit-sandbox.itunes.apple.com'
+      : 'https://api.storekit.itunes.apple.com'
+  const token = await createAppStoreServerToken(creds)
+  const res = await fetch(
+    `${host}/inApps/v1/subscriptions/${encodeURIComponent(originalTransactionId)}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error(
+      '[apple-iap] getSubscriptionStatuses failed',
+      environment,
+      res.status,
+      text.slice(0, 300)
+    )
+    return null
+  }
+  const body = (await res.json()) as {
+    data?: Array<{
+      lastTransactions?: Array<{
+        originalTransactionId?: string
+        status?: number
+        signedTransactionInfo?: string
+        signedRenewalInfo?: string
+      }>
+    }>
+  }
+  const last = body.data?.[0]?.lastTransactions?.[0]
+  if (!last) {
+    return {
+      status: null,
+      autoRenewStatus: null,
+      productId: null,
+      expiresDateMs: null,
+      originalTransactionId,
+      environment,
+      signedTransactionInfo: null,
+    }
+  }
+  const txn = last.signedTransactionInfo
+    ? decodeAppleTransactionJws(last.signedTransactionInfo)
+    : null
+  const renewal = decodeRenewalInfo(last.signedRenewalInfo)
+  const status =
+    typeof last.status === 'number' && last.status >= 1 && last.status <= 5
+      ? (last.status as AppleSubscriptionStatusCode)
+      : null
+  return {
+    status,
+    autoRenewStatus:
+      typeof renewal.autoRenewStatus === 'number' ? renewal.autoRenewStatus : null,
+    productId: txn?.productId ?? renewal.productId ?? null,
+    expiresDateMs: txn?.expiresDate ?? null,
+    originalTransactionId,
+    environment,
+    signedTransactionInfo: last.signedTransactionInfo ?? null,
+  }
+}
+
+/**
+ * Load subscription status for an originalTransactionId (Production then Sandbox).
+ * Returns null when App Store Server API credentials are not configured.
+ */
+export async function fetchAppleSubscriptionStatuses(
+  originalTransactionId: string
+): Promise<AppleSubscriptionStatusSummary | null> {
+  const creds = appleApiCredentials()
+  if (!creds) return null
+  return (
+    (await fetchSubscriptionStatusesOnce(originalTransactionId, 'Production')) ||
+    (await fetchSubscriptionStatusesOnce(originalTransactionId, 'Sandbox'))
+  )
+}
