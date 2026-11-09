@@ -30,23 +30,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      # Use ffmpeg-static's prebuilt *static* Linux binary (downloaded on npm install).
-      # Do NOT set FFMPEG_BIN to apt's ffmpeg: that binary is dynamically linked to Ubuntu
-      # libav*.so; Azure App Service does not ship those libs → transcoding fails with exit 127.
+      # Use ffmpeg-static's prebuilt *static* Linux binary (NOT apt ffmpeg — Azure lacks libav*.so).
+      # Binary download from GitHub releases is flaky during npm postinstall, so install deps with
+      # --ignore-scripts and fetch ffmpeg via scripts/ci-npm-ci.sh (retries + mirror + cache).
+      - name: Cache ffmpeg-static binary
+        uses: actions/cache@v4
+        with:
+          path: .ci-cache
+          key: ffmpeg-static-b6.1.1-linux-x64
+
       - name: Install dependencies
-        run: |
-          for attempt in 1 2 3; do
-            if npm ci; then
-              break
-            fi
-            if [ "$attempt" = 3 ]; then
-              echo "::error::npm ci failed after 3 attempts (often ffmpeg-static binary download)"
-              exit 1
-            fi
-            echo "npm ci failed (attempt $attempt), retrying in 20s..."
-            sleep 20
-          done
-          test -x node_modules/ffmpeg-static/ffmpeg
+        run: bash scripts/ci-npm-ci.sh
 
       - name: Generate Prisma Client
         run: npx prisma generate
