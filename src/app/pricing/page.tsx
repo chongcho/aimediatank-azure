@@ -340,9 +340,7 @@ function PricingPageContent() {
   const [manageLoading, setManageLoading] = useState<string | null>(null)
   const [showBillingModal, setShowBillingModal] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<(typeof plans)[0] | null>(null)
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [policyAgreed, setPolicyAgreed] = useState(false)
-  const [purchasedPlanId, setPurchasedPlanId] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null)
   const [nativeIosApp, setNativeIosApp] = useState(() =>
     typeof window !== 'undefined' ? isNativeIosApp() : false,
@@ -393,33 +391,16 @@ function PricingPageContent() {
 
   const getPlanLabel = (plan: (typeof plans)[number]) => tr[plan.strings.name]
 
-  // Check for success parameter on mount
+  // Stripe return URL (?success=true&plan=…) — refresh membership, no welcome banner.
   useEffect(() => {
     const success = searchParams.get('success')
-    const planId = searchParams.get('plan')
-    
-    if (success === 'true' && planId) {
-      const plan = livePlans.find(p => p.id === planId)
-      if (plan) {
-        setPurchasedPlanId(planId)
-        setShowSuccessMessage(true)
-        
-        // Refresh session to get updated role
-        updateSession()
-        
-        // Refresh membership after a short delay to allow webhook to process
-        setTimeout(() => {
-          fetchMembership()
-        }, 2000)
-        
-        // Auto-hide success message after 10 seconds
-        setTimeout(() => {
-          setShowSuccessMessage(false)
-          // Clean up URL
-          router.replace('/pricing', { scroll: false })
-        }, 10000)
-      }
-    }
+    if (success !== 'true') return
+    void updateSession()
+    const t = setTimeout(() => {
+      void fetchMembership()
+      router.replace('/pricing', { scroll: false })
+    }, 2000)
+    return () => clearTimeout(t)
   }, [searchParams])
 
   useEffect(() => {
@@ -584,27 +565,14 @@ function PricingPageContent() {
         setAppleSubscriptionStatus(purchased.appleSubscriptionStatus ?? 'active')
         setApplePendingProductId(purchased.applePendingProductId ?? null)
 
-        const matchesSelected =
-          resolvedType === selectedPlan.id.toUpperCase() &&
-          !purchased.upgradeScheduled &&
-          !purchased.downgradeScheduled
         if (purchased.downgradeScheduled) {
-          setPurchasedPlanId(null)
-          setShowSuccessMessage(false)
           alert(`${tr[S.downgradeScheduledTitle]}\n\n${tr[S.downgradeScheduledBody]}`)
-        } else if (purchased.upgradeScheduled || !matchesSelected) {
-          setPurchasedPlanId(null)
-          setShowSuccessMessage(false)
-          if (purchased.upgradeScheduled) {
-            alert(`${tr[S.upgradeScheduledTitle]}\n\n${tr[S.upgradeScheduledBody]}`)
-          }
-        } else {
-          setPurchasedPlanId(selectedPlan.id)
-          setShowSuccessMessage(true)
+        } else if (purchased.upgradeScheduled) {
+          alert(`${tr[S.upgradeScheduledTitle]}\n\n${tr[S.upgradeScheduledBody]}`)
         }
         await updateSession()
         // Re-read profile, then re-assert purchase result so a racing session sync
-        // cannot leave Welcome Advanced + Current Plan Basic.
+        // cannot leave Current Plan on a stale lower tier.
         await fetchMembership()
         setCurrentMembership(resolvedType)
         if (purchased.membershipExpiresAt) {
@@ -786,49 +754,11 @@ function PricingPageContent() {
     }
     return fillPricingTemplate(tr[S.currentPeriodEnds], { date: dateLabel })
   })()
-  const showSandboxPeriodHint = (() => {
-    if (!nativeIosApp || !hasPaidSubscription || !membershipPeriodEnd) return false
-    const remainingMs = membershipPeriodEnd.getTime() - Date.now()
-    // Production month/year periods are much longer; Sandbox monthly is often minutes–hours.
-    return remainingMs > 0 && remainingMs < 2 * 24 * 60 * 60 * 1000
-  })()
   const manageSubscriptionLabel =
     appleSubscriptionStatus === 'canceled' ? tr[S.manageSubscription] : tr[S.cancelSubscription]
 
-  const purchasedPlan = purchasedPlanId ? livePlans.find(p => p.id === purchasedPlanId) : null
-
   return (
     <div className="max-w-6xl mx-auto p-0 m-0 pb-[500px]">
-      {/* Success Message Banner */}
-      {showSuccessMessage && purchasedPlan && (
-        <div className="relative mb-8 p-6 bg-gradient-to-r from-tank-accent/20 to-emerald-500/20 border border-tank-accent rounded-xl">
-          <div className="flex items-center justify-center gap-4">
-            <div className="text-4xl">🎉</div>
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-tank-accent mb-1">
-                {tr[S.welcomePrefix]} {getPlanLabel(purchasedPlan)}!
-              </h2>
-              <p className="text-gray-300">
-                {tr[S.successMessage]}
-              </p>
-            </div>
-            <div className="text-4xl">🎉</div>
-          </div>
-          <button
-            onClick={() => {
-              setShowSuccessMessage(false)
-              router.replace('/pricing', { scroll: false })
-            }}
-            className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-gray-600/80 hover:bg-gray-500/80 text-white transition-colors"
-            aria-label={tr[S.close]}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      )}
-
       <div className="flex items-center justify-center relative pt-[25px] mb-8">
         <h1 className="text-[18px] font-bold">{tr[S.chooseYourPlan]}</h1>
         <button
@@ -873,21 +803,13 @@ function PricingPageContent() {
               {membershipAccessLabel ? (
                 <p className="text-sm text-gray-300 mt-1">{membershipAccessLabel}</p>
               ) : null}
-              {showSandboxPeriodHint ? (
-                <p className="text-xs text-amber-200/90 mt-1 max-w-md">
-                  {tr[S.sandboxPeriodHint]}
-                </p>
-              ) : null}
             </div>
-              {uploadStatus ? (
+              {uploadStatus &&
+              uploadStatus.uploadsAvailable !== 'Unlimited' &&
+              uploadStatus.freeUploadsRemaining !== 'Unlimited' ? (
                 <div className="flex items-center gap-2">
-                  {uploadStatus.uploadsAvailable === 'Unlimited' ||
-                  uploadStatus.freeUploadsRemaining === 'Unlimited' ? (
-                    <span className="text-sm text-tank-accent bg-tank-gray px-3 py-1 rounded-full">
-                      ✨ {tr[S.unlimitedFreeUploads]}
-                    </span>
-                  ) : typeof uploadStatus.uploadsAvailable === 'number' &&
-                    uploadStatus.uploadsAvailable > 0 ? (
+                  {typeof uploadStatus.uploadsAvailable === 'number' &&
+                  uploadStatus.uploadsAvailable > 0 ? (
                     <span className="text-sm text-gray-300 bg-tank-gray px-3 py-1 rounded-full">
                       🎁{' '}
                       {fillPricingTemplate(
@@ -925,15 +847,14 @@ function PricingPageContent() {
                     </span>
                   )}
                 </div>
-              ) : (
+              ) : !uploadStatus && currentMembership !== 'PREMIUM' ? (
                 <span className="text-sm text-gray-300 bg-tank-gray px-3 py-1 rounded-full">
                   {(() => {
                     const p = getPlanByMembership(currentMembership, livePlans)
-                    if (p.id === 'premium') return PRICING_STRINGS[S.unlimitedFreeUploads]
                     return `${p.freeUploads} Free Uploads / month`
                   })()}
                 </span>
-              )}
+              ) : null}
             </div>
             {hasPaidSubscription && (
               <button
