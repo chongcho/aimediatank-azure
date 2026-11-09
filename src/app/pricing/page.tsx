@@ -110,6 +110,9 @@ const PRICING_STRINGS = [
   'Current period ends {date}',
   'Canceled — access until {date}',
   'TestFlight Sandbox shortens billing periods for testing; production uses the full month or year.',
+  'Upgrades to {plan} on {date}',
+  'Upgrade scheduled',
+  'Apple kept your current plan active. Your upgrade starts on the next renewal date.',
 ] as const
 
 const S = {
@@ -204,6 +207,9 @@ const S = {
   currentPeriodEnds: 88,
   canceledAccessUntil: 89,
   sandboxPeriodHint: 90,
+  upgradesToOn: 91,
+  upgradeScheduledTitle: 92,
+  upgradeScheduledBody: 93,
 } as const
 
 function fillPricingTemplate(template: string, vars: Record<string, string | number>): string {
@@ -320,6 +326,7 @@ function PricingPageContent() {
   const [currentMembership, setCurrentMembership] = useState('VIEWER')
   const [membershipExpiresAt, setMembershipExpiresAt] = useState<string | null>(null)
   const [appleSubscriptionStatus, setAppleSubscriptionStatus] = useState<string | null>(null)
+  const [applePendingProductId, setApplePendingProductId] = useState<string | null>(null)
   const [livePlans, setLivePlans] = useState(plans)
   const [cancelLoading, setCancelLoading] = useState(false)
   const [showManageModal, setShowManageModal] = useState(false)
@@ -456,6 +463,11 @@ function PricingPageContent() {
           ? data.user.appleSubscriptionStatus
           : null
       )
+      setApplePendingProductId(
+        typeof data.user?.applePendingProductId === 'string'
+          ? data.user.applePendingProductId
+          : null
+      )
 
       // Also fetch upload status
       const uploadRes = await fetch('/api/upload/status')
@@ -481,6 +493,7 @@ function PricingPageContent() {
     membershipType?: string
     membershipExpiresAt?: string | null
     appleSubscriptionStatus?: string | null
+    applePendingProductId?: string | null
   } | null) => {
     if (!synced) return
     if (synced.membershipType) {
@@ -497,6 +510,9 @@ function PricingPageContent() {
     }
     if (synced.appleSubscriptionStatus !== undefined) {
       setAppleSubscriptionStatus(synced.appleSubscriptionStatus)
+    }
+    if (synced.applePendingProductId !== undefined) {
+      setApplePendingProductId(synced.applePendingProductId)
     }
   }
 
@@ -532,21 +548,27 @@ function PricingPageContent() {
           billingPeriod,
           userId,
         })
-        // Apply the verified plan immediately. Waiting only on profile fetch can leave
-        // Current Plan on the old tier after a successful Apple upgrade.
+        // Use reconciled membership (may still be Basic if Apple scheduled Advanced for next period).
         if (purchased.membershipType) {
           setCurrentMembership(String(purchased.membershipType).toUpperCase())
-        } else {
-          setCurrentMembership(selectedPlan.id.toUpperCase())
         }
         if (purchased.membershipExpiresAt) {
           setMembershipExpiresAt(String(purchased.membershipExpiresAt))
         }
-        setAppleSubscriptionStatus('active')
-        setPurchasedPlanId(selectedPlan.id)
-        setShowSuccessMessage(true)
+        setAppleSubscriptionStatus(purchased.appleSubscriptionStatus ?? 'active')
+        setApplePendingProductId(purchased.applePendingProductId ?? null)
+        if (purchased.upgradeScheduled) {
+          // Don't show "Welcome to Advanced" while Apple still has Basic active.
+          setPurchasedPlanId(null)
+          setShowSuccessMessage(false)
+          alert(
+            `${tr[S.upgradeScheduledTitle]}\n\n${tr[S.upgradeScheduledBody]}`
+          )
+        } else {
+          setPurchasedPlanId(selectedPlan.id)
+          setShowSuccessMessage(true)
+        }
         await updateSession()
-        // Prefer the verified purchase over a racing background sync/profile read.
         await fetchMembership()
         if (purchased.membershipType) {
           setCurrentMembership(String(purchased.membershipType).toUpperCase())
@@ -685,6 +707,13 @@ function PricingPageContent() {
 
   const hasPaidSubscription = currentMembership !== 'VIEWER'
   const membershipPeriodEnd = membershipExpiresAt ? new Date(membershipExpiresAt) : null
+  const pendingPlanLabel = (() => {
+    if (!applePendingProductId) return null
+    if (applePendingProductId.includes('.premium.')) return 'Premium'
+    if (applePendingProductId.includes('.advanced.')) return 'Advanced'
+    if (applePendingProductId.includes('.basic.')) return 'Basic'
+    return null
+  })()
   const membershipAccessLabel = (() => {
     if (!hasPaidSubscription || !membershipPeriodEnd || Number.isNaN(membershipPeriodEnd.getTime())) {
       return null
@@ -697,6 +726,15 @@ function PricingPageContent() {
       hour: 'numeric',
       minute: '2-digit',
     })
+    if (
+      (appleSubscriptionStatus === 'pending_upgrade' || pendingPlanLabel) &&
+      pendingPlanLabel
+    ) {
+      return fillPricingTemplate(tr[S.upgradesToOn], {
+        plan: pendingPlanLabel,
+        date: dateLabel,
+      })
+    }
     if (appleSubscriptionStatus === 'canceled') {
       return fillPricingTemplate(tr[S.canceledAccessUntil], { date: dateLabel })
     }

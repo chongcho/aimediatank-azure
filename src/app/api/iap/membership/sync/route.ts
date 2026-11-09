@@ -41,6 +41,7 @@ export async function POST(request: Request) {
         membershipExpiresAt: true,
         appleOriginalTransactionId: true,
         appleProductId: true,
+        applePendingProductId: true,
         appleSubscriptionStatus: true,
       },
     })
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
         membershipType: user.membershipType,
         membershipExpiresAt: user.membershipExpiresAt,
         appleSubscriptionStatus: user.appleSubscriptionStatus,
+        applePendingProductId: user.applePendingProductId ?? null,
         source: 'unchanged',
       })
 
@@ -78,12 +80,17 @@ export async function POST(request: Request) {
         if (stillEntitled && status.productId) {
           const product = parseMembershipProductId(status.productId)
           if (product) {
-            const serverRank = membershipPlanRank(product.planId)
-            const localRank = membershipPlanRank(user.membershipType)
-            // After Basic→Advanced, Server API can briefly still report Basic. Keep the higher local plan.
-            if (serverRank < localRank && localStillValid) {
-              return unchanged()
-            }
+            const pendingParsed = status.autoRenewProductId
+              ? parseMembershipProductId(status.autoRenewProductId)
+              : null
+            // Apple schedules many upgrades for the next renewal: current SKU stays
+            // Basic while autoRenewProductId is already Advanced.
+            const pendingUpgrade =
+              pendingParsed &&
+              membershipPlanRank(pendingParsed.planId) > membershipPlanRank(product.planId)
+                ? status.autoRenewProductId
+                : null
+
             const applied = await applyAppleMembershipEntitlement({
               userId: session.user.id,
               planId: product.planId,
@@ -92,33 +99,47 @@ export async function POST(request: Request) {
               productId: status.productId,
               expiresDateMs: status.expiresDateMs ?? undefined,
               sendNotifications: false,
+              pendingProductId: pendingUpgrade,
+              subscriptionStatus: pendingUpgrade
+                ? 'pending_upgrade'
+                : status.autoRenewStatus === 0
+                  ? 'canceled'
+                  : 'active',
             })
-            if (status.autoRenewStatus === 0 && status.expiresDateMs) {
+            if (!pendingUpgrade && status.autoRenewStatus === 0 && status.expiresDateMs) {
               await markAppleMembershipCanceledUntilExpiry({
                 userId: session.user.id,
                 membershipExpiresAt: new Date(status.expiresDateMs),
-              })
-              return NextResponse.json({
-                ok: true,
-                membershipType: applied.membershipType,
-                membershipExpiresAt: applied.membershipExpiresAt,
-                appleSubscriptionStatus: 'canceled',
-                source: 'apple-server-api',
               })
             }
             return NextResponse.json({
               ok: true,
               membershipType: applied.membershipType,
               membershipExpiresAt: applied.membershipExpiresAt,
-              appleSubscriptionStatus: 'active',
+              appleSubscriptionStatus: pendingUpgrade
+                ? 'pending_upgrade'
+                : status.autoRenewStatus === 0
+                  ? 'canceled'
+                  : 'active',
+              applePendingProductId: pendingUpgrade,
               source: 'apple-server-api',
             })
           }
         }
 
         if (expiredOrRevoked && paid) {
-          // Do not wipe a freshly applied upgrade while Apple status still reflects the old SKU period.
-          if (localStillValid) {
+          // Keep access if our period is still valid and Apple has a pending higher plan.
+          const pendingParsed = status.autoRenewProductId
+            ? parseMembershipProductId(status.autoRenewProductId)
+            : null
+          if (
+            localStillValid &&
+            pendingParsed &&
+            membershipPlanRank(pendingParsed.planId) > membershipPlanRank(user.membershipType)
+          ) {
+            return unchanged()
+          }
+          if (localStillValid && !noActiveEntitlements) {
             return unchanged()
           }
           const cleared = await clearAppleMembershipToViewer({

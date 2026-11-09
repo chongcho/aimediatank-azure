@@ -74,7 +74,14 @@ export async function purchaseAppleMembership(params: {
   planId: AppleMembershipPlanId
   billingPeriod: AppleBillingPeriod
   userId: string
-}): Promise<{ membershipType: string; membershipExpiresAt?: string }> {
+}): Promise<{
+  membershipType: string
+  membershipExpiresAt?: string
+  appleSubscriptionStatus?: string | null
+  applePendingProductId?: string | null
+  /** True when Apple kept the old plan active and scheduled this SKU for the next period. */
+  upgradeScheduled?: boolean
+}> {
   const plugin = getPlugin()
   if (!plugin) {
     throw new Error('Apple IAP is only available in the iOS app')
@@ -98,9 +105,35 @@ export async function purchaseAppleMembership(params: {
   if (!res.ok) {
     throw new Error(typeof data.error === 'string' ? data.error : 'Membership verify failed')
   }
+
+  // Reconcile with StoreKit current entitlements + Server API (scheduled upgrades stay on Basic).
+  try {
+    await restoreAppleMemberships({ skipSync: true })
+    const synced = await syncAppleMembership({ noActiveEntitlements: false })
+    if (synced?.membershipType) {
+      return {
+        membershipType: synced.membershipType,
+        membershipExpiresAt: synced.membershipExpiresAt
+          ? String(synced.membershipExpiresAt)
+          : data.membershipExpiresAt,
+        appleSubscriptionStatus: synced.appleSubscriptionStatus,
+        applePendingProductId: (synced as { applePendingProductId?: string | null })
+          .applePendingProductId,
+        upgradeScheduled:
+          synced.appleSubscriptionStatus === 'pending_upgrade' ||
+          data.appleSubscriptionStatus === 'pending_upgrade',
+      }
+    }
+  } catch (err) {
+    console.warn('[apple-iap] post-purchase sync failed', err)
+  }
+
   return {
     membershipType: data.membershipType,
     membershipExpiresAt: data.membershipExpiresAt,
+    appleSubscriptionStatus: data.appleSubscriptionStatus,
+    applePendingProductId: data.applePendingProductId,
+    upgradeScheduled: data.appleSubscriptionStatus === 'pending_upgrade',
   }
 }
 
@@ -178,7 +211,10 @@ export async function restoreAppleMemberships(options?: {
   const res = await nativeFetch('/api/iap/membership/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ signedTransaction: best.signedTransaction }),
+    body: JSON.stringify({
+      signedTransaction: best.signedTransaction,
+      asCurrentEntitlement: true,
+    }),
   })
   return res.ok ? 1 : 0
 }
@@ -187,6 +223,7 @@ export type AppleMembershipSyncResult = {
   membershipType: string
   membershipExpiresAt?: string | null
   appleSubscriptionStatus?: string | null
+  applePendingProductId?: string | null
 }
 
 /** Sync server membership after restore/manage — downgrades when Apple entitlements are gone. */
@@ -208,6 +245,7 @@ export async function syncAppleMembership(params?: {
     membershipType: String(data.membershipType || 'VIEWER'),
     membershipExpiresAt: data.membershipExpiresAt ?? null,
     appleSubscriptionStatus: data.appleSubscriptionStatus ?? null,
+    applePendingProductId: data.applePendingProductId ?? null,
   }
 }
 

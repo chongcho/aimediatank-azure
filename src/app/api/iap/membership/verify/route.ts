@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { membershipPlanRank, parseMembershipProductId } from '@/lib/appleIapCatalog'
+import {
+  membershipPlanRank,
+  parseMembershipProductId,
+  type AppleMembershipPlanId,
+} from '@/lib/appleIapCatalog'
 import { verifyAppleTransactionJws } from '@/lib/appleIapVerify'
 import {
   applyAppleMembershipEntitlement,
@@ -13,7 +17,7 @@ import { isNativeIosClientFromRequest } from '@/lib/iosAppStoreCompliance'
 export const dynamic = 'force-dynamic'
 
 /**
- * POST { signedTransaction: string } — StoreKit 2 JWS from native iOS.
+ * POST { signedTransaction: string, asCurrentEntitlement?: boolean }
  * Applies membership entitlement for the logged-in user.
  */
 export async function POST(request: Request) {
@@ -27,9 +31,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Please log in' }, { status: 401 })
     }
 
-    const body = (await request.json()) as { signedTransaction?: unknown }
+    const body = (await request.json()) as {
+      signedTransaction?: unknown
+      /** When true, this JWS is from Transaction.currentEntitlements — apply even if lower tier. */
+      asCurrentEntitlement?: unknown
+    }
     const signedTransaction =
       typeof body.signedTransaction === 'string' ? body.signedTransaction.trim() : ''
+    const asCurrentEntitlement = body.asCurrentEntitlement === true
     if (!signedTransaction) {
       return NextResponse.json({ error: 'Missing signedTransaction' }, { status: 400 })
     }
@@ -40,47 +49,58 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unknown membership product' }, { status: 400 })
     }
 
-    // Stale/expired JWS must not re-apply that SKU — but must not wipe a newer paid plan
-    // (common when Restore returns an old Basic receipt after an Advanced upgrade).
+    const prior = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        membershipType: true,
+        membershipExpiresAt: true,
+        appleProductId: true,
+      },
+    })
+    const priorRank = membershipPlanRank(prior?.membershipType)
+    const buyRank = membershipPlanRank(product.planId)
+    const priorStillValid =
+      Boolean(prior?.membershipExpiresAt) && prior!.membershipExpiresAt!.getTime() > Date.now()
+
+    // Stale/expired JWS must not wipe a still-valid equal/higher plan.
     if (typeof txn.expiresDate === 'number' && txn.expiresDate < Date.now()) {
-      const current = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { membershipType: true, membershipExpiresAt: true },
-      })
-      const localStillValid =
-        Boolean(current?.membershipExpiresAt) &&
-        current!.membershipExpiresAt!.getTime() > Date.now()
-      const txnRank = membershipPlanRank(product.planId)
-      const localRank = membershipPlanRank(current?.membershipType)
-      // Keep a still-valid equal/higher plan (e.g. Advanced) when an old Basic JWS is expired.
-      if (localStillValid && localRank >= txnRank) {
+      if (priorStillValid && priorRank >= buyRank) {
         return NextResponse.json({
           ok: true,
           expired: true,
           ignored: true,
-          membershipType: current?.membershipType,
-          membershipExpiresAt: current?.membershipExpiresAt,
+          membershipType: prior?.membershipType,
+          membershipExpiresAt: prior?.membershipExpiresAt,
         })
       }
-      const cleared = await clearAppleMembershipToViewer({
-        userId: session.user.id,
-        appleSubscriptionStatus: 'expired',
-        sendNotifications: false,
+      if (asCurrentEntitlement || !priorStillValid) {
+        const cleared = await clearAppleMembershipToViewer({
+          userId: session.user.id,
+          appleSubscriptionStatus: 'expired',
+          sendNotifications: false,
+        })
+        return NextResponse.json({ ok: true, expired: true, ...cleared })
+      }
+      return NextResponse.json({
+        ok: true,
+        expired: true,
+        ignored: true,
+        membershipType: prior?.membershipType,
+        membershipExpiresAt: prior?.membershipExpiresAt,
       })
-      return NextResponse.json({ ok: true, expired: true, ...cleared })
     }
 
     const existing = await prisma.appleIapTransaction.findUnique({
       where: { transactionId: txn.transactionId },
     })
-    if (existing) {
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { membershipType: true, membershipExpiresAt: true },
-      })
-      // Re-apply when this receipt is a higher plan than the profile (missed upgrade refresh).
-      if (membershipPlanRank(product.planId) > membershipPlanRank(user?.membershipType)) {
-        const upgraded = await applyAppleMembershipEntitlement({
+
+    // Apple often schedules upgrades for the next renewal: keep Basic now, pending Advanced.
+    const deferredUpgrade =
+      !asCurrentEntitlement && priorStillValid && priorRank > 0 && buyRank > priorRank
+
+    const applyCurrent = async () => {
+      if (asCurrentEntitlement) {
+        return applyAppleMembershipEntitlement({
           userId: session.user.id,
           planId: product.planId,
           billingPeriod: product.billingPeriod,
@@ -88,54 +108,58 @@ export async function POST(request: Request) {
           productId: txn.productId,
           expiresDateMs: txn.expiresDate,
           sendNotifications: false,
-        })
-        return NextResponse.json({
-          ok: true,
-          duplicate: true,
-          membershipType: upgraded.membershipType,
-          membershipExpiresAt: upgraded.membershipExpiresAt,
+          pendingProductId: null,
+          subscriptionStatus: 'active',
         })
       }
-      // Refresh expiry on duplicate so Current Plan stays accurate after renewals.
-      if (
-        typeof txn.expiresDate === 'number' &&
-        (!user?.membershipExpiresAt ||
-          user.membershipExpiresAt.getTime() !== txn.expiresDate ||
-          membershipPlanRank(product.planId) === membershipPlanRank(user?.membershipType))
-      ) {
-        const refreshed = await applyAppleMembershipEntitlement({
-          userId: session.user.id,
-          planId: product.planId,
-          billingPeriod: product.billingPeriod,
-          originalTransactionId: txn.originalTransactionId,
-          productId: txn.productId,
-          expiresDateMs: txn.expiresDate,
-          sendNotifications: false,
+      if (deferredUpgrade) {
+        const currentPlanId = String(prior!.membershipType).toLowerCase() as AppleMembershipPlanId
+        await prisma.user.update({
+          where: { id: session.user.id },
+          data: {
+            membershipType: String(prior!.membershipType).toUpperCase(),
+            membershipExpiresAt: prior!.membershipExpiresAt,
+            appleOriginalTransactionId: txn.originalTransactionId,
+            applePendingProductId: txn.productId,
+            appleSubscriptionStatus: 'pending_upgrade',
+            // Do not replace current SKU with the future upgrade SKU.
+            appleProductId: prior?.appleProductId ?? undefined,
+          },
         })
-        return NextResponse.json({
-          ok: true,
-          duplicate: true,
-          refreshed: true,
-          membershipType: refreshed.membershipType,
-          membershipExpiresAt: refreshed.membershipExpiresAt,
-        })
+        return {
+          membershipType: String(prior!.membershipType).toUpperCase(),
+          membershipExpiresAt: prior!.membershipExpiresAt!,
+          appleSubscriptionStatus: 'pending_upgrade' as const,
+          applePendingProductId: txn.productId,
+        }
+      }
+      return applyAppleMembershipEntitlement({
+        userId: session.user.id,
+        planId: product.planId,
+        billingPeriod: product.billingPeriod,
+        originalTransactionId: txn.originalTransactionId,
+        productId: txn.productId,
+        expiresDateMs: txn.expiresDate,
+        sendNotifications: !existing,
+        pendingProductId: null,
+        subscriptionStatus: 'active',
+      })
+    }
+
+    if (existing) {
+      if (asCurrentEntitlement || deferredUpgrade || buyRank >= priorRank) {
+        const applied = await applyCurrent()
+        return NextResponse.json({ ok: true, duplicate: true, ...applied })
       }
       return NextResponse.json({
         ok: true,
         duplicate: true,
-        membershipType: user?.membershipType,
-        membershipExpiresAt: user?.membershipExpiresAt,
+        membershipType: prior?.membershipType,
+        membershipExpiresAt: prior?.membershipExpiresAt,
       })
     }
 
-    const result = await applyAppleMembershipEntitlement({
-      userId: session.user.id,
-      planId: product.planId,
-      billingPeriod: product.billingPeriod,
-      originalTransactionId: txn.originalTransactionId,
-      productId: txn.productId,
-      expiresDateMs: txn.expiresDate,
-    })
+    const result = await applyCurrent()
 
     await prisma.appleIapTransaction.create({
       data: {

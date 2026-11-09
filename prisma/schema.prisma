@@ -49,7 +49,9 @@ model User {
   /// Apple IAP subscription (StoreKit) — separate from Stripe billing fields
   appleOriginalTransactionId String?
   appleProductId String?
-  appleSubscriptionStatus String? // active | expired | revoked | null
+  /// Scheduled next product after upgrade/downgrade (Apple autoRenewProductId); null when none.
+  applePendingProductId String?
+  appleSubscriptionStatus String? // active | canceled | pending_upgrade | expired | revoked | null
   freeUploadsUsed Int      @default(0)      // Track free uploads used this period
   freeUploadsResetAt DateTime?              // When to reset free upload count
   paidUploadCredits Int     @default(0)      // Paid upload credits from Stripe payments

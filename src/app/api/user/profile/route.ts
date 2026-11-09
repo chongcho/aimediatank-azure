@@ -37,6 +37,7 @@ export async function GET(request: Request) {
         membershipExpiresAt: true,
         appleSubscriptionStatus: true,
         appleProductId: true,
+        applePendingProductId: true,
         emailVerified: true,
         createdAt: true,
         accountDeactivatedAt: true,

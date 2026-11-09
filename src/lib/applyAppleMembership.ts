@@ -21,6 +21,9 @@ export async function applyAppleMembershipEntitlement(params: {
   /** ms epoch from Apple; fallback computed from billing period */
   expiresDateMs?: number
   sendNotifications?: boolean
+  /** Scheduled next product id (Apple autoRenewProductId), or null to clear */
+  pendingProductId?: string | null
+  subscriptionStatus?: 'active' | 'canceled' | 'pending_upgrade'
 }): Promise<{ membershipType: string; membershipExpiresAt: Date }> {
   const membershipType = params.planId.toUpperCase()
   const periodEnd = params.expiresDateMs
@@ -42,6 +45,12 @@ export async function applyAppleMembershipEntitlement(params: {
     membershipType
   )
 
+  const pendingProductId =
+    params.pendingProductId === undefined ? undefined : params.pendingProductId
+  const subscriptionStatus =
+    params.subscriptionStatus ??
+    (pendingProductId ? 'pending_upgrade' : 'active')
+
   await prisma.user.update({
     where: { id: params.userId },
     data: {
@@ -51,7 +60,10 @@ export async function applyAppleMembershipEntitlement(params: {
       freeUploadsResetAt: periodEnd,
       appleOriginalTransactionId: params.originalTransactionId,
       appleProductId: params.productId,
-      appleSubscriptionStatus: 'active',
+      appleSubscriptionStatus: subscriptionStatus,
+      ...(pendingProductId !== undefined
+        ? { applePendingProductId: pendingProductId }
+        : {}),
       ...(creditUpdate as Record<string, unknown>),
     },
   })
@@ -91,6 +103,7 @@ export async function clearAppleMembershipToViewer(params: {
       membershipExpiresAt: null,
       role: 'VIEWER',
       appleSubscriptionStatus: status,
+      applePendingProductId: null,
       // Keep appleOriginalTransactionId / appleProductId for support & re-subscribe mapping.
     },
   })
@@ -125,6 +138,7 @@ export async function markAppleMembershipCanceledUntilExpiry(params: {
     data: {
       appleSubscriptionStatus: 'canceled',
       membershipExpiresAt: params.membershipExpiresAt,
+      applePendingProductId: null,
     },
   })
 }

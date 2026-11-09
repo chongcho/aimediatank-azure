@@ -152,7 +152,10 @@ export type AppleSubscriptionStatusCode = 1 | 2 | 3 | 4 | 5
 export type AppleSubscriptionStatusSummary = {
   status: AppleSubscriptionStatusCode | null
   autoRenewStatus: number | null
+  /** Product currently entitled (active period). */
   productId: string | null
+  /** Product that will renew next (may differ after a scheduled upgrade/downgrade). */
+  autoRenewProductId: string | null
   expiresDateMs: number | null
   originalTransactionId: string
   environment: 'Production' | 'Sandbox'
@@ -162,6 +165,7 @@ export type AppleSubscriptionStatusSummary = {
 function decodeRenewalInfo(jws: string | undefined | null): {
   autoRenewStatus?: number
   productId?: string
+  autoRenewProductId?: string
 } {
   if (!jws) return {}
   try {
@@ -171,6 +175,8 @@ function decodeRenewalInfo(jws: string | undefined | null): {
     return {
       autoRenewStatus: typeof raw.autoRenewStatus === 'number' ? raw.autoRenewStatus : undefined,
       productId: typeof raw.productId === 'string' ? raw.productId : undefined,
+      autoRenewProductId:
+        typeof raw.autoRenewProductId === 'string' ? raw.autoRenewProductId : undefined,
     }
   } catch {
     return {}
@@ -218,6 +224,7 @@ async function fetchSubscriptionStatusesOnce(
       status: null,
       autoRenewStatus: null,
       productId: null,
+      autoRenewProductId: null,
       expiresDateMs: null,
       originalTransactionId,
       environment,
@@ -237,6 +244,7 @@ async function fetchSubscriptionStatusesOnce(
     autoRenewStatus:
       typeof renewal.autoRenewStatus === 'number' ? renewal.autoRenewStatus : null,
     productId: txn?.productId ?? renewal.productId ?? null,
+    autoRenewProductId: renewal.autoRenewProductId ?? null,
     expiresDateMs: txn?.expiresDate ?? null,
     originalTransactionId,
     environment,
