@@ -2,11 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import {
-  membershipPlanRank,
-  parseMembershipProductId,
-  type AppleMembershipPlanId,
-} from '@/lib/appleIapCatalog'
+import { membershipPlanRank, parseMembershipProductId } from '@/lib/appleIapCatalog'
 import { verifyAppleTransactionJws } from '@/lib/appleIapVerify'
 import {
   applyAppleMembershipEntitlement,
@@ -19,6 +15,9 @@ export const dynamic = 'force-dynamic'
 /**
  * POST { signedTransaction: string, asCurrentEntitlement?: boolean }
  * Applies membership entitlement for the logged-in user.
+ *
+ * Purchases apply the bought SKU immediately. If Apple scheduled the change for the
+ * next renewal, /api/iap/membership/sync (Server API) may later mark pending_upgrade.
  */
 export async function POST(request: Request) {
   try {
@@ -94,13 +93,21 @@ export async function POST(request: Request) {
       where: { transactionId: txn.transactionId },
     })
 
-    // Apple often schedules upgrades for the next renewal: keep Basic now, pending Advanced.
-    const deferredUpgrade =
-      !asCurrentEntitlement && priorStillValid && priorRank > 0 && buyRank > priorRank
+    // Restore of current entitlements may be a lower SKU than a just-purchased upgrade.
+    // Only apply lower when explicitly marked asCurrentEntitlement AND it is not lower than
+    // a still-valid higher local plan (avoid clobbering Advanced with Basic mid-upgrade).
+    if (asCurrentEntitlement && priorStillValid && buyRank < priorRank) {
+      return NextResponse.json({
+        ok: true,
+        ignored: true,
+        membershipType: prior?.membershipType,
+        membershipExpiresAt: prior?.membershipExpiresAt,
+      })
+    }
 
-    const applyCurrent = async () => {
-      if (asCurrentEntitlement) {
-        return applyAppleMembershipEntitlement({
+    if (existing) {
+      if (asCurrentEntitlement || buyRank >= priorRank) {
+        const applied = await applyAppleMembershipEntitlement({
           userId: session.user.id,
           planId: product.planId,
           billingPeriod: product.billingPeriod,
@@ -111,44 +118,6 @@ export async function POST(request: Request) {
           pendingProductId: null,
           subscriptionStatus: 'active',
         })
-      }
-      if (deferredUpgrade) {
-        const currentPlanId = String(prior!.membershipType).toLowerCase() as AppleMembershipPlanId
-        await prisma.user.update({
-          where: { id: session.user.id },
-          data: {
-            membershipType: String(prior!.membershipType).toUpperCase(),
-            membershipExpiresAt: prior!.membershipExpiresAt,
-            appleOriginalTransactionId: txn.originalTransactionId,
-            applePendingProductId: txn.productId,
-            appleSubscriptionStatus: 'pending_upgrade',
-            // Do not replace current SKU with the future upgrade SKU.
-            appleProductId: prior?.appleProductId ?? undefined,
-          },
-        })
-        return {
-          membershipType: String(prior!.membershipType).toUpperCase(),
-          membershipExpiresAt: prior!.membershipExpiresAt!,
-          appleSubscriptionStatus: 'pending_upgrade' as const,
-          applePendingProductId: txn.productId,
-        }
-      }
-      return applyAppleMembershipEntitlement({
-        userId: session.user.id,
-        planId: product.planId,
-        billingPeriod: product.billingPeriod,
-        originalTransactionId: txn.originalTransactionId,
-        productId: txn.productId,
-        expiresDateMs: txn.expiresDate,
-        sendNotifications: !existing,
-        pendingProductId: null,
-        subscriptionStatus: 'active',
-      })
-    }
-
-    if (existing) {
-      if (asCurrentEntitlement || deferredUpgrade || buyRank >= priorRank) {
-        const applied = await applyCurrent()
         return NextResponse.json({ ok: true, duplicate: true, ...applied })
       }
       return NextResponse.json({
@@ -159,7 +128,17 @@ export async function POST(request: Request) {
       })
     }
 
-    const result = await applyCurrent()
+    const result = await applyAppleMembershipEntitlement({
+      userId: session.user.id,
+      planId: product.planId,
+      billingPeriod: product.billingPeriod,
+      originalTransactionId: txn.originalTransactionId,
+      productId: txn.productId,
+      expiresDateMs: txn.expiresDate,
+      sendNotifications: true,
+      pendingProductId: null,
+      subscriptionStatus: 'active',
+    })
 
     await prisma.appleIapTransaction.create({
       data: {
