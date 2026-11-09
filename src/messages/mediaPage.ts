@@ -38,8 +38,9 @@ export type MediaPageKey =
   | 'purchasedBadgeAfterLock'
   | 'daysLeft'
   | 'paidAmount'
-  | 'downloadNoticePurchased'
-  | 'notYet'
+  | 'purchasedDateLine'
+  | 'downloadDateLine'
+  | 'downloadGuaranteeNote'
   | 'processingShort'
   | 'yourPrice'
   | 'yourPriceWithAmount'
@@ -134,9 +135,10 @@ const EN: Pack = {
   purchasedBadgeAfterLock: 'Purchased',
   daysLeft: '{n} days left',
   paidAmount: 'Paid {price}',
-  downloadNoticePurchased:
-    'You purchased this content on {purchaseDate} and downloaded on {downloadDate}. Please download it if you haven’t already, as the poster may remove it from the platform at any time',
-  notYet: 'not yet',
+  purchasedDateLine: 'Purchased date: {date}',
+  downloadDateLine: 'Download date: {date}',
+  downloadGuaranteeNote:
+    'Note: Downloading purchased content is not guaranteed after 10 days from the purchase date. Please download it if you haven’t already.',
   processingShort: 'Processing...',
   yourPrice: 'Your Price:',
   yourPriceWithAmount: 'Your Price: {price}',

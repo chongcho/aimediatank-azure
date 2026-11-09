@@ -51,8 +51,9 @@ const PROFILE_STRINGS = [
   'Failed to unsave some items',
   'No paid items selected. Select items with a price to checkout.',
   'Failed to start checkout. Please try again.',
-  'You purchased this content on {purchaseDate} and downloaded on {downloadDate}. Please download it if you haven’t already, as the poster may remove it from the platform at any time',
-  'not yet',
+  'Purchased date:',
+  'Download date:',
+  'Note: Downloading purchased content is not guaranteed after 10 days from the purchase date. Please download it if you haven’t already.',
 ] as const
 
 interface UserProfile {
@@ -681,19 +682,19 @@ export default function ProfilePage() {
                     <span>{new Date(purchase.createdAt).toLocaleDateString()}</span>
                   </div>
 
-                  <p className="mt-3 text-sm text-amber-200/90 leading-snug">
-                    {tr[40]
-                      .replace(
-                        '{purchaseDate}',
-                        new Date(purchase.completedAt || purchase.createdAt).toLocaleDateString()
-                      )
-                      .replace(
-                        '{downloadDate}',
-                        purchase.downloadedAt
-                          ? new Date(purchase.downloadedAt).toLocaleDateString()
-                          : tr[41]
-                      )}
-                  </p>
+                  <div className="mt-3 text-sm text-amber-200/90 leading-snug space-y-1">
+                    <p>
+                      {tr[40]}{' '}
+                      {new Date(purchase.completedAt || purchase.createdAt).toLocaleDateString()}
+                    </p>
+                    <p>
+                      {tr[41]}
+                      {purchase.downloadedAt
+                        ? ` ${new Date(purchase.downloadedAt).toLocaleDateString()}`
+                        : ''}
+                    </p>
+                    <p>{tr[42]}</p>
+                  </div>
 
                   {/* Download Button */}
                   <a

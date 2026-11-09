@@ -1089,10 +1089,10 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                     const locale = calendarLocaleFromUiTag(chromeLocaleTag)
                     const purchaseDateLabel = media.purchasedAt
                       ? new Date(media.purchasedAt).toLocaleDateString(locale)
-                      : '—'
+                      : ''
                     const downloadDateLabel = media.downloadedAt
                       ? new Date(media.downloadedAt).toLocaleDateString(locale)
-                      : tMedia('notYet')
+                      : ''
                     return (
                       <>
                         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1120,12 +1120,19 @@ export default function MediaPageClient({ mediaId, intercepted = false }: { medi
                             price: `$${(media.purchaseAmount ?? media.price).toFixed(2)}`,
                           })}
                         </p>
-                        <p className="text-sm text-amber-200/90 leading-snug">
-                          {mediaPageInterpolate(tMedia('downloadNoticePurchased'), {
-                            purchaseDate: purchaseDateLabel,
-                            downloadDate: downloadDateLabel,
-                          })}
-                        </p>
+                        <div className="text-sm text-amber-200/90 leading-snug space-y-1">
+                          <p>
+                            {mediaPageInterpolate(tMedia('purchasedDateLine'), {
+                              date: purchaseDateLabel,
+                            })}
+                          </p>
+                          <p>
+                            {mediaPageInterpolate(tMedia('downloadDateLine'), {
+                              date: downloadDateLabel,
+                            })}
+                          </p>
+                          <p>{tMedia('downloadGuaranteeNote')}</p>
+                        </div>
                         {mediaDetailDownloadEnabled ? (
                           <button
                             type="button"
