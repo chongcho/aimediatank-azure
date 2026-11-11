@@ -28,7 +28,6 @@ const defaultItems = [
   { itemKey: 'mediaType', label: 'Media type', isEnabled: true, sortOrder: 9 },
   { itemKey: 'feedChat', label: 'Chat', isEnabled: true, sortOrder: 10 },
   { itemKey: 'feedDownload', label: 'Download', isEnabled: true, sortOrder: 11 },
-  { itemKey: 'sortBy', label: 'Sort by', isEnabled: true, sortOrder: 12 },
 ]
 
 export async function GET() {
@@ -55,11 +54,13 @@ export async function GET() {
       })
 
       let homePreplaySound = true
+      let sortByEnabled = true
       let autoTranslation = true
       try {
         const layoutRow = await getFirstHomeLayoutSetting()
         if (layoutRow) {
           homePreplaySound = layoutRow.homePreplaySound !== false
+          sortByEnabled = (layoutRow as { sortByEnabled?: boolean | null }).sortByEnabled !== false
           autoTranslation = layoutRow.autoTranslation !== false
         }
       } catch {
@@ -79,16 +80,20 @@ export async function GET() {
         })
       }
 
-      // Not a tile badge — controlled via HomeLayoutSetting + dedicated admin card only.
-      items = items.filter((i) => i.itemKey !== 'homePreplaySound')
+      // Not tile badges — Home Layout controls homepage sound + Sort by visibility.
+      items = items.filter((i) => i.itemKey !== 'homePreplaySound' && i.itemKey !== 'sortBy')
 
-      return NextResponse.json({ items, homePreplaySound, autoTranslation }, { headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { items, homePreplaySound, sortByEnabled, autoTranslation },
+        { headers: NO_STORE_HEADERS }
+      )
     } catch (error) {
       console.error('Badge settings unavailable, returning defaults:', error)
       return NextResponse.json(
         {
           items: defaultItems,
           homePreplaySound: true,
+          sortByEnabled: true,
           autoTranslation: true,
           warning: 'MEDIA_BADGE_SETTINGS_UNAVAILABLE',
         },

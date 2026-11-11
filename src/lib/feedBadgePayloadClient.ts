@@ -5,6 +5,7 @@ export type FeedBadgeItem = { itemKey: string; isEnabled: boolean }
 export type FeedBadgePayload = {
   items: FeedBadgeItem[]
   homePreplaySound: boolean
+  sortByEnabled: boolean
   autoTranslation: boolean
 }
 
@@ -30,8 +31,9 @@ export async function fetchFeedBadgePayload(): Promise<FeedBadgePayload | null> 
       const data = await res.json()
       const items = (data.items || []) as FeedBadgeItem[]
       const homePreplaySound = data.homePreplaySound !== false
+      const sortByEnabled = data.sortByEnabled !== false
       const autoTranslation = data.autoTranslation !== false
-      const payload: FeedBadgePayload = { items, homePreplaySound, autoTranslation }
+      const payload: FeedBadgePayload = { items, homePreplaySound, sortByEnabled, autoTranslation }
       badgePayloadCache = payload
       return payload
     } catch (error) {

@@ -964,11 +964,19 @@ export async function GET(request: Request) {
           (row as { defaultSort?: string | null }).defaultSort && ['popular', 'recent', 'random'].includes((row as { defaultSort?: string | null }).defaultSort as string)
             ? ((row as { defaultSort?: string | null }).defaultSort as string)
             : 'random'
+        const sortByEnabled = (row as { sortByEnabled?: boolean | null }).sortByEnabled !== false
         const autoTranslation = row.autoTranslation !== false
-        return NextResponse.json({ layout, preplay, homePreplaySound, defaultSort, autoTranslation })
+        return NextResponse.json({ layout, preplay, homePreplaySound, defaultSort, sortByEnabled, autoTranslation })
       } catch (error) {
         console.error('Home layout settings unavailable:', error)
-        return NextResponse.json({ layout: 'masonry', preplay: true, homePreplaySound: true, defaultSort: 'random', autoTranslation: true })
+        return NextResponse.json({
+          layout: 'masonry',
+          preplay: true,
+          homePreplaySound: true,
+          defaultSort: 'random',
+          sortByEnabled: true,
+          autoTranslation: true,
+        })
       }
     }
 
@@ -1068,7 +1076,6 @@ export async function GET(request: Request) {
         { itemKey: 'mediaType', label: 'Media type', isEnabled: true, sortOrder: 9 },
         { itemKey: 'feedChat', label: 'Chat', isEnabled: true, sortOrder: 10 },
         { itemKey: 'feedDownload', label: 'Download', isEnabled: true, sortOrder: 11 },
-        { itemKey: 'sortBy', label: 'Sort by', isEnabled: true, sortOrder: 12 },
       ]
 
       try {
@@ -1105,8 +1112,8 @@ export async function GET(request: Request) {
           })
         }
 
-        // Not a tile badge — use Home Layout / dedicated "Homepage media sound" control only.
-        items = items.filter((i) => i.itemKey !== 'homePreplaySound')
+        // Not tile badges — Home Layout controls homepage sound + Sort by visibility.
+        items = items.filter((i) => i.itemKey !== 'homePreplaySound' && i.itemKey !== 'sortBy')
 
         return NextResponse.json({ items })
       } catch (error) {
@@ -2585,7 +2592,7 @@ export async function POST(request: Request) {
       }
 
       case 'setHomeLayout': {
-        const { layout, preplay, defaultSort } = data || {}
+        const { layout, preplay, defaultSort, sortByEnabled } = data || {}
         const validLayouts = ['masonry', 'grid_top', 'grid_center']
         const validDefaultSorts = ['popular', 'recent', 'random']
         const layoutVal = layout === 'grid' ? 'grid_center' : layout
@@ -2597,6 +2604,7 @@ export async function POST(request: Request) {
         if (defaultSortVal !== undefined && !validDefaultSorts.includes(defaultSortVal)) {
           return NextResponse.json({ error: 'defaultSort must be "popular", "recent", or "random"' }, { status: 400 })
         }
+        const sortByEnabledBool = typeof sortByEnabled === 'boolean' ? sortByEnabled : undefined
         let row = await getFirstHomeLayoutSetting()
         if (!row) {
           row = await prisma.homeLayoutSetting.create({
@@ -2604,6 +2612,7 @@ export async function POST(request: Request) {
               layout: layoutVal,
               ...(preplayBool !== undefined && { preplay: preplayBool }),
               ...(defaultSortVal !== undefined && { defaultSort: defaultSortVal }),
+              ...(sortByEnabledBool !== undefined && { sortByEnabled: sortByEnabledBool }),
             },
           })
         } else {
@@ -2613,14 +2622,17 @@ export async function POST(request: Request) {
               layout: layoutVal,
               ...(preplayBool !== undefined && { preplay: preplayBool }),
               ...(defaultSortVal !== undefined && { defaultSort: defaultSortVal }),
+              ...(sortByEnabledBool !== undefined && { sortByEnabled: sortByEnabledBool }),
             },
           })
         }
+        const rowSortByEnabled = (row as { sortByEnabled?: boolean | null }).sortByEnabled !== false
         await logAdminAction(adminId, 'SET_HOME_LAYOUT', 'HOME_LAYOUT', row.id, {
           layout: layoutVal,
           preplay: row.preplay,
           homePreplaySound: row.homePreplaySound,
           defaultSort: (row as { defaultSort?: string | null }).defaultSort ?? 'random',
+          sortByEnabled: rowSortByEnabled,
           autoTranslation: row.autoTranslation,
         })
         return NextResponse.json({
@@ -2632,6 +2644,7 @@ export async function POST(request: Request) {
             (row as { defaultSort?: string | null }).defaultSort && ['popular', 'recent', 'random'].includes((row as { defaultSort?: string | null }).defaultSort as string)
               ? ((row as { defaultSort?: string | null }).defaultSort as string)
               : 'random',
+          sortByEnabled: rowSortByEnabled,
           autoTranslation: row.autoTranslation !== false,
         })
       }

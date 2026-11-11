@@ -25,6 +25,7 @@ async function getOrCreateSetting(): Promise<{
   preplay: boolean
   homePreplaySound: boolean
   defaultSort: HomeDefaultSortType
+  sortByEnabled: boolean
   autoTranslation: boolean
 }> {
   let row = await getFirstHomeLayoutSetting()
@@ -39,6 +40,7 @@ async function getOrCreateSetting(): Promise<{
     preplay: row.preplay,
     homePreplaySound: row.homePreplaySound !== false,
     defaultSort: normalizeDefaultSort((row as { defaultSort?: string | null }).defaultSort),
+    sortByEnabled: (row as { sortByEnabled?: boolean | null }).sortByEnabled !== false,
     autoTranslation: row.autoTranslation !== false,
   }
 }
@@ -51,12 +53,23 @@ const NO_STORE_HEADERS = {
 
 export async function GET() {
   try {
-    const { layout, preplay, homePreplaySound, defaultSort, autoTranslation } = await getOrCreateSetting()
-    return NextResponse.json({ layout, preplay, homePreplaySound, defaultSort, autoTranslation }, { headers: NO_STORE_HEADERS })
+    const { layout, preplay, homePreplaySound, defaultSort, sortByEnabled, autoTranslation } =
+      await getOrCreateSetting()
+    return NextResponse.json(
+      { layout, preplay, homePreplaySound, defaultSort, sortByEnabled, autoTranslation },
+      { headers: NO_STORE_HEADERS }
+    )
   } catch (error) {
     console.error('Home layout settings unavailable:', error)
     return NextResponse.json(
-      { layout: 'masonry', preplay: true, homePreplaySound: true, defaultSort: 'random', autoTranslation: true },
+      {
+        layout: 'masonry',
+        preplay: true,
+        homePreplaySound: true,
+        defaultSort: 'random',
+        sortByEnabled: true,
+        autoTranslation: true,
+      },
       { headers: NO_STORE_HEADERS }
     )
   }

@@ -445,6 +445,8 @@ export default function AdminPage() {
   const [homeLayout, setHomeLayout] = useState<'masonry' | 'grid_top' | 'grid_center'>('masonry')
   const [homePreplay, setHomePreplay] = useState(true)
   const [homeDefaultSort, setHomeDefaultSort] = useState<'popular' | 'recent' | 'random'>('random')
+  /** Homepage Sort by dropdown visibility; stored on HomeLayoutSetting */
+  const [homeSortByEnabled, setHomeSortByEnabled] = useState(true)
   /** Homepage volume chip visibility (Media Badge Control); stored on HomeLayoutSetting */
   const [homePreplaySound, setHomePreplaySound] = useState(true)
   const [homePreplaySoundSaving, setHomePreplaySoundSaving] = useState(false)
@@ -1158,6 +1160,7 @@ export default function AdminPage() {
           setHomeDefaultSort(
             data.defaultSort === 'popular' || data.defaultSort === 'recent' ? data.defaultSort : 'random'
           )
+          setHomeSortByEnabled(data.sortByEnabled !== false)
           setHomePreplaySound(data.homePreplaySound !== false)
           setAutoTranslation(data.autoTranslation !== false)
         } finally {
@@ -1652,6 +1655,7 @@ export default function AdminPage() {
     layout: 'masonry' | 'grid_top' | 'grid_center'
     preplay: boolean
     defaultSort: 'popular' | 'recent' | 'random'
+    sortByEnabled: boolean
   }) => {
     setHomeLayoutSaving(true)
     try {
@@ -1675,6 +1679,7 @@ export default function AdminPage() {
       } else {
         setHomeDefaultSort('random')
       }
+      if (typeof data.sortByEnabled === 'boolean') setHomeSortByEnabled(data.sortByEnabled)
       if (typeof data.homePreplaySound === 'boolean') setHomePreplaySound(data.homePreplaySound)
       if (typeof data.autoTranslation === 'boolean') setAutoTranslation(data.autoTranslation)
       if (typeof window !== 'undefined') {
@@ -4040,7 +4045,9 @@ export default function AdminPage() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">📐 Home Layout</h2>
-                <p className="text-gray-400 text-sm">Choose how the home feed displays media</p>
+                <p className="text-gray-400 text-sm">
+                  Choose how the home feed displays media. Sort by On/Off shows or hides the homepage Sort by dropdown; the adjacent default still applies when the control is hidden.
+                </p>
               </div>
               {homeLayoutLoading ? (
                 <p className="text-gray-400">Loading…</p>
@@ -4057,6 +4064,7 @@ export default function AdminPage() {
                           layout,
                           preplay: homePreplay,
                           defaultSort: homeDefaultSort,
+                          sortByEnabled: homeSortByEnabled,
                         })
                       }}
                       disabled={homeLayoutSaving}
@@ -4078,6 +4086,7 @@ export default function AdminPage() {
                           layout: homeLayout,
                           preplay,
                           defaultSort: homeDefaultSort,
+                          sortByEnabled: homeSortByEnabled,
                         })
                       }}
                       disabled={homeLayoutSaving}
@@ -4090,6 +4099,25 @@ export default function AdminPage() {
                   <div className="flex flex-wrap items-center gap-4">
                     <label className="text-white font-medium">Sort by:</label>
                     <select
+                      value={homeSortByEnabled ? 'on' : 'off'}
+                      onChange={(e) => {
+                        const sortByEnabled = e.target.value === 'on'
+                        setHomeSortByEnabled(sortByEnabled)
+                        void persistHomeLayoutSettings({
+                          layout: homeLayout,
+                          preplay: homePreplay,
+                          defaultSort: homeDefaultSort,
+                          sortByEnabled,
+                        })
+                      }}
+                      disabled={homeLayoutSaving}
+                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
+                      aria-label="Sort by visibility"
+                    >
+                      <option value="on">On — Show homepage Sort by dropdown</option>
+                      <option value="off">Off</option>
+                    </select>
+                    <select
                       value={homeDefaultSort}
                       onChange={(e) => {
                         const defaultSort = e.target.value as 'popular' | 'recent' | 'random'
@@ -4098,10 +4126,12 @@ export default function AdminPage() {
                           layout: homeLayout,
                           preplay: homePreplay,
                           defaultSort,
+                          sortByEnabled: homeSortByEnabled,
                         })
                       }}
-                      disabled={homeLayoutSaving}
-                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
+                      disabled={homeLayoutSaving || !homeSortByEnabled}
+                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500 disabled:opacity-50"
+                      aria-label="Default homepage sort"
                     >
                       <option value="popular">Most Popular</option>
                       <option value="recent">Most Recent</option>
@@ -4523,12 +4553,12 @@ export default function AdminPage() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">🏷️ Media Badge Control</h2>
                 <p className="text-gray-400 text-sm">
-                  Toggle badge items ON/OFF to show or hide them on media tiles. Description thumbnails toggles the description text overlay on each tile thumbnail. The Comment control shows or hides the comment button on the tile so viewers can add comments from the feed without opening the media page first. Share shows or hides the homepage share button on each tile (the share modal and apps still follow Media Detail share settings). Chat shows or hides the homepage Chat button that opens the TalkChat panel (same as the navbar Chat control). Download shows or hides the homepage Download button on free tiles (guests get a watermarked file; registered users follow Media Detail download settings). Media type shows or hides the VIDEO / IMAGE / MUSIC label beside the title on each tile. Sort by shows or hides the homepage Sort by dropdown (default sort still comes from Home Layout). Automatic Translation controls whether titles, descriptions, comments, and TalkChat copy are machine-translated for non-English UI locales (calls to the translation API are skipped when OFF).
+                  Toggle badge items ON/OFF to show or hide them on media tiles. Description thumbnails toggles the description text overlay on each tile thumbnail. The Comment control shows or hides the comment button on the tile so viewers can add comments from the feed without opening the media page first. Share shows or hides the homepage share button on each tile (the share modal and apps still follow Media Detail share settings). Chat shows or hides the homepage Chat button that opens the TalkChat panel (same as the navbar Chat control). Download shows or hides the homepage Download button on free tiles (guests get a watermarked file; registered users follow Media Detail download settings). Media type shows or hides the VIDEO / IMAGE / MUSIC label beside the title on each tile. Sort by visibility is controlled under Home Layout. Automatic Translation controls whether titles, descriptions, comments, and TalkChat copy are machine-translated for non-English UI locales (calls to the translation API are skipped when OFF).
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {mediaBadgeItems.filter((item) => item.itemKey !== 'homePreplaySound').map((item) => (
+                {mediaBadgeItems.filter((item) => item.itemKey !== 'homePreplaySound' && item.itemKey !== 'sortBy').map((item) => (
                   <div
                     key={item.itemKey}
                     className={`rounded-xl p-4 border-2 transition-all ${
@@ -4677,13 +4707,13 @@ export default function AdminPage() {
                 <div className="flex gap-6 text-sm">
                   <div>
                     <span className="text-green-400 font-bold">
-                      {mediaBadgeItems.filter((i) => i.itemKey !== 'homePreplaySound' && i.isEnabled).length}
+                      {mediaBadgeItems.filter((i) => i.itemKey !== 'homePreplaySound' && i.itemKey !== 'sortBy' && i.isEnabled).length}
                     </span>
                     <span className="text-gray-400 ml-1">Visible Badges</span>
                   </div>
                   <div>
                     <span className="text-red-400 font-bold">
-                      {mediaBadgeItems.filter((i) => i.itemKey !== 'homePreplaySound' && !i.isEnabled).length}
+                      {mediaBadgeItems.filter((i) => i.itemKey !== 'homePreplaySound' && i.itemKey !== 'sortBy' && !i.isEnabled).length}
                     </span>
                     <span className="text-gray-400 ml-1">Hidden Badges</span>
                   </div>
