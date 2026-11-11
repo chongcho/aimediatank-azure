@@ -4046,7 +4046,7 @@ export default function AdminPage() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">📐 Home Layout</h2>
                 <p className="text-gray-400 text-sm">
-                  Choose how the home feed displays media. Sort by On/Off shows or hides the homepage Sort by dropdown; the adjacent default still applies when the control is hidden.
+                  Choose how the home feed displays media. Sort by On/Off shows or hides the homepage Sort by dropdown; the default sort selection stays editable and still applies when the control is Off.
                 </p>
               </div>
               {homeLayoutLoading ? (
@@ -4129,8 +4129,8 @@ export default function AdminPage() {
                           sortByEnabled: homeSortByEnabled,
                         })
                       }}
-                      disabled={homeLayoutSaving || !homeSortByEnabled}
-                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500 disabled:opacity-50"
+                      disabled={homeLayoutSaving}
+                      className="bg-tank-dark border border-tank-light rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-green-500"
                       aria-label="Default homepage sort"
                     >
                       <option value="popular">Most Popular</option>
