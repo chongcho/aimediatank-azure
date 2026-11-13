@@ -1,7 +1,12 @@
 'use client'
 
 // Registration page with email verification
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import {
+  createAbortableTimedFetch,
+  isAbortError,
+  type AbortableTimedFetchHandle,
+} from '@/lib/abortableTimedFetch'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PasswordField from '@/components/PasswordField'
@@ -351,6 +356,14 @@ export default function RegisterPage() {
     code: '',
     error: '',
   })
+  const emailSendHandleRef = useRef<AbortableTimedFetchHandle | null>(null)
+  const phoneSendHandleRef = useRef<AbortableTimedFetchHandle | null>(null)
+  useEffect(() => {
+    return () => {
+      emailSendHandleRef.current?.abort()
+      phoneSendHandleRef.current?.abort()
+    }
+  }, [])
   const [authSettings, setAuthSettings] = useState<{
     emailVerificationEnabled: boolean
     phoneVerificationEnabled: boolean
@@ -565,15 +578,20 @@ export default function RegisterPage() {
       return
     }
 
+    emailSendHandleRef.current?.abort()
+    const handle = createAbortableTimedFetch()
+    emailSendHandleRef.current = handle
     setVerificationState(prev => ({ ...prev, sending: true, error: '' }))
 
     try {
       const res = await fetch('/api/auth/send-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: handle.signal,
         body: JSON.stringify({ email: formData.email }),
       })
       const data = await res.json()
+      if (emailSendHandleRef.current !== handle) return
 
       if (res.ok) {
         setVerificationState(prev => ({
@@ -589,18 +607,37 @@ export default function RegisterPage() {
           error: data.error || 'Failed to send code',
         }))
       }
-    } catch {
+    } catch (error) {
+      if (emailSendHandleRef.current !== handle) return
+      if (isAbortError(error) || handle.signal.aborted) {
+        setVerificationState(prev => ({
+          ...prev,
+          sending: false,
+          error: handle.didTimeout()
+            ? 'Unable to send verification email. Please try again.'
+            : prev.error,
+        }))
+        return
+      }
       setVerificationState(prev => ({
         ...prev,
         sending: false,
         error: 'Failed to send verification code',
       }))
+    } finally {
+      handle.clear()
+      if (emailSendHandleRef.current === handle) {
+        emailSendHandleRef.current = null
+        setVerificationState(prev => (prev.sending ? { ...prev, sending: false } : prev))
+      }
     }
   }
 
   // Verify the code
   const verifyCode = async () => {
-    setVerificationState(prev => ({ ...prev, verifying: true, error: '' }))
+    emailSendHandleRef.current?.abort()
+    emailSendHandleRef.current = null
+    setVerificationState(prev => ({ ...prev, sending: false, verifying: true, error: '' }))
 
     try {
       const res = await fetch('/api/auth/verify-code', {
@@ -643,14 +680,19 @@ export default function RegisterPage() {
       setPhoneVerificationState(prev => ({ ...prev, error: 'Please enter a valid phone number' }))
       return
     }
+    phoneSendHandleRef.current?.abort()
+    const handle = createAbortableTimedFetch()
+    phoneSendHandleRef.current = handle
     setPhoneVerificationState(prev => ({ ...prev, sending: true, error: '' }))
     try {
       const res = await fetch('/api/auth/send-phone-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: handle.signal,
         body: JSON.stringify({ phone }),
       })
       const data = await res.json()
+      if (phoneSendHandleRef.current !== handle) return
       if (res.ok) {
         setPhoneVerificationState(prev => ({
           ...prev,
@@ -665,12 +707,29 @@ export default function RegisterPage() {
           error: data.error || 'Failed to send code',
         }))
       }
-    } catch {
+    } catch (error) {
+      if (phoneSendHandleRef.current !== handle) return
+      if (isAbortError(error) || handle.signal.aborted) {
+        setPhoneVerificationState(prev => ({
+          ...prev,
+          sending: false,
+          error: handle.didTimeout()
+            ? 'Unable to send verification SMS. Please try again.'
+            : prev.error,
+        }))
+        return
+      }
       setPhoneVerificationState(prev => ({
         ...prev,
         sending: false,
         error: 'Failed to send verification code',
       }))
+    } finally {
+      handle.clear()
+      if (phoneSendHandleRef.current === handle) {
+        phoneSendHandleRef.current = null
+        setPhoneVerificationState(prev => (prev.sending ? { ...prev, sending: false } : prev))
+      }
     }
   }
 
@@ -678,7 +737,9 @@ export default function RegisterPage() {
   const verifyPhoneCode = async () => {
     const phone = formData.phone.trim()
     if (!phone || phoneVerificationState.code.length !== 6) return
-    setPhoneVerificationState(prev => ({ ...prev, verifying: true, error: '' }))
+    phoneSendHandleRef.current?.abort()
+    phoneSendHandleRef.current = null
+    setPhoneVerificationState(prev => ({ ...prev, sending: false, verifying: true, error: '' }))
     try {
       const res = await fetch('/api/auth/verify-phone-code', {
         method: 'POST',

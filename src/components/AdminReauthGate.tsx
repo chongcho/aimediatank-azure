@@ -1,8 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import PasswordField from '@/components/PasswordField'
+import {
+  createAbortableTimedFetch,
+  isAbortError,
+  type AbortableTimedFetchHandle,
+} from '@/lib/abortableTimedFetch'
 
 function isAppAdminRole(role: string | undefined | null): boolean {
   if (role == null || typeof role !== 'string') return false
@@ -83,12 +88,20 @@ export default function AdminReauthGate({
     () => (bootstrappedFromServer && verifyMode === 'adminPanel' ? initialDedicatedPasswordRequired : false)
   )
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const sendHandleRef = useRef<AbortableTimedFetchHandle | null>(null)
 
   useEffect(() => {
     if (!toast) return
     const t = setTimeout(() => setToast(null), 3000)
     return () => clearTimeout(t)
   }, [toast])
+
+  useEffect(() => {
+    return () => {
+      sendHandleRef.current?.abort()
+      sendHandleRef.current = null
+    }
+  }, [])
 
   useEffect(() => {
     if (bootstrappedFromServer || verifyMode === 'adminUser') return
@@ -114,32 +127,70 @@ export default function AdminReauthGate({
     }
   }, [bootstrappedFromServer, verifyMode, status])
 
+  const changeVerificationMethod = (channel: 'email' | 'phone') => {
+    // Cancel in-flight send immediately when switching Email ↔ Phone.
+    sendHandleRef.current?.abort()
+    sendHandleRef.current = null
+    setReauthSendLoading(false)
+    setReauthChannel(channel)
+    setReauthCode('')
+    setReauthError('')
+  }
+
   const handleSendCode = async () => {
+    sendHandleRef.current?.abort()
+    sendHandleRef.current = null
     setReauthError('')
     setReauthSendLoading(true)
+    const handle = createAbortableTimedFetch()
+    sendHandleRef.current = handle
     try {
       const res = await fetch('/api/admin/send-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        signal: handle.signal,
         body: JSON.stringify({ channel: reauthChannel, verifyMode }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
+      if (sendHandleRef.current !== handle) return
       if (!res.ok) {
-        setReauthError(data.error || 'Failed to send code')
+        setReauthError((data as { error?: string }).error || 'Failed to send code')
         return
       }
       setReauthCode('')
-      setToast({ message: data.message || 'Code sent', type: 'success' })
-    } catch {
+      setToast({
+        message: (data as { message?: string }).message || 'Code sent',
+        type: 'success',
+      })
+    } catch (error) {
+      if (sendHandleRef.current !== handle) return
+      if (isAbortError(error) || handle.signal.aborted) {
+        if (handle.didTimeout()) {
+          setReauthError(
+            reauthChannel === 'phone'
+              ? 'Unable to send verification SMS. Please try again or use email.'
+              : 'Unable to send verification email. Please try again or use phone.'
+          )
+        }
+        return
+      }
       setReauthError('Failed to send code')
     } finally {
-      setReauthSendLoading(false)
+      handle.clear()
+      if (sendHandleRef.current === handle) {
+        sendHandleRef.current = null
+        setReauthSendLoading(false)
+      }
     }
   }
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Stop "Sending…" immediately when verify runs (including validation errors).
+    sendHandleRef.current?.abort()
+    sendHandleRef.current = null
+    setReauthSendLoading(false)
     setReauthError('')
     setReauthVerifyLoading(true)
     try {
@@ -294,10 +345,7 @@ export default function AdminReauthGate({
                   type="radio"
                   name="channel"
                   checked={reauthChannel === 'email'}
-                  onChange={() => {
-                    setReauthChannel('email')
-                    setReauthError('')
-                  }}
+                  onChange={() => changeVerificationMethod('email')}
                 />
                 <span className="text-gray-300">Email</span>
               </label>
@@ -306,10 +354,7 @@ export default function AdminReauthGate({
                   type="radio"
                   name="channel"
                   checked={reauthChannel === 'phone'}
-                  onChange={() => {
-                    setReauthChannel('phone')
-                    setReauthError('')
-                  }}
+                  onChange={() => changeVerificationMethod('phone')}
                 />
                 <span className="text-gray-300">Phone</span>
               </label>

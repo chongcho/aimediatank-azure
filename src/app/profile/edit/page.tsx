@@ -1,6 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import {
+  createAbortableTimedFetch,
+  isAbortError,
+  type AbortableTimedFetchHandle,
+} from '@/lib/abortableTimedFetch'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { compressImage } from '@/lib/mediaCompression'
@@ -283,6 +288,14 @@ export default function EditProfilePage() {
     code: '',
     error: '',
   })
+  const emailSendHandleRef = useRef<AbortableTimedFetchHandle | null>(null)
+  const phoneSendHandleRef = useRef<AbortableTimedFetchHandle | null>(null)
+  useEffect(() => {
+    return () => {
+      emailSendHandleRef.current?.abort()
+      phoneSendHandleRef.current?.abort()
+    }
+  }, [])
   const [authSettings, setAuthSettings] = useState<{
     emailVerificationEnabled: boolean
     phoneVerificationEnabled: boolean
@@ -597,14 +610,19 @@ export default function EditProfilePage() {
       setPhoneVerificationState((prev) => ({ ...prev, error: 'Please enter a valid phone number' }))
       return
     }
+    phoneSendHandleRef.current?.abort()
+    const handle = createAbortableTimedFetch()
+    phoneSendHandleRef.current = handle
     setPhoneVerificationState((prev) => ({ ...prev, sending: true, error: '' }))
     try {
       const res = await fetch('/api/auth/send-phone-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: handle.signal,
         body: JSON.stringify({ phone }),
       })
       const data = await res.json()
+      if (phoneSendHandleRef.current !== handle) return
       if (!res.ok) {
         setPhoneVerificationState((prev) => ({
           ...prev,
@@ -619,8 +637,25 @@ export default function EditProfilePage() {
         sending: false,
         error: '',
       }))
-    } catch {
+    } catch (error) {
+      if (phoneSendHandleRef.current !== handle) return
+      if (isAbortError(error) || handle.signal.aborted) {
+        setPhoneVerificationState((prev) => ({
+          ...prev,
+          sending: false,
+          error: handle.didTimeout()
+            ? 'Unable to send verification SMS. Please try again.'
+            : prev.error,
+        }))
+        return
+      }
       setPhoneVerificationState((prev) => ({ ...prev, sending: false, error: 'Failed to send code' }))
+    } finally {
+      handle.clear()
+      if (phoneSendHandleRef.current === handle) {
+        phoneSendHandleRef.current = null
+        setPhoneVerificationState((prev) => (prev.sending ? { ...prev, sending: false } : prev))
+      }
     }
   }
 
@@ -690,15 +725,20 @@ export default function EditProfilePage() {
   const sendVerificationCode = async () => {
     if (!formData.email || formData.email.length < 5) return
 
+    emailSendHandleRef.current?.abort()
+    const handle = createAbortableTimedFetch()
+    emailSendHandleRef.current = handle
     setEmailVerificationState(prev => ({ ...prev, sending: true, error: '' }))
 
     try {
       const res = await fetch('/api/auth/send-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: handle.signal,
         body: JSON.stringify({ email: formData.email }),
       })
       const data = await res.json()
+      if (emailSendHandleRef.current !== handle) return
 
       if (res.ok) {
         setEmailVerificationState(prev => ({
@@ -714,18 +754,37 @@ export default function EditProfilePage() {
           error: data.error || 'Failed to send code',
         }))
       }
-    } catch {
+    } catch (error) {
+      if (emailSendHandleRef.current !== handle) return
+      if (isAbortError(error) || handle.signal.aborted) {
+        setEmailVerificationState(prev => ({
+          ...prev,
+          sending: false,
+          error: handle.didTimeout()
+            ? 'Unable to send verification email. Please try again.'
+            : prev.error,
+        }))
+        return
+      }
       setEmailVerificationState(prev => ({
         ...prev,
         sending: false,
         error: 'Failed to send verification code',
       }))
+    } finally {
+      handle.clear()
+      if (emailSendHandleRef.current === handle) {
+        emailSendHandleRef.current = null
+        setEmailVerificationState(prev => (prev.sending ? { ...prev, sending: false } : prev))
+      }
     }
   }
 
   // Verify the code
   const verifyCode = async () => {
-    setEmailVerificationState(prev => ({ ...prev, verifying: true, error: '' }))
+    emailSendHandleRef.current?.abort()
+    emailSendHandleRef.current = null
+    setEmailVerificationState(prev => ({ ...prev, sending: false, verifying: true, error: '' }))
 
     try {
       const res = await fetch('/api/auth/verify-code', {
