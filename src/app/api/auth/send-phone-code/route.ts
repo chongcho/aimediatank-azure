@@ -51,32 +51,10 @@ export async function POST(request: Request) {
       console.log('[send-phone-code] Dev only — code for ***' + last4 + ':', code)
     }
 
-    const SMS_TIMEOUT_MS = 15000
-    const sendPromise = sendAzureSms(normalized, SMS_MESSAGE(code))
-    const timeoutPromise = new Promise<false>((_, reject) =>
-      setTimeout(() => reject(new Error('SMS send timeout')), SMS_TIMEOUT_MS)
-    )
-
-    let smsSent = false
-    try {
-      smsSent = await Promise.race([sendPromise, timeoutPromise])
-    } catch (timeoutOrOther: unknown) {
-      const msg = timeoutOrOther instanceof Error ? timeoutOrOther.message : String(timeoutOrOther)
-      console.error('[send-phone-code] SMS send error or timeout:', msg)
-      smsSent = false
-    }
-    console.error('[send-phone-code] SMS send result:', smsSent ? 'ok' : 'failed (see [Azure SMS] or timeout above)')
-
-    if (!smsSent) {
-      console.error('[send-phone-code] Azure SMS send failed for ***' + last4)
-      return NextResponse.json(
-        {
-          error:
-            'SMS could not be delivered. Check that AZURE_ACS_SMS_FROM is an SMS-capable number (toll-free may require verification). Try again or use a different number.',
-        },
-        { status: 502 }
-      )
-    }
+    // Respond immediately — ACS SMS latency must not leave the UI on "Sending…".
+    void sendAzureSms(normalized, SMS_MESSAGE(code)).then((ok) => {
+      console.error('[send-phone-code] Background SMS result for ***' + last4 + ':', ok ? 'ok' : 'failed')
+    })
 
     return NextResponse.json({
       success: true,

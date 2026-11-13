@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { sendEmail } from '@/lib/email'
+import { isAzureEmailConfigured, sendEmail } from '@/lib/email'
 import { generateCode, storeCode } from '@/lib/verificationCodes'
 
 export const dynamic = 'force-dynamic'
@@ -86,24 +86,23 @@ export async function POST(request: Request) {
 </html>
 `
 
-    console.log('Sending password reset email to:', normalizedEmail)
-
-    const emailSent = await sendEmail({
-      to: normalizedEmail,
-      subject: 'Reset Your AI Media Tank (AMT) Password',
-      html: emailHtml,
-      waitUntilDelivered: false,
-    })
-
-    console.log('Email send result:', emailSent)
-
-    if (!emailSent) {
-      console.error('[forgot-password] Failed to send reset email to', normalizedEmail)
+    if (!isAzureEmailConfigured()) {
       return NextResponse.json(
         { error: 'Unable to send reset email. Please try again later.' },
         { status: 503 }
       )
     }
+
+    console.log('Queueing password reset email to:', normalizedEmail)
+    void sendEmail({
+      to: normalizedEmail,
+      subject: 'Reset Your AI Media Tank (AMT) Password',
+      html: emailHtml,
+      waitUntilDelivered: false,
+    }).then((ok) => {
+      console.log('Password reset email send result:', ok)
+      if (!ok) console.error('[forgot-password] Background reset email failed for', normalizedEmail)
+    })
 
     return NextResponse.json(GENERIC_SUCCESS)
   } catch (error) {

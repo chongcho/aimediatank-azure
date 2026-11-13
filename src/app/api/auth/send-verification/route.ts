@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
-import { sendEmail, generateVerificationEmail } from '@/lib/email'
+import { isAzureEmailConfigured, sendEmail, generateVerificationEmail } from '@/lib/email'
 
 // Function to generate verification token
 function generateVerificationToken() {
@@ -68,37 +68,28 @@ export async function POST(request: Request) {
     const baseUrl = process.env.NEXTAUTH_URL || 'https://www.aimediatank.com'
     const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`
     
-    // Send verification email
-    const userName = user.name || user.username || 'User'
-    const emailHtml = generateVerificationEmail(userName, verificationUrl)
-    
-    const emailSent = await sendEmail({
-      to: user.email,
-      subject: 'Verify your AI Media Tank (AMT) account',
-      html: emailHtml,
-      waitUntilDelivered: false,
-    })
-
-    console.log('='.repeat(60))
-    console.log('VERIFICATION EMAIL')
-    console.log('='.repeat(60))
-    console.log(`To: ${user.email}`)
-    console.log(`Email sent: ${emailSent}`)
-    console.log(`SMTP_HOST configured: ${!!process.env.SMTP_HOST}`)
-    console.log(`SMTP_USER configured: ${!!process.env.SMTP_USER}`)
-    console.log(`SMTP_PASS configured: ${!!process.env.SMTP_PASS}`)
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Dev only — verification URL: ${verificationUrl}`)
-    }
-    console.log('='.repeat(60))
-
-    if (!emailSent) {
-      // Email failed to send - likely SMTP not configured
+    if (!isAzureEmailConfigured()) {
       return NextResponse.json({
         error: 'Email service not configured. Please contact support or try again later.',
         success: false,
         smtpConfigured: !!process.env.SMTP_HOST,
       }, { status: 503 })
+    }
+
+    // Queue verification email — ACS accept/poll must not block the UI "Sending…" state.
+    const userName = user.name || user.username || 'User'
+    const emailHtml = generateVerificationEmail(userName, verificationUrl)
+    void sendEmail({
+      to: user.email,
+      subject: 'Verify your AI Media Tank (AMT) account',
+      html: emailHtml,
+      waitUntilDelivered: false,
+    }).then((ok) => {
+      console.log('[send-verification] Background email result for', user.email, ok)
+    })
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Dev only — verification URL: ${verificationUrl}`)
     }
 
     return NextResponse.json({

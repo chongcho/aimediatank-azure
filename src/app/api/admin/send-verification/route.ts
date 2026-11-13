@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { generateCode, storeCode } from '@/lib/verificationCodes'
 import { storePhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
-import { sendEmail } from '@/lib/email'
+import { isAzureEmailConfigured, sendEmail } from '@/lib/email'
 import { isAzureSmsConfigured, sendAzureSms } from '@/lib/azureSms'
 
 export const dynamic = 'force-dynamic'
@@ -66,23 +66,28 @@ export async function POST(request: Request) {
       if (!email) {
         return NextResponse.json({ error: 'No email on account. Use phone verification.' }, { status: 400 })
       }
-      const normalizedEmail = email.toLowerCase()
-      await storeCode(normalizedEmail, code, 10)
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[admin/send-verification] Dev only — email code for', normalizedEmail, ':', code)
-      }
-      const emailSent = await sendEmail({
-        to: normalizedEmail,
-        subject: emailSubject,
-        html: emailHtml(emailTitle, emailLead, code),
-        waitUntilDelivered: false,
-      })
-      if (!emailSent) {
+      if (!isAzureEmailConfigured()) {
         return NextResponse.json(
           { error: 'Unable to send verification email. Please try again later.' },
           { status: 503 }
         )
       }
+      const normalizedEmail = email.toLowerCase()
+      await storeCode(normalizedEmail, code, 10)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[admin/send-verification] Dev only — email code for', normalizedEmail, ':', code)
+      }
+      // Respond immediately — ACS beginSend/poll can run long after the message is already delivered.
+      void sendEmail({
+        to: normalizedEmail,
+        subject: emailSubject,
+        html: emailHtml(emailTitle, emailLead, code),
+        waitUntilDelivered: false,
+      }).then((ok) => {
+        if (!ok) {
+          console.error('[admin/send-verification] Background email send failed for', normalizedEmail)
+        }
+      })
       return NextResponse.json({
         success: true,
         message: 'Verification code sent to your email',
@@ -108,16 +113,15 @@ export async function POST(request: Request) {
     if (process.env.NODE_ENV === 'development') {
       console.log('[admin/send-verification] Dev only — phone code for ***' + normalized.slice(-4) + ':', code)
     }
-    const smsSent = await sendAzureSms(
+    // Same as email: do not block the HTTP response on ACS SMS latency.
+    void sendAzureSms(
       normalized,
       `Your AI Media Tank (AMT) ${smsPrefix} verification code is: ${code}. It expires in 10 minutes.`
-    )
-    if (!smsSent) {
-      return NextResponse.json(
-        { error: 'SMS could not be delivered. Try email verification or try again later.' },
-        { status: 502 }
-      )
-    }
+    ).then((ok) => {
+      if (!ok) {
+        console.error('[admin/send-verification] Background SMS send failed for ***' + normalized.slice(-4))
+      }
+    })
     return NextResponse.json({
       success: true,
       message: 'Verification code sent to your phone',

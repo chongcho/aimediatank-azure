@@ -46,8 +46,18 @@ jobs:
         run: npx prisma generate
 
       # Must target the same Postgres as App Service "DATABASE_URL" / connection string, or the app will 500 (P2022) after deploy.
+      # Retry on transient Azure Postgres connectivity (P1001) from GitHub runners.
       - name: Push database schema changes
-        run: npx prisma db push --skip-generate --accept-data-loss
+        run: |
+          for i in 1 2 3 4 5; do
+            if npx prisma db push --skip-generate --accept-data-loss; then
+              exit 0
+            fi
+            echo "prisma db push failed (attempt $i/5); retrying in 20s…"
+            sleep 20
+          done
+          echo "::error::prisma db push failed after 5 attempts"
+          exit 1
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 

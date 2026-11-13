@@ -55,6 +55,11 @@ function getClient(): EmailClient | null {
   return cachedClient
 }
 
+/** True when Azure ACS email env is present (does not prove delivery). */
+export function isAzureEmailConfigured(): boolean {
+  return !!(CONNECTION_STRING && SENDER_ADDRESS)
+}
+
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   const client = getClient()
   if (!client) return false

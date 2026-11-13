@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { sendEmail } from '@/lib/email'
+import { isAzureEmailConfigured, sendEmail } from '@/lib/email'
 import { generateCode, storeCode } from '@/lib/verificationCodes'
 
 export const dynamic = 'force-dynamic'
@@ -25,6 +25,13 @@ export async function POST(request: Request) {
     }
 
     const email = rawEmail.toLowerCase()
+
+    if (!isAzureEmailConfigured()) {
+      return NextResponse.json(
+        { error: 'Unable to send verification email. Please try again later.' },
+        { status: 503 }
+      )
+    }
 
     const code = generateCode()
     await storeCode(email, code, 10) // 10 minutes expiry
@@ -73,20 +80,15 @@ export async function POST(request: Request) {
 </html>
 `
 
-    const emailSent = await sendEmail({
+    // Do not await ACS — email often arrives while beginSend is still outstanding.
+    void sendEmail({
       to: email,
       subject: 'Your AI Media Tank (AMT) Verification Code',
       html: emailHtml,
       waitUntilDelivered: false,
+    }).then((ok) => {
+      if (!ok) console.error('[send-code] Background email send failed for', email)
     })
-
-    if (!emailSent) {
-      console.error('[send-code] Failed to send verification email to', email)
-      return NextResponse.json(
-        { error: 'Unable to send verification email. Please try again later.' },
-        { status: 503 }
-      )
-    }
 
     return NextResponse.json({
       success: true,
