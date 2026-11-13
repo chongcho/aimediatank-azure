@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const body = await request.json().catch(() => ({}))
-    const channel = body?.channel === 'phone' ? 'phone' : 'email'
+    const channel = body?.channel === 'email' ? 'email' : 'phone'
     const verifyMode =
       typeof body?.verifyMode === 'string' && body.verifyMode.trim() === 'adminUser' ? 'adminUser' : 'adminPanel'
     const isAccountStep2 = verifyMode === 'adminUser'

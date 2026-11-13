@@ -76,7 +76,7 @@ export default function AdminReauthGate({
 }: AdminReauthGateProps) {
   const { data: session, status } = useSession()
   const [reauthPassword, setReauthPassword] = useState('')
-  const [reauthChannel, setReauthChannel] = useState<'email' | 'phone'>('email')
+  const [reauthChannel, setReauthChannel] = useState<'email' | 'phone'>('phone')
   const [reauthCode, setReauthCode] = useState('')
   const [reauthSendLoading, setReauthSendLoading] = useState(false)
   const [reauthVerifyLoading, setReauthVerifyLoading] = useState(false)
@@ -344,19 +344,19 @@ export default function AdminReauthGate({
                 <input
                   type="radio"
                   name="channel"
-                  checked={reauthChannel === 'email'}
-                  onChange={() => changeVerificationMethod('email')}
+                  checked={reauthChannel === 'phone'}
+                  onChange={() => changeVerificationMethod('phone')}
                 />
-                <span className="text-gray-300">Email</span>
+                <span className="text-gray-300">Phone</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
                   name="channel"
-                  checked={reauthChannel === 'phone'}
-                  onChange={() => changeVerificationMethod('phone')}
+                  checked={reauthChannel === 'email'}
+                  onChange={() => changeVerificationMethod('email')}
                 />
-                <span className="text-gray-300">Phone</span>
+                <span className="text-gray-300">Email</span>
               </label>
             </div>
           </div>

@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     const verifyMode =
       typeof rawMode === 'string' && rawMode.trim() === 'adminUser' ? 'adminUser' : 'adminPanel'
     const password = typeof body?.password === 'string' ? body.password : ''
-    const channel = body?.channel === 'phone' ? 'phone' : 'email'
+    const channel = body?.channel === 'email' ? 'email' : 'phone'
     const code = typeof body?.code === 'string' ? body.code.trim() : ''
 
     const user = await prisma.user.findUnique({
