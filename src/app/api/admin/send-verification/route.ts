@@ -6,6 +6,7 @@ import { generateCode, storeCode } from '@/lib/verificationCodes'
 import { storePhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
 import { isAzureEmailConfigured, sendEmail } from '@/lib/email'
 import { isAzureSmsConfigured, sendAzureSms } from '@/lib/azureSms'
+import { maskEmailForDisplay, maskPhoneForDisplay } from '@/lib/maskContact'
 
 export const dynamic = 'force-dynamic'
 
@@ -88,9 +89,12 @@ export async function POST(request: Request) {
           console.error('[admin/send-verification] Background email send failed for', normalizedEmail)
         }
       })
+      const sentTo = maskEmailForDisplay(normalizedEmail)
       return NextResponse.json({
         success: true,
-        message: 'Verification code sent to your email',
+        channel: 'email',
+        sentTo,
+        message: `Sent to ${sentTo}`,
       })
     }
 
@@ -122,9 +126,12 @@ export async function POST(request: Request) {
         console.error('[admin/send-verification] Background SMS send failed for ***' + normalized.slice(-4))
       }
     })
+    const sentTo = maskPhoneForDisplay(normalized)
     return NextResponse.json({
       success: true,
-      message: 'Verification code sent to your phone',
+      channel: 'phone',
+      sentTo,
+      message: `Sent to ${sentTo}`,
     })
   } catch (e) {
     console.error('Admin send-verification error:', e)

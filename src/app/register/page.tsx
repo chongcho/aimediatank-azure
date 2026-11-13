@@ -348,6 +348,7 @@ export default function RegisterPage() {
     verifying: boolean
     code: string
     error: string
+    sentTo: string | null
   }>({
     codeSent: false,
     codeVerified: false,
@@ -355,6 +356,7 @@ export default function RegisterPage() {
     verifying: false,
     code: '',
     error: '',
+    sentTo: null,
   })
   const emailSendHandleRef = useRef<AbortableTimedFetchHandle | null>(null)
   const phoneSendHandleRef = useRef<AbortableTimedFetchHandle | null>(null)
@@ -535,6 +537,7 @@ export default function RegisterPage() {
         codeVerified: false,
         code: '',
         error: '',
+        sentTo: null,
       }))
     }
   }
@@ -694,11 +697,14 @@ export default function RegisterPage() {
       const data = await res.json()
       if (phoneSendHandleRef.current !== handle) return
       if (res.ok) {
+        const sentTo =
+          typeof data.sentTo === 'string' && data.sentTo ? data.sentTo : null
         setPhoneVerificationState(prev => ({
           ...prev,
           codeSent: true,
           sending: false,
           error: '',
+          sentTo,
         }))
       } else {
         setPhoneVerificationState(prev => ({
@@ -1192,9 +1198,21 @@ export default function RegisterPage() {
                           </button>
                         ) : (
                           <div className="mt-2 space-y-1">
-                            <p className="text-xs text-gray-400">
-                              {tr[19]}
-                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-xs text-green-400 flex-1 min-w-0">
+                                {phoneVerificationState.sentTo
+                                  ? `Sent to ${phoneVerificationState.sentTo}`
+                                  : tr[19]}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={sendPhoneCode}
+                                disabled={phoneVerificationState.sending}
+                                className="text-sm text-gray-400 hover:text-tank-accent disabled:opacity-50"
+                              >
+                                {phoneVerificationState.sending ? tr[12] : tr[23]}
+                              </button>
+                            </div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <input
                                 type="text"
@@ -1217,14 +1235,6 @@ export default function RegisterPage() {
                                 className="text-sm px-3 py-1.5 rounded-lg bg-tank-accent text-tank-black font-medium disabled:opacity-50"
                               >
                                 {phoneVerificationState.verifying ? tr[21] : tr[22]}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={sendPhoneCode}
-                                disabled={phoneVerificationState.sending}
-                                className="text-sm text-gray-400 hover:text-tank-accent"
-                              >
-                                {tr[23]}
                               </button>
                             </div>
                           </div>

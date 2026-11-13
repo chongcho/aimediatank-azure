@@ -79,6 +79,7 @@ export default function AdminReauthGate({
   const [reauthChannel, setReauthChannel] = useState<'email' | 'phone'>('phone')
   const [reauthCode, setReauthCode] = useState('')
   const [reauthSendLoading, setReauthSendLoading] = useState(false)
+  const [reauthCodeSentTo, setReauthCodeSentTo] = useState<string | null>(null)
   const [reauthVerifyLoading, setReauthVerifyLoading] = useState(false)
   const [reauthError, setReauthError] = useState('')
   const [adminPanelPasswordConfigured, setAdminPanelPasswordConfigured] = useState(
@@ -134,6 +135,7 @@ export default function AdminReauthGate({
     setReauthSendLoading(false)
     setReauthChannel(channel)
     setReauthCode('')
+    setReauthCodeSentTo(null)
     setReauthError('')
   }
 
@@ -158,9 +160,16 @@ export default function AdminReauthGate({
         setReauthError((data as { error?: string }).error || 'Failed to send code')
         return
       }
+      const sentTo =
+        typeof (data as { sentTo?: string }).sentTo === 'string' && (data as { sentTo: string }).sentTo
+          ? (data as { sentTo: string }).sentTo
+          : reauthChannel === 'phone'
+            ? 'your phone'
+            : 'your email'
       setReauthCode('')
+      setReauthCodeSentTo(sentTo)
       setToast({
-        message: (data as { message?: string }).message || 'Code sent',
+        message: (data as { message?: string }).message || `Sent to ${sentTo}`,
         type: 'success',
       })
     } catch (error) {
@@ -360,10 +369,31 @@ export default function AdminReauthGate({
               </label>
             </div>
           </div>
-          <div className="flex gap-2">
-            <button type="button" onClick={handleSendCode} disabled={reauthSendLoading} className="btn-secondary flex-1">
-              {reauthSendLoading ? 'Sending…' : 'Send verification code'}
-            </button>
+          <div className="space-y-2">
+            {reauthCodeSentTo ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm text-green-400 flex-1 min-w-0">
+                  Sent to {reauthCodeSentTo}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSendCode}
+                  disabled={reauthSendLoading}
+                  className="btn-secondary shrink-0 px-4 disabled:opacity-50"
+                >
+                  {reauthSendLoading ? 'Sending…' : 'Resend'}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSendCode}
+                disabled={reauthSendLoading}
+                className="btn-secondary w-full"
+              >
+                {reauthSendLoading ? 'Sending…' : 'Send verification code'}
+              </button>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Verification code</label>

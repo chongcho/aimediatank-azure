@@ -282,11 +282,13 @@ export default function EditProfilePage() {
     sending: boolean
     code: string
     error: string
+    sentTo: string | null
   }>({
     codeSent: false,
     sending: false,
     code: '',
     error: '',
+    sentTo: null,
   })
   const emailSendHandleRef = useRef<AbortableTimedFetchHandle | null>(null)
   const phoneSendHandleRef = useRef<AbortableTimedFetchHandle | null>(null)
@@ -631,11 +633,14 @@ export default function EditProfilePage() {
         }))
         return
       }
+      const sentTo =
+        typeof data.sentTo === 'string' && data.sentTo ? data.sentTo : null
       setPhoneVerificationState((prev) => ({
         ...prev,
         codeSent: true,
         sending: false,
         error: '',
+        sentTo,
       }))
     } catch (error) {
       if (phoneSendHandleRef.current !== handle) return
@@ -1038,7 +1043,13 @@ export default function EditProfilePage() {
           confirmPassword: '',
         }))
         setOriginalPhone(formData.phone)
-        setPhoneVerificationState({ codeSent: false, sending: false, code: '', error: '' })
+        setPhoneVerificationState({
+          codeSent: false,
+          sending: false,
+          code: '',
+          error: '',
+          sentTo: null,
+        })
 
         window.dispatchEvent(new Event('profileUpdated'))
 
@@ -1343,7 +1354,13 @@ export default function EditProfilePage() {
                 value={formData.phone}
                 onChange={(e) => {
                   setFormData({ ...formData, phone: e.target.value })
-                  setPhoneVerificationState((prev) => ({ ...prev, codeSent: false, code: '', error: '' }))
+                  setPhoneVerificationState((prev) => ({
+                    ...prev,
+                    codeSent: false,
+                    code: '',
+                    error: '',
+                    sentTo: null,
+                  }))
                 }}
                 placeholder={tr[17]}
                 className="w-full"
@@ -1363,8 +1380,22 @@ export default function EditProfilePage() {
                     </button>
                   ) : (
                     <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-xs text-green-400 flex-1 min-w-0">
+                          {phoneVerificationState.sentTo
+                            ? `Sent to ${phoneVerificationState.sentTo}`
+                            : tr[21]}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={sendPhoneCode}
+                          disabled={phoneVerificationState.sending}
+                          className="text-sm text-gray-400 hover:text-tank-accent disabled:opacity-50"
+                        >
+                          {phoneVerificationState.sending ? tr[10] : tr[23]}
+                        </button>
+                      </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-gray-400">{tr[21]}</span>
                         <input
                           type="text"
                           inputMode="numeric"
@@ -1379,14 +1410,6 @@ export default function EditProfilePage() {
                           }
                           className="w-28 px-2 py-1.5 rounded bg-tank-dark border border-tank-light text-center font-mono text-lg text-white"
                         />
-                        <button
-                          type="button"
-                          onClick={sendPhoneCode}
-                          disabled={phoneVerificationState.sending}
-                          className="text-sm text-gray-400 hover:text-tank-accent"
-                        >
-                          {tr[23]}
-                        </button>
                       </div>
                     </div>
                   )}

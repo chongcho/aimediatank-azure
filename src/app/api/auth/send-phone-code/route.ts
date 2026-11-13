@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { generateCode, storePhoneCode, normalizePhone } from '@/lib/phoneVerificationCodes'
 import { isAzureSmsConfigured, sendAzureSms } from '@/lib/azureSms'
+import { maskPhoneForDisplay } from '@/lib/maskContact'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,9 +57,12 @@ export async function POST(request: Request) {
       console.error('[send-phone-code] Background SMS result for ***' + last4 + ':', ok ? 'ok' : 'failed')
     })
 
+    const sentTo = maskPhoneForDisplay(normalized)
     return NextResponse.json({
       success: true,
-      message: 'Verification code sent to your phone',
+      channel: 'phone',
+      sentTo,
+      message: `Sent to ${sentTo}`,
     })
   } catch (error) {
     console.error('Error sending phone verification code:', error)
