@@ -1,6 +1,7 @@
 /** Client helper: abortable fetch that times out so UI does not stick on "Sending…". */
 
-export const DEFAULT_SEND_TIMEOUT_MS = 45_000
+/** Client ceiling; verification email APIs return after ACS accept (usually seconds). */
+export const DEFAULT_SEND_TIMEOUT_MS = 90_000
 
 export type AbortableTimedFetchHandle = {
   signal: AbortSignal

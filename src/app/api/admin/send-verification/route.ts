@@ -75,6 +75,7 @@ export async function POST(request: Request) {
         to: normalizedEmail,
         subject: emailSubject,
         html: emailHtml(emailTitle, emailLead, code),
+        waitUntilDelivered: false,
       })
       if (!emailSent) {
         return NextResponse.json(

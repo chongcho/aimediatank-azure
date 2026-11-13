@@ -92,6 +92,7 @@ export async function POST(request: Request) {
       to: normalizedEmail,
       subject: 'Reset Your AI Media Tank (AMT) Password',
       html: emailHtml,
+      waitUntilDelivered: false,
     })
 
     console.log('Email send result:', emailSent)

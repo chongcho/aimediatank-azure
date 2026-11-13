@@ -76,6 +76,7 @@ export async function POST(request: Request) {
       to: user.email,
       subject: 'Verify your AI Media Tank (AMT) account',
       html: emailHtml,
+      waitUntilDelivered: false,
     })
 
     console.log('='.repeat(60))

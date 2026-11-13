@@ -77,6 +77,7 @@ export async function POST(request: Request) {
       to: email,
       subject: 'Your AI Media Tank (AMT) Verification Code',
       html: emailHtml,
+      waitUntilDelivered: false,
     })
 
     if (!emailSent) {

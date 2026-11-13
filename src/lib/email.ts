@@ -12,6 +12,13 @@ interface EmailOptions {
   fromName?: string
   /** Override the default sender address (must be a verified MailFrom in Azure). */
   senderAddress?: string
+  /**
+   * When false, return success as soon as Azure ACS accepts the message (beginSend),
+   * and finish delivery polling in the background. Use for time-sensitive verification
+   * codes so the UI does not stick on "Sending…" and false-timeout after the email already arrived.
+   * Default true (wait for ACS Succeeded / poll timeout).
+   */
+  waitUntilDelivered?: boolean
 }
 
 const CONNECTION_STRING = process.env.AZURE_EMAIL_CONNECTION_STRING || ''
@@ -77,6 +84,31 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
         : { replyTo: [{ address: 'support@aimediatank.com', displayName: 'AI Media Tank (AMT) Support' }] }
       ),
     })
+
+    // Verification codes: ACS often delivers while pollUntilDone is still running for a long time.
+    // Returning after accept avoids client "Sending…" timeouts that false-error after the code arrives.
+    if (options.waitUntilDelivered === false) {
+      void poller.pollUntilDone().then(
+        (result) => {
+          if (result.status === 'Succeeded') {
+            console.log(`Email delivered to ${options.to}: ${options.subject}`)
+          } else {
+            console.error(
+              `Email background poll status ${result.status} (to=${options.to}):`,
+              result.error
+            )
+          }
+        },
+        (pollErr) => {
+          console.error(
+            `Email background poll failed (to=${options.to}, subject=${options.subject.slice(0, 60)}…):`,
+            pollErr instanceof Error ? pollErr.message : pollErr
+          )
+        }
+      )
+      console.log(`Email accepted by ACS for ${options.to}: ${options.subject}`)
+      return true
+    }
 
     const pollPromise = poller.pollUntilDone()
     const timeoutPromise = new Promise<never>((_, reject) => {
