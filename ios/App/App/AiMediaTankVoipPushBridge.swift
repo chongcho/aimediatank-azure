@@ -170,7 +170,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
     private weak var acceptCoverView: UIView?
     private var acceptCoverPollWork: DispatchWorkItem?
     private var acceptCoverActive = false
-    private static let acceptCoverBg = UIColor(red: 0.10, green: 0.07, blue: 0.04, alpha: 1)
+    private static let acceptCoverBg = UIColor.black
 
     private static func isForegroundActive() -> Bool {
         guard UIApplication.shared.applicationState == .active else { return false }
@@ -2197,7 +2197,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
             return
         }
         // Tint only (never hide WebView) — avoids black flash while shell/call UI paints.
-        let callBg = UIColor(red: 0.10, green: 0.07, blue: 0.04, alpha: 1)
+        let callBg = UIColor.black
         bridge.view.backgroundColor = callBg
         webView.backgroundColor = callBg
         webView.scrollView.backgroundColor = callBg
@@ -2221,7 +2221,7 @@ final class AiMediaTankVoipPushBridge: NSObject, PKPushRegistryDelegate, CXProvi
               var el = document.createElement('div');
               el.id = id;
               el.setAttribute('aria-hidden', 'true');
-              el.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:linear-gradient(180deg,#3d2914 0%,#1a1208 45%,#0d0906 100%);pointer-events:none;';
+              el.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#000;pointer-events:none;';
               (document.documentElement || document.body).appendChild(el);
             }
             function removeShell() {

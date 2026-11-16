@@ -23,7 +23,7 @@ const CALL_UI_VEIL_STYLE: CSSProperties = {
   position: 'fixed',
   inset: 0,
   zIndex: FULLSCREEN_CALL_Z_INDEX,
-  background: 'linear-gradient(180deg, #3d2914 0%, #1a1208 45%, #0d0906 100%)',
+  background: '#000',
   pointerEvents: 'none',
 }
 
@@ -187,35 +187,16 @@ function useCallDuration(active: boolean) {
   return seconds
 }
 
-function CallBackdrop({ remoteUser }: { remoteUser: VoiceCallUser | null }) {
+function CallBackdrop() {
   return (
-    <>
-      {remoteUser?.avatar ? (
-        <img
-          src={remoteUser.avatar}
-          alt=""
-          aria-hidden
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            filter: 'blur(28px) brightness(0.45)',
-            transform: 'scale(1.15)',
-          }}
-        />
-      ) : null}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background:
-            'linear-gradient(180deg, rgba(61,41,20,0.92) 0%, rgba(26,18,8,0.95) 45%, rgba(13,9,6,0.98) 100%)',
-        }}
-      />
-    </>
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute',
+        inset: 0,
+        background: '#000',
+      }}
+    />
   )
 }
 
@@ -530,14 +511,12 @@ function clampCallPopupPosition(x: number, y: number, width: number, height: num
 }
 
 function CallPopupShell({
-  remoteUser,
   title,
   children,
   onHide,
   hideLabel,
   hasVideo = false,
 }: {
-  remoteUser: VoiceCallUser | null
   title: string
   children: ReactNode
   onHide?: () => void
@@ -750,6 +729,7 @@ function CallPopupShell({
         borderRadius: '14px',
         overflow: 'hidden',
         boxShadow: '0 12px 40px rgba(0, 0, 0, 0.45)',
+        background: '#000',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
@@ -764,7 +744,7 @@ function CallPopupShell({
           flexDirection: 'column',
         }}
       >
-        <CallBackdrop remoteUser={remoteUser} />
+        <CallBackdrop />
         <div
           style={{
             position: 'relative',
@@ -889,13 +869,7 @@ function CallPopupShell({
   )
 }
 
-function FullscreenShell({
-  remoteUser,
-  children,
-}: {
-  remoteUser: VoiceCallUser | null
-  children: ReactNode
-}) {
+function FullscreenShell({ children }: { children: ReactNode }) {
   // Capacitor is always client — mount portal immediately (no null/veil frame → home flash).
   const [mounted, setMounted] = useState(() => typeof document !== 'undefined')
 
@@ -914,13 +888,14 @@ function FullscreenShell({
         inset: 0,
         zIndex: FULLSCREEN_CALL_Z_INDEX,
         color: 'white',
+        background: '#000',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         boxSizing: 'border-box',
       }}
     >
-      <CallBackdrop remoteUser={remoteUser} />
+      <CallBackdrop />
       <div
         style={{
           position: 'relative',
@@ -942,7 +917,6 @@ function FullscreenShell({
 
 function CallScreenShell({
   mode,
-  remoteUser,
   title,
   children,
   onHide,
@@ -950,7 +924,6 @@ function CallScreenShell({
   hasVideo = false,
 }: {
   mode: CallUiMode
-  remoteUser: VoiceCallUser | null
   title: string
   children: ReactNode
   onHide?: () => void
@@ -960,7 +933,6 @@ function CallScreenShell({
   if (mode === 'popup') {
     return (
       <CallPopupShell
-        remoteUser={remoteUser}
         title={title}
         onHide={onHide}
         hideLabel={hideLabel}
@@ -971,7 +943,7 @@ function CallScreenShell({
     )
   }
   return (
-    <FullscreenShell remoteUser={remoteUser}>
+    <FullscreenShell>
       {onHide && hideLabel ? (
         <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '8px' }}>
           <HideCallButton label={hideLabel} onClick={onHide} />
@@ -1008,7 +980,6 @@ function IncomingCallScreen({
   return (
     <CallScreenShell
       mode={mode}
-      remoteUser={remoteUser}
       title={compact ? popupTitle : labels.appAudio}
       onHide={onHide}
       hideLabel={onHide ? labels.hideCall : undefined}
@@ -1283,7 +1254,6 @@ function ActiveCallScreen({
   return (
     <CallScreenShell
       mode={mode}
-      remoteUser={remoteUser}
       title={statusLine}
       onHide={onHide}
       hideLabel={onHide ? labels.hideCall : undefined}
@@ -1335,7 +1305,7 @@ function ActiveCallScreen({
                   }),
               borderRadius: compact ? 12 : 16,
               overflow: 'hidden',
-              background: nativeOwnsVideo ? 'transparent' : '#0d0906',
+              background: nativeOwnsVideo ? 'transparent' : '#000',
               marginBottom: compact ? 8 : 12,
               display: 'flex',
               alignItems: 'center',
